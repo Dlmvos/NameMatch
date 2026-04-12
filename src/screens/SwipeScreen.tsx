@@ -1,3 +1,8 @@
+import Constants from "expo-constants";
+
+const DEV_MODE = __DEV__ || Constants.appOwnership === "expo";
+let devLikeCounter = 0;
+
 import React from 'react';
 import { colors } from '../theme';
 import {
