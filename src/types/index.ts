@@ -1,3 +1,4 @@
+import type { NavigatorScreenParams } from '@react-navigation/native';
 import { colors } from '../theme';
 // ============================================================
 // NameMatch – Core TypeScript Types
@@ -123,7 +124,8 @@ export type RootStackParamList = {
   Preferences: undefined;
   Region: undefined;
   PartnerConnect: undefined;
-  MainTabs: undefined;
+  MainTabs: NavigatorScreenParams<MainTabParamList> | undefined;
+  Paywall: undefined;
 };
 
 export type MainTabParamList = {

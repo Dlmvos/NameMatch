@@ -177,7 +177,7 @@ export default function PartnerConnectScreen({ navigation }: Props) {
 
                 <TouchableOpacity
                   style={styles.skipBtn}
-                  onPress={() => navigation.navigate('MainTabs')}
+                  onPress={() => navigation.navigate('Paywall')}
                 >
                   <Text style={styles.skipText}>Start swiping solo for now →</Text>
                 </TouchableOpacity>
@@ -250,7 +250,7 @@ export default function PartnerConnectScreen({ navigation }: Props) {
         {activeTab === 'create' && !roomCode && (
           <TouchableOpacity
             style={styles.skipBtn}
-            onPress={() => navigation.navigate('MainTabs')}
+            onPress={() => navigation.navigate('Paywall')}
           >
             <Text style={styles.skipText}>Skip for now, I'll connect later</Text>
           </TouchableOpacity>

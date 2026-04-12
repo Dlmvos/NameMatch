@@ -17,6 +17,7 @@ import PartnerConnectScreen from '../screens/PartnerConnectScreen';
 import SwipeScreen from '../screens/SwipeScreen';
 import MatchesScreen from '../screens/MatchesScreen';
 import ShopScreen from '../screens/ShopScreen';
+import PaywallScreen from '../screens/PaywallScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 
 import { RootStackParamList, MainTabParamList } from '../types';
@@ -111,6 +112,7 @@ export default function AppNavigator() {
         ) : (
           // Main app
           <>
+            <Stack.Screen name="Paywall" component={PaywallScreen} options={{ headerShown: false }} />
             <Stack.Screen name="MainTabs" component={MainTabs} />
             <Stack.Screen name="Preferences" component={PreferencesScreen} />
             <Stack.Screen name="Region" component={RegionScreen} />
