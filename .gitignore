@@ -1,0 +1,7 @@
+node_modules/
+.expo/
+ios/build/
+android/.gradle/
+tsconfig.check.json
+*.bak
+*.pre-fix
