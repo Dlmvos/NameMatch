@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,16 +6,44 @@ import {
   FlatList,
   TouchableOpacity,
   Share,
+  TextInput,
+  Modal,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useApp } from '../context/AppContext';
 import { Match } from '../types';
 import { colors, COLORS, FONTS, RADIUS, SPACING, SHADOWS } from '../theme';
 
+const NOTES_STORAGE_KEY = 'namematch:match_notes';
+
 export default function MatchesScreen() {
   const { matches } = useApp();
+  const [notes, setNotes] = useState<Record<string, string>>({});
+  const [editingMatchId, setEditingMatchId] = useState<string | null>(null);
+  const [draftNote, setDraftNote] = useState('');
+
+  // Load saved notes
+  useEffect(() => {
+    AsyncStorage.getItem(NOTES_STORAGE_KEY)
+      .then((raw) => { if (raw) setNotes(JSON.parse(raw)); })
+      .catch(() => {});
+  }, []);
+
+  const saveNote = async () => {
+    if (!editingMatchId) return;
+    const updated = { ...notes, [editingMatchId]: draftNote };
+    setNotes(updated);
+    await AsyncStorage.setItem(NOTES_STORAGE_KEY, JSON.stringify(updated));
+    setEditingMatchId(null);
+  };
+
+  const openNote = (matchId: string) => {
+    setDraftNote(notes[matchId] ?? '');
+    setEditingMatchId(matchId);
+  };
 
   const handleShare = async () => {
     if (matches.length === 0) return;
@@ -49,6 +77,35 @@ export default function MatchesScreen() {
         )}
       </View>
 
+      {/* Note editor modal */}
+      <Modal visible={!!editingMatchId} transparent animationType="slide" onRequestClose={() => setEditingMatchId(null)}>
+        <TouchableOpacity style={noteStyles.backdrop} activeOpacity={1} onPress={() => setEditingMatchId(null)} />
+        <View style={noteStyles.noteSheet}>
+          <View style={noteStyles.noteHandle} />
+          <Text style={noteStyles.noteTitle}>Add a note 📝</Text>
+          <Text style={noteStyles.noteHint}>Share your thoughts on this name with your partner</Text>
+          <TextInput
+            style={noteStyles.noteInput}
+            multiline
+            placeholder="e.g. Love the meaning, reminds me of grandma..."
+            placeholderTextColor={colors.neutral.gray}
+            value={draftNote}
+            onChangeText={setDraftNote}
+            autoFocus
+            maxLength={280}
+          />
+          <Text style={noteStyles.charCount}>{draftNote.length}/280</Text>
+          <View style={noteStyles.noteActions}>
+            <TouchableOpacity style={noteStyles.cancelBtn} onPress={() => setEditingMatchId(null)}>
+              <Text style={noteStyles.cancelText}>Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={noteStyles.saveBtn} onPress={saveNote}>
+              <Text style={noteStyles.saveText}>Save Note</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
       {matches.length === 0 ? (
         <EmptyState />
       ) : (
@@ -59,7 +116,12 @@ export default function MatchesScreen() {
           showsVerticalScrollIndicator={false}
           ItemSeparatorComponent={() => <View style={{ height: SPACING.sm }} />}
           renderItem={({ item, index }) => (
-            <MatchCard match={item} rank={index + 1} />
+            <MatchCard
+              match={item}
+              rank={index + 1}
+              note={notes[item.id]}
+              onNotePress={() => openNote(item.id)}
+            />
           )}
           ListFooterComponent={
             <View style={styles.footer}>
@@ -74,7 +136,7 @@ export default function MatchesScreen() {
   );
 }
 
-function MatchCard({ match, rank }: { match: Match; rank: number }) {
+function MatchCard({ match, rank, note, onNotePress }: { match: Match; rank: number; note?: string; onNotePress: () => void }) {
   const name = match.baby_names;
   if (!name) return null;
 
@@ -116,10 +178,19 @@ function MatchCard({ match, rank }: { match: Match; rank: number }) {
       {/* Meta */}
       <View style={styles.matchMeta}>
         <Text style={styles.matchDate}>{dateStr}</Text>
-        <View style={styles.heartIcon}>
-          <Text>💕</Text>
-        </View>
+        <TouchableOpacity onPress={onNotePress} style={styles.noteBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+          <Ionicons
+            name={note ? 'chatbubble' : 'chatbubble-outline'}
+            size={16}
+            color={note ? colors.onboarding.primary : colors.neutral.gray}
+          />
+        </TouchableOpacity>
       </View>
+      {note ? (
+        <TouchableOpacity onPress={onNotePress} style={styles.notePreview}>
+          <Text style={styles.noteText} numberOfLines={2}>{note}</Text>
+        </TouchableOpacity>
+      ) : null}
     </View>
   );
 }
@@ -188,12 +259,13 @@ const styles = StyleSheet.create({
     paddingBottom: SPACING.xxl,
   },
   matchCard: {
-    backgroundColor: COLORS.surface,
+    backgroundColor: colors.neutral.white,
     borderRadius: RADIUS.lg,
     padding: SPACING.md,
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: SPACING.md,
+    flexWrap: 'wrap',
   },
   rankBadge: {
     width: 44,
@@ -242,6 +314,20 @@ const styles = StyleSheet.create({
     color: COLORS.textMuted,
   },
   heartIcon: {},
+  noteBtn: {},
+  notePreview: {
+    width: '100%',
+    backgroundColor: colors.neutral.bgSoft,
+    borderRadius: RADIUS.sm,
+    padding: SPACING.sm,
+    marginTop: 2,
+  },
+  noteText: {
+    fontSize: FONTS.sizes.xs,
+    color: colors.neutral.textBody,
+    lineHeight: 16,
+    fontStyle: 'italic',
+  },
   footer: {
     paddingVertical: SPACING.xl,
     alignItems: 'center',
@@ -308,5 +394,85 @@ const styles = StyleSheet.create({
     fontSize: FONTS.sizes.sm,
     color: COLORS.textSecondary,
     lineHeight: 20,
+  },
+});
+
+const noteStyles = StyleSheet.create({
+  backdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.3)',
+  },
+  noteSheet: {
+    backgroundColor: colors.neutral.white,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: SPACING.xl,
+    paddingBottom: SPACING.xl + 16,
+    ...SHADOWS.card,
+  },
+  noteHandle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: colors.neutral.border,
+    alignSelf: 'center',
+    marginBottom: SPACING.md,
+  },
+  noteTitle: {
+    fontSize: FONTS.sizes.xl,
+    fontWeight: '800',
+    color: colors.neutral.textDark,
+    marginBottom: 4,
+  },
+  noteHint: {
+    fontSize: FONTS.sizes.sm,
+    color: colors.neutral.gray,
+    marginBottom: SPACING.md,
+  },
+  noteInput: {
+    backgroundColor: colors.neutral.bgSoft,
+    borderRadius: RADIUS.md,
+    borderWidth: 1.5,
+    borderColor: colors.neutral.border,
+    padding: SPACING.md,
+    fontSize: FONTS.sizes.md,
+    color: colors.neutral.textDark,
+    minHeight: 100,
+    textAlignVertical: 'top',
+  },
+  charCount: {
+    fontSize: FONTS.sizes.xs,
+    color: colors.neutral.gray,
+    textAlign: 'right',
+    marginTop: 4,
+    marginBottom: SPACING.md,
+  },
+  noteActions: {
+    flexDirection: 'row',
+    gap: SPACING.sm,
+  },
+  cancelBtn: {
+    flex: 1,
+    padding: SPACING.md,
+    borderRadius: RADIUS.lg,
+    backgroundColor: colors.neutral.bgSoft,
+    alignItems: 'center',
+  },
+  cancelText: {
+    fontSize: FONTS.sizes.md,
+    fontWeight: '600',
+    color: colors.neutral.darkGray,
+  },
+  saveBtn: {
+    flex: 2,
+    padding: SPACING.md,
+    borderRadius: RADIUS.lg,
+    backgroundColor: colors.onboarding.primary,
+    alignItems: 'center',
+  },
+  saveText: {
+    fontSize: FONTS.sizes.md,
+    fontWeight: '800',
+    color: colors.neutral.white,
   },
 });

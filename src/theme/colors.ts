@@ -8,6 +8,8 @@ export const colors = {
     bgSoft: '#F6F7F9',
     bgWarm: '#F9FAFB',
     border: '#E5E7EB',
+    gray: '#94A3B8',
+    darkGray: '#64748B',
   },
 
   onboarding: {
@@ -27,6 +29,7 @@ export const colors = {
     background: '#F6F7F9',
     surface: '#FCFCFD',
     text: '#1F2937',
+    textMuted: '#9CA3AF',
     overlayLike: 'rgba(56, 211, 159, 0.15)',
     overlayPass: 'rgba(255, 107, 107, 0.15)',
   },

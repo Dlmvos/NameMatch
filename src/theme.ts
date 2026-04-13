@@ -6,7 +6,7 @@
 export const COLORS = {
   // Core palette
   background: '#FFF9F5',       // Warm cream
-  surface: 'colors.neutral.white',          // Card white
+  surface: '#FFFFFF',                        // Card white
   primary: '#FF6B9D',          // Soft rose pink (like/heart)
   primaryLight: '#FFD6E7',     // Pale pink
   secondary: '#A8E6CF',        // Mint green (match)
@@ -24,7 +24,7 @@ export const COLORS = {
   text: '#2D2D2D',
   textSecondary: '#6B6B6B',
   textMuted: '#ABABAB',
-  textOnPrimary: 'colors.neutral.white',
+  textOnPrimary: '#FFFFFF',
 
   // Borders & dividers
   border: '#F0E8EE',
@@ -96,3 +96,6 @@ export const SHADOWS = {
 };
 
 export { colors } from './theme/colors';
+
+// Re-export color namespaces for convenience
+export type { } from './theme/colors';

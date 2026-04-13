@@ -1,0 +1,24 @@
+[
+  { "name": "Luca", "gender": "boy", "origin": "Italian", "meaning": "Bringer of light", "style_tags": ["modern", "international", "soft"], "popularity_score": 92 },
+  { "name": "Leo", "gender": "boy", "origin": "Latin", "meaning": "Lion", "style_tags": ["classic", "short", "strong"], "popularity_score": 95 },
+  { "name": "Theo", "gender": "boy", "origin": "Greek", "meaning": "Gift of God", "style_tags": ["classic", "modern", "european"], "popularity_score": 90 },
+  { "name": "Milo", "gender": "boy", "origin": "Germanic", "meaning": "Merciful", "style_tags": ["soft", "modern", "short"], "popularity_score": 86 },
+  { "name": "Hugo", "gender": "boy", "origin": "Germanic", "meaning": "Mind", "style_tags": ["classic", "european", "strong"], "popularity_score": 82 },
+  { "name": "Enzo", "gender": "boy", "origin": "Italian", "meaning": "Ruler of the household", "style_tags": ["modern", "international", "short"], "popularity_score": 84 },
+  { "name": "Otto", "gender": "boy", "origin": "German", "meaning": "Wealth", "style_tags": ["vintage", "short", "strong"], "popularity_score": 66 },
+  { "name": "Arlo", "gender": "boy", "origin": "English", "meaning": "Fortified hill", "style_tags": ["modern", "soft", "rare"], "popularity_score": 78 },
+
+  { "name": "Emma", "gender": "girl", "origin": "Germanic", "meaning": "Universal", "style_tags": ["classic", "international", "soft"], "popularity_score": 97 },
+  { "name": "Sofia", "gender": "girl", "origin": "Greek", "meaning": "Wisdom", "style_tags": ["classic", "european", "soft"], "popularity_score": 94 },
+  { "name": "Mila", "gender": "girl", "origin": "Slavic", "meaning": "Gracious", "style_tags": ["modern", "short", "soft"], "popularity_score": 91 },
+  { "name": "Lina", "gender": "girl", "origin": "Arabic", "meaning": "Tender", "style_tags": ["international", "short", "soft"], "popularity_score": 79 },
+  { "name": "Elena", "gender": "girl", "origin": "Greek", "meaning": "Shining light", "style_tags": ["classic", "european", "elegant"], "popularity_score": 83 },
+  { "name": "Nora", "gender": "girl", "origin": "Irish", "meaning": "Honor", "style_tags": ["classic", "short", "soft"], "popularity_score": 88 },
+  { "name": "Ivy", "gender": "girl", "origin": "English", "meaning": "Faithfulness", "style_tags": ["nature", "modern", "short"], "popularity_score": 74 },
+  { "name": "Elowen", "gender": "girl", "origin": "Cornish", "meaning": "Elm tree", "style_tags": ["nature", "rare", "soft"], "popularity_score": 63 },
+
+  { "name": "Noa", "gender": "neutral", "origin": "Hebrew", "meaning": "Motion", "style_tags": ["international", "short", "modern"], "popularity_score": 81 },
+  { "name": "Kai", "gender": "neutral", "origin": "Hawaiian", "meaning": "Sea", "style_tags": ["international", "short", "modern"], "popularity_score": 85 },
+  { "name": "Sage", "gender": "neutral", "origin": "Latin", "meaning": "Wise", "style_tags": ["nature", "modern", "rare"], "popularity_score": 68 },
+  { "name": "Robin", "gender": "neutral", "origin": "English", "meaning": "Bright fame", "style_tags": ["classic", "nature", "gentle"], "popularity_score": 60 }
+]

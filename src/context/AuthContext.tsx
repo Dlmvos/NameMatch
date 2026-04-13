@@ -61,12 +61,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Bootstrap on mount
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session: s } }) => {
-      setSession(s);
-      setUser(s?.user ?? null);
-      if (s?.user) fetchProfile(s.user.id).finally(() => setIsLoading(false));
-      else setIsLoading(false);
-    });
+    // Safety valve: if getSession() rejects or hangs (e.g. stale refresh token,
+    // invalid/empty Supabase URL, network timeout), force-exit loading after 8 s
+    // so the user sees WelcomeScreen instead of a frozen spinner.
+    const safetyTimeout = setTimeout(() => {
+      console.warn('[AuthContext] getSession timeout — forcing isLoading false');
+      setIsLoading(false);
+    }, 8000);
+
+    supabase.auth.getSession()
+      .then(({ data: { session: s } }) => {
+        clearTimeout(safetyTimeout);
+        setSession(s);
+        setUser(s?.user ?? null);
+        if (s?.user) fetchProfile(s.user.id).finally(() => setIsLoading(false));
+        else setIsLoading(false);
+      })
+      .catch((err) => {
+        clearTimeout(safetyTimeout);
+        console.error('[AuthContext] getSession error:', err);
+        setIsLoading(false);
+      });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (_event, s) => {
@@ -80,7 +95,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     );
 
-    return () => subscription.unsubscribe();
+    return () => {
+      clearTimeout(safetyTimeout);
+      subscription.unsubscribe();
+    };
   }, [fetchProfile]);
 
   // ── Auth actions ────────────────────────────────────────

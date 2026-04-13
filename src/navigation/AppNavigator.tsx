@@ -13,6 +13,7 @@ import WelcomeScreen from '../screens/WelcomeScreen';
 import AuthScreen from '../screens/AuthScreen';
 import PreferencesScreen from '../screens/PreferencesScreen';
 import RegionScreen from '../screens/RegionScreen';
+import CountryScreen from '../screens/CountryScreen';
 import PartnerConnectScreen from '../screens/PartnerConnectScreen';
 import SwipeScreen from '../screens/SwipeScreen';
 import MatchesScreen from '../screens/MatchesScreen';
@@ -103,6 +104,7 @@ export default function AppNavigator() {
           // Onboarding flow
           <>
             <Stack.Screen name="Preferences" component={PreferencesScreen} />
+            <Stack.Screen name="Country" component={CountryScreen} />
             <Stack.Screen name="Region" component={RegionScreen} />
             <Stack.Screen name="PartnerConnect" component={PartnerConnectScreen} />
           </>
@@ -115,6 +117,7 @@ export default function AppNavigator() {
             <Stack.Screen name="Paywall" component={PaywallScreen} options={{ headerShown: false }} />
             <Stack.Screen name="MainTabs" component={MainTabs} />
             <Stack.Screen name="Preferences" component={PreferencesScreen} />
+            <Stack.Screen name="Country" component={CountryScreen} />
             <Stack.Screen name="Region" component={RegionScreen} />
             <Stack.Screen name="PartnerConnect" component={PartnerConnectScreen} />
           </>

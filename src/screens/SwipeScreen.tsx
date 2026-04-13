@@ -1,77 +1,51 @@
-import Constants from "expo-constants";
-
-const DEV_MODE = __DEV__ || Constants.appOwnership === "expo";
-let devLikeCounter = 0;
-
-import React from 'react';
-import { colors } from '../theme';
+import React, { useRef, useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   Dimensions,
-  TouchableOpacity,
   ActivityIndicator,
+  TouchableOpacity,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import SwipeCard from '../components/SwipeCard';
 import MatchCelebration from '../components/MatchCelebration';
-import { COLORS, FONTS, RADIUS, SPACING, SHADOWS } from '../theme';
-
-const { height: SCREEN_HEIGHT } = Dimensions.get('window');
+import FilterSheet from '../components/FilterSheet';
+import { colors, COLORS, FONTS, SPACING } from '../theme';
 
 const VISIBLE_CARDS = 3;
 
 export default function SwipeScreen() {
-  const { namesToSwipe, isLoadingNames, recordSwipe, latestMatch, dismissLatestMatch, room } =
-    useApp();
+  const { namesToSwipe, isLoadingNames, recordSwipe, latestMatch, dismissLatestMatch, room,
+          filters, setFilters, activeFilterCount } = useApp();
   const { profile } = useAuth();
+  const isSwipingRef = useRef(false);
+  const [showFilters, setShowFilters] = useState(false);
 
   const freeSwipesLeft = profile?.free_swipes_remaining ?? 0;
   const hasPartner = !!(room?.user2_id);
-
   const visibleNames = namesToSwipe.slice(0, VISIBLE_CARDS);
   const totalRemaining = namesToSwipe.length;
 
-  const handleSwipe = async (direction: 'left' | 'right') => {
-    const name = namesToSwipe[0];
-    if (!name) return;
-    await recordSwipe(name.id, direction);
+  const handleSwipe = async (nameId: string, direction: 'left' | 'right') => {
+    if (isSwipingRef.current) return;
+    isSwipingRef.current = true;
+    try {
+      await recordSwipe(nameId, direction);
+    } finally {
+      isSwipingRef.current = false;
+    }
   };
 
-  // ── Empty state ─────────────────────────────────────────
-  if (!isLoadingNames && totalRemaining === 0) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <LinearGradient colors={[colors.onboarding.background, colors.neutral.white]} style={StyleSheet.absoluteFill} />
-        <View style={styles.emptyState}>
-          <Text style={styles.emptyEmoji}>🌸</Text>
-          <Text style={styles.emptyTitle}>You've seen them all!</Text>
-          <Text style={styles.emptySubtitle}>
-            Check your Matches to see names you both loved, or visit the Shop to unlock more names.
-          </Text>
-          <View style={styles.emptyBadge}>
-            <Text style={styles.emptyBadgeText}>
-              {freeSwipesLeft > 0
-                ? `${freeSwipesLeft} free swipes remaining`
-                : 'Unlock more in the Shop 🛍️'}
-            </Text>
-          </View>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
-  // ── Loading state ────────────────────────────────────────
   if (isLoadingNames) {
     return (
       <SafeAreaView style={styles.container}>
-        <LinearGradient colors={[colors.onboarding.background, colors.neutral.white]} style={StyleSheet.absoluteFill} />
-        <View style={styles.emptyState}>
+        <LinearGradient colors={['#FFF0F5', '#FFF9F5']} style={StyleSheet.absoluteFill} />
+        <View style={styles.centerState}>
           <ActivityIndicator size="large" color={COLORS.primary} />
           <Text style={styles.loadingText}>Loading names...</Text>
         </View>
@@ -79,70 +53,79 @@ export default function SwipeScreen() {
     );
   }
 
+  if (totalRemaining === 0) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <LinearGradient colors={['#FFF0F5', '#FFF9F5']} style={StyleSheet.absoluteFill} />
+        <View style={styles.centerState}>
+          <Text style={styles.emptyEmoji}>🌸</Text>
+          <Text style={styles.emptyTitle}>You've seen them all!</Text>
+          <Text style={styles.emptySubtitle}>
+            {freeSwipesLeft > 0
+              ? `${freeSwipesLeft} free swipes remaining`
+              : 'Visit the Shop to unlock more names 🛍️'}
+          </Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <LinearGradient colors={[colors.onboarding.background, colors.neutral.white]} style={StyleSheet.absoluteFill} />
+      <LinearGradient colors={['#FFF0F5', '#FFF9F5']} style={StyleSheet.absoluteFill} />
 
       {/* Header */}
       <View style={styles.header}>
         <View>
           <Text style={styles.headerTitle}>Discover</Text>
-          <Text style={styles.headerSubtitle}>
-            {totalRemaining > 0 ? `${totalRemaining} names left` : 'Almost done!'}
-          </Text>
+          <Text style={styles.headerSubtitle}>{totalRemaining} names left</Text>
         </View>
         <View style={styles.headerRight}>
-          {!hasPartner && (
-            <View style={styles.soloTag}>
-              <Ionicons name="person-outline" size={12} color={COLORS.textMuted} />
-              <Text style={styles.soloTagText}>Solo</Text>
+          {!hasPartner && room && (
+            <View style={styles.tag}>
+              <Text style={styles.tagText}>Solo · {room.code}</Text>
             </View>
           )}
-          <View style={styles.freeTag}>
-            <Text style={styles.freeTagText}>
+          <View style={styles.tag}>
+            <Text style={styles.tagText}>
               {freeSwipesLeft > 0 ? `${freeSwipesLeft} free` : '🔒 Locked'}
             </Text>
           </View>
+          {/* Filter button */}
+          <TouchableOpacity
+            style={[styles.filterBtn, activeFilterCount > 0 && styles.filterBtnActive]}
+            onPress={() => setShowFilters(true)}
+          >
+            <Ionicons
+              name="options-outline"
+              size={18}
+              color={activeFilterCount > 0 ? colors.neutral.white : colors.neutral.darkGray}
+            />
+            {activeFilterCount > 0 && (
+              <Text style={styles.filterBadge}>{activeFilterCount}</Text>
+            )}
+          </TouchableOpacity>
         </View>
       </View>
 
-      {/* Partner banner */}
-      {!hasPartner && room && (
-        <View style={styles.partnerBanner}>
-          <Ionicons name="people-outline" size={16} color={COLORS.primary} />
-          <Text style={styles.partnerBannerText}>
-            Waiting for your partner · Share code{' '}
-            <Text style={styles.partnerCode}>{room.code}</Text>
-          </Text>
-        </View>
-      )}
-
-      {/* Card Stack */}
+      {/* Card Stack — rendered back-to-front so top card is on top */}
       <View style={styles.cardStack}>
-        {visibleNames.length > 0 ? (
-          [...visibleNames].reverse().map((name, reverseIndex) => {
-            const cardIndex = visibleNames.length - 1 - reverseIndex;
-            const isTop = cardIndex === 0;
-            return (
-              <SwipeCard
-                key={name.id}
-                name={name}
-                isTop={isTop}
-                cardIndex={cardIndex}
-                onSwipeLeft={() => handleSwipe('left')}
-                onSwipeRight={() => handleSwipe('right')}
-              />
-            );
-          })
-        ) : (
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyEmoji}>🌸</Text>
-            <Text style={styles.emptyTitle}>You've seen them all!</Text>
-          </View>
-        )}
+        {[...visibleNames].reverse().map((name, reverseIndex) => {
+          const cardIndex = visibleNames.length - 1 - reverseIndex;
+          const isTop = cardIndex === 0;
+          return (
+            <SwipeCard
+              key={name.id}
+              name={name}
+              isTop={isTop}
+              cardIndex={cardIndex}
+              onSwipeLeft={() => handleSwipe(name.id, 'left')}
+              onSwipeRight={() => handleSwipe(name.id, 'right')}
+            />
+          );
+        })}
       </View>
 
-      {/* Free swipes warning */}
       {freeSwipesLeft <= 10 && freeSwipesLeft > 0 && (
         <View style={styles.warningBanner}>
           <Text style={styles.warningText}>
@@ -151,19 +134,22 @@ export default function SwipeScreen() {
         </View>
       )}
 
-      {/* Match Celebration Modal */}
       {latestMatch && (
         <MatchCelebration name={latestMatch} onDismiss={dismissLatestMatch} />
       )}
+
+      <FilterSheet
+        visible={showFilters}
+        currentFilters={filters}
+        onApply={setFilters}
+        onClose={() => setShowFilters(false)}
+      />
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.swipe.background,
-  },
+  container: { flex: 1, backgroundColor: COLORS.background },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -172,68 +158,39 @@ const styles = StyleSheet.create({
     paddingTop: SPACING.md,
     paddingBottom: SPACING.sm,
   },
-  headerTitle: {
-    fontSize: FONTS.sizes.xxl,
-    fontWeight: '800',
-    color: colors.swipe.text,
-  },
-  headerSubtitle: {
-    fontSize: FONTS.sizes.sm,
-    color: colors.swipe.text,
-    marginTop: 2,
-  },
-  headerRight: {
-    flexDirection: 'row',
-    gap: SPACING.xs,
+  headerTitle: { fontSize: 24, fontWeight: '800', color: COLORS.text },
+  headerSubtitle: { fontSize: 13, color: COLORS.textMuted, marginTop: 2 },
+  headerRight: { flexDirection: 'row', gap: 6, alignItems: 'center' },
+  filterBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: colors.neutral.bgSoft,
     alignItems: 'center',
-  },
-  soloTag: {
+    justifyContent: 'center',
     flexDirection: 'row',
-    alignItems: 'center',
     gap: 3,
-    backgroundColor: colors.swipe.background,
-    borderRadius: RADIUS.full,
+    borderWidth: 1,
+    borderColor: colors.neutral.border,
+  },
+  filterBtnActive: {
+    backgroundColor: colors.onboarding.primary,
+    borderColor: colors.onboarding.primary,
+  },
+  filterBadge: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: colors.neutral.white,
+  },
+  tag: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 999,
     paddingHorizontal: SPACING.sm,
     paddingVertical: 4,
     borderWidth: 1,
     borderColor: COLORS.border,
   },
-  soloTagText: {
-    fontSize: FONTS.sizes.xs,
-    color: colors.swipe.text,
-    fontWeight: '600',
-  },
-  freeTag: {
-    backgroundColor: colors.swipe.background,
-    borderRadius: RADIUS.full,
-    paddingHorizontal: SPACING.sm,
-    paddingVertical: 4,
-  },
-  freeTagText: {
-    fontSize: FONTS.sizes.xs,
-    color: colors.swipe.text,
-    fontWeight: '700',
-  },
-  partnerBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.xs,
-    marginHorizontal: SPACING.xl,
-    backgroundColor: colors.swipe.background,
-    borderRadius: RADIUS.md,
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.xs + 2,
-    marginBottom: SPACING.sm,
-  },
-  partnerBannerText: {
-    fontSize: FONTS.sizes.sm,
-    color: colors.swipe.text,
-    flex: 1,
-  },
-  partnerCode: {
-    fontWeight: '800',
-    color: colors.swipe.text,
-  },
+  tagText: { fontSize: 11, color: COLORS.textSecondary, fontWeight: '600' },
   cardStack: {
     flex: 1,
     alignItems: 'center',
@@ -241,55 +198,24 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.xl,
     paddingBottom: SPACING.xl,
   },
-  emptyState: {
+  centerState: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: SPACING.xl,
     gap: SPACING.md,
   },
-  emptyEmoji: {
-    fontSize: 64,
-  },
-  emptyTitle: {
-    fontSize: FONTS.sizes.xxl,
-    fontWeight: '800',
-    color: colors.swipe.text,
-    textAlign: 'center',
-  },
-  emptySubtitle: {
-    fontSize: FONTS.sizes.md,
-    color: colors.swipe.text,
-    textAlign: 'center',
-    lineHeight: 22,
-  },
-  emptyBadge: {
-    backgroundColor: colors.swipe.background,
-    borderRadius: RADIUS.md,
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.sm,
-  },
-  emptyBadgeText: {
-    fontSize: FONTS.sizes.sm,
-    color: colors.swipe.text,
-    fontWeight: '600',
-  },
-  loadingText: {
-    marginTop: SPACING.md,
-    fontSize: FONTS.sizes.md,
-    color: colors.swipe.text,
-  },
+  emptyEmoji: { fontSize: 64 },
+  emptyTitle: { fontSize: 24, fontWeight: '800', color: COLORS.text, textAlign: 'center' },
+  emptySubtitle: { fontSize: 15, color: COLORS.textSecondary, textAlign: 'center' },
+  loadingText: { marginTop: SPACING.md, fontSize: 15, color: COLORS.textSecondary },
   warningBanner: {
     marginHorizontal: SPACING.xl,
     marginBottom: SPACING.md,
-    backgroundColor: colors.swipe.background,
-    borderRadius: RADIUS.md,
+    backgroundColor: COLORS.accentLight,
+    borderRadius: 12,
     padding: SPACING.sm,
     alignItems: 'center',
   },
-  warningText: {
-    fontSize: FONTS.sizes.sm,
-    color: colors.swipe.text,
-    fontWeight: '600',
-  },
+  warningText: { fontSize: 13, color: COLORS.text, fontWeight: '600' },
 });

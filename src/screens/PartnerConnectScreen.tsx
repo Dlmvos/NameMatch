@@ -177,7 +177,7 @@ export default function PartnerConnectScreen({ navigation }: Props) {
 
                 <TouchableOpacity
                   style={styles.skipBtn}
-                  onPress={() => navigation.navigate('Paywall')}
+                  onPress={() => navigation.navigate('MainTabs')}
                 >
                   <Text style={styles.skipText}>Start swiping solo for now →</Text>
                 </TouchableOpacity>
@@ -250,7 +250,7 @@ export default function PartnerConnectScreen({ navigation }: Props) {
         {activeTab === 'create' && !roomCode && (
           <TouchableOpacity
             style={styles.skipBtn}
-            onPress={() => navigation.navigate('Paywall')}
+            onPress={() => navigation.navigate('MainTabs')}
           >
             <Text style={styles.skipText}>Skip for now, I'll connect later</Text>
           </TouchableOpacity>
@@ -278,11 +278,11 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: colors.onboarding.background,
+    backgroundColor: colors.neutral.border,
   },
   dotActive: {
     width: 24,
-    backgroundColor: colors.onboarding.background,
+    backgroundColor: colors.onboarding.primary,
   },
   emoji: {
     fontSize: 56,
@@ -306,11 +306,13 @@ const styles = StyleSheet.create({
   },
   tabs: {
     flexDirection: 'row',
-    backgroundColor: colors.onboarding.background,
+    backgroundColor: colors.neutral.bgSoft,
     borderRadius: RADIUS.lg,
     padding: 4,
     width: '100%',
     marginBottom: SPACING.lg,
+    borderWidth: 1,
+    borderColor: colors.neutral.border,
   },
   tab: {
     flex: 1,
@@ -319,16 +321,17 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.md,
   },
   tabActive: {
-    backgroundColor: colors.onboarding.background,
+    backgroundColor: colors.neutral.white,
     ...SHADOWS.card,
   },
   tabText: {
     fontSize: FONTS.sizes.md,
     fontWeight: '600',
-    color: colors.onboarding.text,
+    color: colors.neutral.gray,
   },
   tabTextActive: {
-    color: colors.onboarding.text,
+    color: colors.onboarding.primary,
+    fontWeight: '700',
   },
   panel: {
     width: '100%',
@@ -419,10 +422,10 @@ const styles = StyleSheet.create({
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: colors.onboarding.background,
+    backgroundColor: colors.neutral.border,
   },
   codeDotFilled: {
-    backgroundColor: colors.onboarding.background,
+    backgroundColor: colors.onboarding.primary,
   },
   skipBtn: {
     marginTop: SPACING.md,

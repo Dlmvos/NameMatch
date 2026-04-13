@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -11,18 +11,23 @@ import {
 import * as Haptics from 'expo-haptics';
 import { BabyName } from '../types';
 import { colors, COLORS, FONTS, RADIUS, SPACING, SHADOWS } from '../theme';
+import { enrichName, getTrendLabel, getTrendBg, getTrendFg } from '../services/nameEnrichment';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CARD_WIDTH = SCREEN_WIDTH - SPACING.xl * 2;
 const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.28;
 const ROTATION_ANGLE = 12;
 
+// Stack scale/offset for each card position
+const STACK_SCALE  = [1.0,  0.96, 0.92];
+const STACK_OFFSET = [0,    10,   20];
+
 interface SwipeCardProps {
   name: BabyName;
   onSwipeLeft: () => void;
   onSwipeRight: () => void;
   isTop: boolean;
-  cardIndex: number; // 0 = top card
+  cardIndex: number;
 }
 
 export default function SwipeCard({
@@ -33,9 +38,12 @@ export default function SwipeCard({
   cardIndex,
 }: SwipeCardProps) {
   const position = useRef(new Animated.ValueXY()).current;
-  const likeOpacity = useRef(new Animated.Value(0)).current;
-  const skipOpacity = useRef(new Animated.Value(0)).current;
   const isSwipingRef = useRef(false);
+
+  useEffect(() => {
+    position.setValue({ x: 0, y: 0 });
+    isSwipingRef.current = false;
+  }, [name.id, isTop, position]);
 
   const rotation = position.x.interpolate({
     inputRange: [-SCREEN_WIDTH / 2, 0, SCREEN_WIDTH / 2],
@@ -55,25 +63,14 @@ export default function SwipeCard({
     extrapolate: 'clamp',
   });
 
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => isTop,
-      onMoveShouldSetPanResponder: () => isTop,
-      onPanResponderMove: (_, gesture) => {
-        position.setValue({ x: gesture.dx, y: gesture.dy * 0.3 });
-      },
-      onPanResponderRelease: (_, gesture) => {
-        if (isSwipingRef.current) return;
-        if (gesture.dx > SWIPE_THRESHOLD) {
-          swipeRight();
-        } else if (gesture.dx < -SWIPE_THRESHOLD) {
-          swipeLeft();
-        } else {
-          resetPosition();
-        }
-      },
-    })
-  ).current;
+  const resetPosition = () => {
+    Animated.spring(position, {
+      toValue: { x: 0, y: 0 },
+      tension: 100,
+      friction: 8,
+      useNativeDriver: true,
+    }).start();
+  };
 
   const swipeRight = () => {
     if (isSwipingRef.current) return;
@@ -81,10 +78,9 @@ export default function SwipeCard({
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     Animated.timing(position, {
       toValue: { x: SCREEN_WIDTH * 1.5, y: 0 },
-      duration: 300,
+      duration: 240,
       useNativeDriver: true,
     }).start(() => {
-      isSwipingRef.current = false;
       onSwipeRight();
     });
   };
@@ -95,48 +91,63 @@ export default function SwipeCard({
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     Animated.timing(position, {
       toValue: { x: -SCREEN_WIDTH * 1.5, y: 0 },
-      duration: 300,
+      duration: 240,
       useNativeDriver: true,
     }).start(() => {
-      isSwipingRef.current = false;
       onSwipeLeft();
     });
   };
 
-  const resetPosition = () => {
-    Animated.spring(position, {
-      toValue: { x: 0, y: 0 },
-      tension: 100,
-      friction: 8,
-      useNativeDriver: true,
-    }).start();
-  };
+  const panResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => false,
+        onMoveShouldSetPanResponder: (_, gesture) =>
+          isTop && (Math.abs(gesture.dx) > 6 || Math.abs(gesture.dy) > 6),
+        onMoveShouldSetPanResponderCapture: (_, gesture) =>
+          isTop && Math.abs(gesture.dx) > Math.abs(gesture.dy) && Math.abs(gesture.dx) > 6,
+        onPanResponderMove: (_, gesture) => {
+          if (!isTop) return;
+          position.setValue({ x: gesture.dx, y: gesture.dy * 0.18 });
+        },
+        onPanResponderRelease: (_, gesture) => {
+          if (!isTop || isSwipingRef.current) return;
+          if (gesture.dx > SWIPE_THRESHOLD) {
+            swipeRight();
+          } else if (gesture.dx < -SWIPE_THRESHOLD) {
+            swipeLeft();
+          } else {
+            resetPosition();
+          }
+        },
+        onPanResponderTerminate: () => {
+          if (isTop) resetPosition();
+        },
+      }),
+    [isTop, position]
+  );
 
-  // Scale/translate for stacked cards below the top
-  const cardScale = 1 - cardIndex * 0.04;
-  const cardTranslateY = cardIndex * -12;
+  const safeIndex = Math.min(cardIndex, 2);
+  const cardScale = STACK_SCALE[safeIndex];
+  const cardTranslateY = STACK_OFFSET[safeIndex];
 
   if (!isTop) {
     return (
-    <View style={styles.cardStack}>
-      <View pointerEvents="none" style={styles.cardGlow} />
       <Animated.View
+        pointerEvents="none"
         style={[
           styles.card,
           styles.stackedCard,
           {
-            transform: [
-              { scale: cardScale },
-              { translateY: cardTranslateY },
-            ],
-            zIndex: -cardIndex,
+            transform: [{ scale: cardScale }, { translateY: cardTranslateY }],
+            zIndex: 10 - cardIndex,
+            opacity: safeIndex === 1 ? 0.85 : 0.65,
           },
         ]}
       >
-        <CardContent name={name} />
+        <CardContent name={name} isTop={false} />
       </Animated.View>
-    </View>
-  );
+    );
   }
 
   return (
@@ -150,23 +161,20 @@ export default function SwipeCard({
             { translateY: position.y },
             { rotate: rotation },
           ],
-          zIndex: 10,
+          zIndex: 100,
         },
       ]}
     >
-      {/* LIKE stamp */}
       <Animated.View style={[styles.stamp, styles.likeStamp, { opacity: likeOpacityInterp }]}>
         <Text style={styles.likeStampText}>💚 LOVE</Text>
       </Animated.View>
 
-      {/* SKIP stamp */}
       <Animated.View style={[styles.stamp, styles.skipStamp, { opacity: skipOpacityInterp }]}>
         <Text style={styles.skipStampText}>SKIP 👎</Text>
       </Animated.View>
 
-      <CardContent name={name} />
+      <CardContent name={name} isTop />
 
-      {/* Action buttons */}
       <View style={styles.actions}>
         <TouchableOpacity
           style={[styles.actionBtn, styles.skipBtn]}
@@ -192,13 +200,19 @@ export default function SwipeCard({
   );
 }
 
-function CardContent({ name }: { name: BabyName }) {
+// ─────────────────────────────────────────────────────────────
+// Card Content
+// ─────────────────────────────────────────────────────────────
+function CardContent({ name, isTop }: { name: BabyName; isTop: boolean }) {
+  const [showPronunciation, setShowPronunciation] = useState(false);
+  const enrichment = enrichName(name.name);
+
   const genderColor =
     name.gender === 'boy'
-      ? COLORS.boy
+      ? colors.shortlist.secondary  // baby blue
       : name.gender === 'girl'
-      ? COLORS.girl
-      : COLORS.neutral;
+      ? colors.match.secondary      // rose pink
+      : colors.onboarding.primary;  // teal for neutral
 
   const genderEmoji =
     name.gender === 'boy' ? '💙' : name.gender === 'girl' ? '💗' : '💜';
@@ -206,215 +220,297 @@ function CardContent({ name }: { name: BabyName }) {
   const genderLabel =
     name.gender === 'boy' ? 'Boy' : name.gender === 'girl' ? 'Girl' : 'Neutral';
 
+  const trend = enrichment.trend ?? name.trend;
+  const trendLabel = getTrendLabel(trend);
+  const trendBg = getTrendBg(trend);
+  const trendFg = getTrendFg(trend);
+  const popularityRank = enrichment.popularity_rank ?? name.popularity_rank;
+  const pronunciation = enrichment.pronunciation ?? name.pronunciation;
+
   return (
     <View style={styles.cardContent}>
-      {/* Gender badge */}
-      <View style={[styles.genderBadge, { backgroundColor: genderColor + '33' }]}>
-        <Text style={styles.genderEmoji}>{genderEmoji}</Text>
-        <Text style={[styles.genderLabel, { color: genderColor }]}>{genderLabel}</Text>
+      {/* Top row: gender badge + trend pill */}
+      <View style={styles.topRow}>
+        <View style={[styles.genderBadge, { backgroundColor: genderColor + '22' }]}>
+          <Text style={styles.genderEmoji}>{genderEmoji}</Text>
+          <Text style={[styles.genderLabel, { color: genderColor }]}>{genderLabel}</Text>
+        </View>
+
+        {trendLabel ? (
+          <View style={[styles.trendBadge, { backgroundColor: trendBg }]}>
+            <Text style={[styles.trendText, { color: trendFg }]}>{trendLabel}</Text>
+          </View>
+        ) : null}
       </View>
 
       {/* Name */}
-      <Text style={styles.nameText}>{name.name}</Text>
+      <Text style={styles.nameText} adjustsFontSizeToFit numberOfLines={1}>
+        {name.name}
+      </Text>
 
-      {/* Origin */}
-      <Text style={styles.originText}>{name.origin}</Text>
+      {/* Origin + pronunciation row */}
+      <View style={styles.originRow}>
+        <Text style={styles.originText}>{name.origin}</Text>
+        {isTop && pronunciation ? (
+          <TouchableOpacity
+            style={styles.pronBtn}
+            onPress={() => setShowPronunciation((v) => !v)}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Text style={styles.pronIcon}>🔊</Text>
+          </TouchableOpacity>
+        ) : null}
+      </View>
 
-      {/* Divider */}
+      {/* Pronunciation guide (expandable) */}
+      {showPronunciation && pronunciation ? (
+        <View style={styles.pronBox}>
+          <Text style={styles.pronText}>/{pronunciation}/</Text>
+        </View>
+      ) : null}
+
       <View style={styles.divider} />
 
       {/* Meaning */}
       <View style={styles.meaningSection}>
         <Text style={styles.meaningLabel}>MEANING</Text>
-        <Text style={styles.meaningText}>{name.meaning}</Text>
+        <Text style={styles.meaningText} numberOfLines={3}>{name.meaning}</Text>
       </View>
 
-      {/* Country/Region chip */}
+      {/* Bottom chips */}
       <View style={styles.chips}>
-        {name.country && (
+        {name.country ? (
           <View style={styles.chip}>
             <Text style={styles.chipText}>📍 {name.country}</Text>
           </View>
-        )}
+        ) : null}
         <View style={styles.chip}>
           <Text style={styles.chipText}>🌐 {name.region}</Text>
         </View>
+        {popularityRank ? (
+          <View style={[styles.chip, styles.rankChip]}>
+            <Text style={[styles.chipText, styles.rankText]}>#{popularityRank} popular</Text>
+          </View>
+        ) : null}
       </View>
     </View>
   );
 }
 
+// ─────────────────────────────────────────────────────────────
+// Styles
+// ─────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  cardStack: {
-    position: 'relative',
-  },
-  cardGlow: {
-    position: 'absolute',
-    top: 14,
-    left: 10,
-    right: 10,
-    bottom: -4,
-    borderRadius: 28,
-    backgroundColor: colors.onboarding.accent,
-    opacity: 0.55,
-  },
   card: {
-    width: CARD_WIDTH,
-    backgroundColor: colors.swipe.surface,
-    borderWidth: 1,
-    borderColor: 'rgba(31, 41, 55, 0.04)',
-    borderRadius: RADIUS.xl,
     position: 'absolute',
-    ...SHADOWS.card,
-    overflow: 'hidden',
-  },
-  stackedCard: {
-    borderRadius: RADIUS.xl,
-  },
-  cardContent: {
+    width: CARD_WIDTH,
+    maxWidth: CARD_WIDTH,
+    minHeight: 530,
+    backgroundColor: colors.swipe.surface,
+    borderRadius: 28,
     padding: SPACING.xl,
-    paddingBottom: SPACING.md,
-    minHeight: 380,
+    justifyContent: 'space-between',
+    ...SHADOWS.card,
+  },
+  stackedCard: {},
+  cardContent: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  topRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
+    marginBottom: SPACING.md,
   },
   genderBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    alignSelf: 'flex-start',
+    gap: 5,
     borderRadius: RADIUS.full,
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.xs,
-    gap: 4,
-    marginBottom: SPACING.lg,
+    paddingHorizontal: SPACING.sm + 2,
+    paddingVertical: 6,
   },
   genderEmoji: {
-    fontSize: 14,
+    fontSize: 13,
   },
   genderLabel: {
     fontSize: FONTS.sizes.sm,
     fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+  },
+  trendBadge: {
+    borderRadius: RADIUS.full,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 5,
+  },
+  trendText: {
+    fontSize: FONTS.sizes.xs,
+    fontWeight: '700',
+    letterSpacing: 0.3,
   },
   nameText: {
-    fontSize: 56,
+    fontSize: 46,
     fontWeight: '800',
-    color: COLORS.text,
-    letterSpacing: -2,
+    color: colors.swipe.text,
+    textAlign: 'center',
     marginBottom: SPACING.xs,
-    lineHeight: 60,
+    letterSpacing: -1,
+    minWidth: '80%',
+  },
+  originRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.xs,
+    marginBottom: SPACING.sm,
   },
   originText: {
     fontSize: FONTS.sizes.md,
-    color: COLORS.textSecondary,
+    color: colors.swipe.textMuted ?? COLORS.textMuted,
     fontStyle: 'italic',
-    marginBottom: SPACING.lg,
+    textAlign: 'center',
+  },
+  pronBtn: {
+    opacity: 0.7,
+  },
+  pronIcon: {
+    fontSize: 16,
+  },
+  pronBox: {
+    backgroundColor: colors.swipe.overlayLike ?? '#E8F8F1',
+    borderRadius: RADIUS.sm,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 4,
+    marginBottom: SPACING.sm,
+  },
+  pronText: {
+    fontSize: FONTS.sizes.sm,
+    color: colors.swipe.primary ?? colors.onboarding.primary,
+    fontWeight: '600',
+    letterSpacing: 0.5,
   },
   divider: {
-    height: 1,
-    backgroundColor: COLORS.divider,
-    marginBottom: SPACING.lg,
+    width: 40,
+    height: 3,
+    borderRadius: 999,
+    backgroundColor: colors.neutral.border ?? COLORS.border,
+    marginBottom: SPACING.md,
+    marginTop: SPACING.xs,
   },
   meaningSection: {
-    marginBottom: SPACING.lg,
+    alignItems: 'center',
+    marginBottom: SPACING.md,
+    width: '100%',
   },
   meaningLabel: {
     fontSize: FONTS.sizes.xs,
-    fontWeight: '700',
-    color: COLORS.textMuted,
     letterSpacing: 1.5,
+    fontWeight: '800',
+    color: colors.swipe.textMuted ?? COLORS.textMuted,
     marginBottom: SPACING.xs,
   },
   meaningText: {
-    fontSize: FONTS.sizes.lg,
-    color: COLORS.text,
-    lineHeight: 26,
+    fontSize: FONTS.sizes.md,
+    color: colors.swipe.text,
+    textAlign: 'center',
+    lineHeight: 24,
   },
   chips: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
     gap: SPACING.xs,
+    flexWrap: 'wrap',
+    justifyContent: 'center',
   },
   chip: {
-    backgroundColor: COLORS.background,
+    backgroundColor: colors.swipe.background,
     borderRadius: RADIUS.full,
     paddingHorizontal: SPACING.sm,
-    paddingVertical: SPACING.xs,
+    paddingVertical: 6,
   },
   chipText: {
     fontSize: FONTS.sizes.xs,
-    color: COLORS.textSecondary,
+    color: colors.swipe.text,
+    fontWeight: '600',
   },
+  rankChip: {
+    backgroundColor: colors.match.background ?? '#FFF7E8',
+  },
+  rankText: {
+    color: colors.match.text ?? '#3A2E1F',
+  },
+  // Swipe stamps
   stamp: {
     position: 'absolute',
-    top: 36,
+    top: 28,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderWidth: 2.5,
+    borderRadius: 10,
     zIndex: 20,
-    borderWidth: 4,
-    borderRadius: RADIUS.md,
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.xs,
-    transform: [{ rotate: '-15deg' }],
   },
   likeStamp: {
-    right: 24,
-    borderColor: COLORS.like,
+    left: 20,
+    borderColor: colors.swipe.like,
+    transform: [{ rotate: '-14deg' }],
+    backgroundColor: 'rgba(255,255,255,0.94)',
   },
   likeStampText: {
-    color: COLORS.like,
-    fontSize: FONTS.sizes.xl,
+    color: colors.swipe.like,
     fontWeight: '900',
+    fontSize: 17,
   },
   skipStamp: {
-    left: 24,
-    borderColor: COLORS.skip,
-    transform: [{ rotate: '15deg' }],
+    right: 20,
+    borderColor: colors.swipe.pass,
+    transform: [{ rotate: '14deg' }],
+    backgroundColor: 'rgba(255,255,255,0.94)',
   },
   skipStampText: {
-    color: COLORS.skip,
-    fontSize: FONTS.sizes.xl,
+    color: colors.swipe.pass,
     fontWeight: '900',
+    fontSize: 17,
   },
+  // Action buttons
   actions: {
+    marginTop: SPACING.md,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: SPACING.lg,
-    paddingTop: SPACING.sm,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.divider,
+    gap: SPACING.md,
   },
   actionBtn: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    width: 62,
+    height: 62,
+    borderRadius: 999,
     alignItems: 'center',
     justifyContent: 'center',
-    ...SHADOWS.card,
+    ...SHADOWS.button,
   },
   skipBtn: {
-    backgroundColor: COLORS.skipLight,
-    borderWidth: 2,
-    borderColor: COLORS.skip,
-  },
-  skipBtnText: {
-    fontSize: 24,
-    color: COLORS.skip,
-    fontWeight: '700',
+    backgroundColor: colors.swipe.overlayPass ?? '#FFE8E8',
   },
   likeBtn: {
-    backgroundColor: COLORS.likeLight,
-    borderWidth: 2,
-    borderColor: COLORS.like,
+    backgroundColor: colors.swipe.overlayLike ?? '#E8F8F1',
+  },
+  skipBtnText: {
+    fontSize: 26,
+    fontWeight: '800',
+    color: colors.swipe.pass,
   },
   likeBtnText: {
-    fontSize: 24,
-    color: COLORS.like,
-    fontWeight: '700',
+    fontSize: 26,
+    fontWeight: '800',
+    color: colors.swipe.like,
   },
   actionCenter: {
+    flex: 1,
     alignItems: 'center',
   },
   swipeHint: {
-    fontSize: FONTS.sizes.xs,
-    color: COLORS.textMuted,
+    fontSize: FONTS.sizes.sm,
+    color: colors.swipe.textMuted ?? COLORS.textMuted,
+    fontWeight: '500',
+    opacity: 0.7,
   },
 });

@@ -32,6 +32,66 @@ export interface BabyName {
   region: Region;
   is_worldwide: boolean;
   created_at?: string;
+  // Enrichment (optional — populated by nameEnrichment service)
+  popularity_rank?: number;
+  trend?: 'rising' | 'stable' | 'classic';
+  pronunciation?: string;
+  similar_names?: string[];
+}
+
+// ──────────────────────────────────────────────────────────
+// Name Filters
+// ──────────────────────────────────────────────────────────
+export type NameLength = 'short' | 'medium' | 'long';
+export type NameTrend = 'rising' | 'stable' | 'classic';
+
+export interface NameFilters {
+  lengths: NameLength[];           // short ≤4, medium 5-7, long ≥8
+  startingLetter: string;          // '' = any
+  trends: NameTrend[];             // [] = any
+  originsContain: string;          // '' = any — partial match on origin field
+}
+
+export const DEFAULT_FILTERS: NameFilters = {
+  lengths: [],
+  startingLetter: '',
+  trends: [],
+  originsContain: '',
+};
+
+// ──────────────────────────────────────────────────────────
+// Trending / Enrichment
+// ──────────────────────────────────────────────────────────
+export interface TrendingName {
+  nameId: string;
+  name: string;
+  trend: NameTrend;
+  rank: number;
+  previousRank: number;
+}
+
+export interface SuggestedName {
+  name: string;
+  meaning: string;
+  origin: string;
+  reason: string;
+}
+
+export interface AINameRequest {
+  style?: string;
+  origin?: string;
+  meaning?: string;
+  lengthPreference?: NameLength;
+  gender: GenderPreference;
+}
+
+// ──────────────────────────────────────────────────────────
+// Match Notes
+// ──────────────────────────────────────────────────────────
+export interface MatchNote {
+  matchId: string;
+  note: string;
+  updatedAt: string;
 }
 
 // ──────────────────────────────────────────────────────────
@@ -123,6 +183,7 @@ export type RootStackParamList = {
   Auth: { mode: 'login' | 'signup' };
   Preferences: undefined;
   Region: undefined;
+  Country: undefined;
   PartnerConnect: undefined;
   MainTabs: NavigatorScreenParams<MainTabParamList> | undefined;
   Paywall: undefined;

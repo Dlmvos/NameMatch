@@ -64,7 +64,7 @@ export default function PreferencesScreen({ navigation }: Props) {
     setIsLoading(true);
     try {
       await updateProfile({ gender_preference: selected });
-      navigation.navigate('Region');
+      navigation.navigate('Country');
     } catch (err: any) {
       Alert.alert('Error', err.message ?? 'Something went wrong.');
     } finally {
