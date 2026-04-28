@@ -12,7 +12,7 @@ import {
 import * as Haptics from 'expo-haptics';
 import { BabyName } from '../types';
 import { useTranslation } from '../i18n/I18nProvider';
-import { getLocalizedNameMeaning } from '../i18n/nameMeaningDisplay';
+import { getLocalizedNameMeaning, cleanOriginForDisplay } from '../i18n/nameMeaningDisplay';
 import { colors, FONTS, SHADOWS, SPACING } from '../theme';
 
 // ── Floating sparkle particles ──
@@ -58,7 +58,7 @@ export default function MatchCelebration({ name, onDismiss, onViewMatches }: Mat
       await Share.share({
         message: t('match.share.message', {
           name: name.name,
-          origin: name.origin,
+          origin: cleanOriginForDisplay(name.origin),
           meaning: localizedMeaning,
         }),
         title: t('match.share.title', { name: name.name }),
@@ -274,9 +274,12 @@ export default function MatchCelebration({ name, onDismiss, onViewMatches }: Mat
           </Text>
 
           {/* Origin + meaning below name */}
-          {!!name.origin && (
-            <Text style={styles.originText}>{name.origin}</Text>
-          )}
+          {(() => {
+            const cleanedOrigin = cleanOriginForDisplay(name.origin);
+            return cleanedOrigin ? (
+              <Text style={styles.originText}>{cleanedOrigin}</Text>
+            ) : null;
+          })()}
           {!!localizedMeaning && (
             <Text style={styles.meaningText} numberOfLines={2}>
               &ldquo;{localizedMeaning}&rdquo;
