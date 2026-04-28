@@ -17,3 +17,5 @@ ios/.xcode.env
 .env
 ios/.xcode.env
 .DS_Store
+
+.env.scripts
