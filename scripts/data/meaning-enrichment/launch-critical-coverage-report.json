@@ -1,0 +1,33 @@
+{
+  "_meta": {
+    "generated": "2026-04-28T22:23:46.432099",
+    "description": "Launch-critical name meaning coverage report",
+    "scope": "Core bundled names + top 50 ranked per launch country"
+  },
+  "summary": {
+    "total_launch_critical": 748,
+    "covered": 748,
+    "missing": 0,
+    "coverage_pct": 100.0,
+    "target_95_pct": 710,
+    "additional_for_95_pct": 0,
+    "excluded_bogus": 29
+  },
+  "coverage_by_source": {
+    "external_dictionary": 413,
+    "core_bundled": 335
+  },
+  "countries_included": [
+    "France",
+    "Germany",
+    "Italy",
+    "Netherlands",
+    "Spain",
+    "Portugal",
+    "Brazil",
+    "USA"
+  ],
+  "rank_cutoff": 50,
+  "missing_by_country": {},
+  "missing_names": []
+}
