@@ -1,33 +1,78 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useTranslation } from '../i18n/I18nProvider';
 import { RootStackParamList } from '../types';
 import { colors } from '../theme/colors';
+import { useAuth } from '../context/AuthContext';
+import { PurchaseService } from '../services/purchaseService';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Paywall'>;
 
-const premiumFeatures = [
-  'Unlimited swipes',
-  'Advanced filters',
-  'AI name suggestions',
-  'Meaning insights',
-  'Popularity trends',
-  'More premium name packs',
-];
+// TODO: If react-native-purchases-ui is added later, this screen can present RevenueCat's paywall UI.
 
 export default function PaywallScreen({ navigation }: Props) {
+  const { t } = useTranslation();
+  const { refreshProfile, restorePurchases } = useAuth();
+  const [premiumPrice, setPremiumPrice] = useState('...');
+  const premiumFeatures = [
+    t('paywall.couple.feature.unlimitedSwipes'),
+    t('paywall.couple.feature.curatedNames'),
+    t('paywall.couple.feature.advancedFilters'),
+    t('paywall.couple.feature.meaningInsights'),
+  ];
+
+  useEffect(() => {
+    let mounted = true;
+    PurchaseService.getLocalizedPrice()
+      .then((price) => {
+        if (mounted) setPremiumPrice(price);
+      })
+      .catch(() => {
+        if (mounted) setPremiumPrice(t('paywall.couple.price'));
+      });
+    return () => {
+      mounted = false;
+    };
+  }, [t]);
+
+  const handlePurchase = async () => {
+    try {
+      const result = await PurchaseService.purchasePremium();
+      if (!result.success) return;
+      await refreshProfile();
+      if (PurchaseService.hasPremiumEntitlement(result.customerInfo)) {
+        await PurchaseService.syncRevenueCatEntitlement();
+        await refreshProfile();
+      }
+      navigation.replace('MainTabs');
+    } catch (err: any) {
+      Alert.alert(t('common.error'), err?.message ?? t('shop.purchaseError'));
+    }
+  };
+
+  const handleRestore = async () => {
+    try {
+      await restorePurchases();
+      Alert.alert(t('shop.restoreSuccessTitle'), t('shop.restoreSuccessBody'));
+      navigation.replace('MainTabs');
+    } catch (err: any) {
+      Alert.alert(t('common.error'), err?.message ?? t('shop.restoreError'));
+    }
+  };
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
-        <Text style={styles.badge}>FOUNDING PARENTS OFFER</Text>
+        <Text style={styles.badge}>{t('paywall.couple.badge')}</Text>
 
-        <Text style={styles.title}>Unlock Premium</Text>
+        <Text style={styles.title}>{t('paywall.couple.title')}</Text>
 
         <Text style={styles.subtitle}>
-          Make naming your baby feel faster, easier, and more exciting together.
+          {t('paywall.couple.subtitle')}
         </Text>
 
         <LinearGradient
@@ -39,10 +84,11 @@ export default function PaywallScreen({ navigation }: Props) {
           end={{ x: 1, y: 1 }}
           style={styles.heroCard}
         >
-          <Text style={styles.heroTitle}>Find the perfect name with less friction</Text>
+          <Text style={styles.heroTitle}>{t('paywall.couple.heroTitle')}</Text>
           <Text style={styles.heroText}>
-            Unlock smarter discovery, better filtering, and more ways to match on names you both love.
+            {t('paywall.couple.heroText')}
           </Text>
+          <Text style={styles.priceText}>{premiumPrice}</Text>
         </LinearGradient>
 
         <View style={styles.card}>
@@ -60,23 +106,28 @@ export default function PaywallScreen({ navigation }: Props) {
 
         <TouchableOpacity
           style={styles.primaryButton}
-          onPress={() => navigation.navigate('MainTabs', { screen: 'Shop' })}
+          onPress={handlePurchase}
           activeOpacity={0.9}
         >
-          <Text style={styles.primaryButtonText}>See Premium Plans</Text>
+          <Text style={styles.primaryButtonText}>{t('paywall.couple.primaryCta')}</Text>
         </TouchableOpacity>
+
+        <Text style={styles.trustText}>{t('paywall.couple.trustCopy')}</Text>
 
         <TouchableOpacity
           style={styles.secondaryButton}
           onPress={() => navigation.replace('MainTabs')}
           activeOpacity={0.85}
         >
-          <Text style={styles.secondaryButtonText}>Continue Free</Text>
+          <Text style={styles.secondaryButtonText}>{t('paywall.secondaryCta')}</Text>
         </TouchableOpacity>
 
         <Text style={styles.footerText}>
-          You can upgrade now or continue with the free version and unlock more later in the Shop.
+          {t('paywall.couple.footer')}
         </Text>
+        <TouchableOpacity style={styles.restoreLink} onPress={handleRestore} activeOpacity={0.85}>
+          <Text style={styles.restoreLinkText}>{t('shop.restorePurchases')}</Text>
+        </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
   );
@@ -126,6 +177,12 @@ const styles = StyleSheet.create({
     lineHeight: 21,
     color: '#FFFFFF',
   },
+  priceText: {
+    marginTop: 14,
+    fontSize: 26,
+    fontWeight: '900',
+    color: '#FFFFFF',
+  },
   card: {
     backgroundColor: '#FFFFFF',
     borderRadius: 20,
@@ -155,6 +212,13 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '800',
   },
+  trustText: {
+    fontSize: 13,
+    textAlign: 'center',
+    color: colors.neutral.textBody,
+    fontWeight: '700',
+    marginBottom: 12,
+  },
   secondaryButton: {
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
@@ -172,5 +236,14 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     textAlign: 'center',
     color: colors.neutral.textBody,
+  },
+  restoreLink: {
+    alignItems: 'center',
+    paddingVertical: 10,
+  },
+  restoreLinkText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.match?.primary || colors.swipe.primary,
   },
 });
