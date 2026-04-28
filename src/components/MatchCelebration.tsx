@@ -4,29 +4,35 @@ import {
   Text,
   StyleSheet,
   Animated,
-  Dimensions,
   TouchableOpacity,
   Modal,
   Share,
+  Easing,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { BabyName } from '../types';
-import { colors, COLORS, FONTS, RADIUS, SPACING, SHADOWS } from '../theme';
-import { enrichName } from '../services/nameEnrichment';
+import { useTranslation } from '../i18n/I18nProvider';
+import { getLocalizedNameMeaning } from '../i18n/nameMeaningDisplay';
+import { colors, FONTS, SHADOWS, SPACING } from '../theme';
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+// ── Floating sparkle particles ──
+const SPARKLE_COUNT = 10;
 
-const CONFETTI_COUNT = 24;
-
-interface ConfettiPiece {
-  x: Animated.Value;
-  y: Animated.Value;
-  rotation: Animated.Value;
+interface Sparkle {
+  x: number;
+  startY: number;
+  drift: Animated.Value;
   opacity: Animated.Value;
-  color: string;
   size: number;
 }
+
+// ── App-aligned blush/ivory palette ──
+const BLUSH_BACKGROUND = '#FFF7E8';
+const TEXT_PRIMARY = colors.onboarding.text;
+const TEXT_BODY = colors.neutral.textBody;
+const TEXT_MUTED = colors.neutral.darkGray;
+const CORAL = colors.onboarding.secondary;
+const TEAL = colors.onboarding.primary;
 
 interface MatchCelebrationProps {
   name: BabyName;
@@ -35,18 +41,27 @@ interface MatchCelebrationProps {
 }
 
 export default function MatchCelebration({ name, onDismiss, onViewMatches }: MatchCelebrationProps) {
-  const scaleAnim = useRef(new Animated.Value(0.9)).current;
+  const { t, language } = useTranslation();
+  const scaleAnim = useRef(new Animated.Value(0.88)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  const heartPulse = useRef(new Animated.Value(1)).current;
+  const glowPulse = useRef(new Animated.Value(0.15)).current;
+  const nameReveal = useRef(new Animated.Value(0)).current;
+  const ringScale1 = useRef(new Animated.Value(0.6)).current;
+  const ringScale2 = useRef(new Animated.Value(0.5)).current;
+  const ringScale3 = useRef(new Animated.Value(0.4)).current;
 
   const genderKey = String(name?.gender || '').toLowerCase();
-  const enrichment = enrichName(name.name);
+  const localizedMeaning = getLocalizedNameMeaning(name, language);
 
   const handleShare = async () => {
     try {
       await Share.share({
-        message: `We matched on the name "${name.name}" 🎉\n\n${name.origin} · ${name.meaning}\n\nFind your baby's perfect name together on BabySwipe! 👶`,
-        title: `${name.name} — Our Match!`,
+        message: t('match.share.message', {
+          name: name.name,
+          origin: name.origin,
+          meaning: localizedMeaning,
+        }),
+        title: t('match.share.title', { name: name.name }),
       });
     } catch (_) {}
   };
@@ -54,205 +69,271 @@ export default function MatchCelebration({ name, onDismiss, onViewMatches }: Mat
   const theme = useMemo(() => {
     if (genderKey.includes('boy') || genderKey.includes('male') || genderKey.includes('masc')) {
       return {
-        gradient: ['rgba(104,169,255,0.96)', 'rgba(71,128,230,0.96)'] as const,
-        bubble: '#EAF2FF',
-        primary: '#2F6FE4',
-        secondary: '#6F8FCF',
-        confetti: ['#D7E7FF', '#AFCBFF', '#7FB3FF', '#4F8DFF', '#DDEBFF', '#7AA7F8'],
-        emoji: '💙',
-        label: "IT'S A MATCH!",
+        glow: 'rgba(127,169,201,0.18)',
+        accent: colors.shortlist.secondary,
+        sparkle: '#B9D7EA',
+        ring: 'rgba(127,169,201,0.12)',
       };
     }
-
     if (genderKey.includes('girl') || genderKey.includes('female') || genderKey.includes('fem')) {
       return {
-        gradient: ['rgba(255,107,157,0.95)', 'rgba(255,100,130,0.95)'] as const,
-        bubble: '#FFE5F0',
-        primary: '#F25D94',
-        secondary: '#B35C7A',
-        confetti: ['#FFD6E7', '#FFB6D5', '#FFC7DD', '#FF94C2', '#FFE2EE', '#F9A8C7'],
-        emoji: '💗',
-        label: "IT'S A MATCH!",
+        glow: 'rgba(255,143,163,0.18)',
+        accent: CORAL,
+        sparkle: '#F0C4B4',
+        ring: 'rgba(255,143,163,0.12)',
       };
     }
-
     return {
-      gradient: ['rgba(168,125,255,0.95)', 'rgba(126,92,220,0.95)'] as const,
-      bubble: '#F0E8FF',
-      primary: '#7A5AE0',
-      secondary: '#7B6FA8',
-      confetti: ['#E8D9FF', '#CDB8FF', '#D8C8FF', '#B49AF8', '#EFE7FF', '#C7B2FF'],
-      emoji: '💜',
-      label: "IT'S A MATCH!",
+      glow: 'rgba(78,197,193,0.18)',
+      accent: TEAL,
+      sparkle: '#B5FFFC',
+      ring: 'rgba(78,197,193,0.12)',
     };
   }, [genderKey]);
 
-  const confetti = useRef<ConfettiPiece[]>(
-    Array.from({ length: CONFETTI_COUNT }, () => ({
-      x: new Animated.Value(Math.random() * SCREEN_WIDTH - SCREEN_WIDTH / 2),
-      y: new Animated.Value(-60),
-      rotation: new Animated.Value(0),
-      opacity: new Animated.Value(1),
-      color: theme.confetti[Math.floor(Math.random() * theme.confetti.length)],
-      size: 8 + Math.random() * 10,
-    }))
+  // ── Sparkles: dots that float upward from center ──
+  const sparkles = useRef<Sparkle[]>(
+    Array.from({ length: SPARKLE_COUNT }, () => ({
+      x: 0.2 + Math.random() * 0.6,
+      startY: 0.35 + Math.random() * 0.3,
+      drift: new Animated.Value(0),
+      opacity: new Animated.Value(0),
+      size: 2 + Math.random() * 3,
+    })),
   ).current;
 
   useEffect(() => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    setTimeout(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy), 120);
-    setTimeout(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium), 260);
+    // Premium tactile: warm satisfying pulse
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setTimeout(() => {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }, 200);
 
+    // Fade in backdrop
     Animated.timing(fadeAnim, {
       toValue: 1,
-      duration: 260,
+      duration: 500,
+      easing: Easing.out(Easing.ease),
       useNativeDriver: true,
     }).start();
 
+    // Content entrance: elegant spring
     Animated.spring(scaleAnim, {
       toValue: 1,
-      tension: 90,
-      friction: 7,
+      tension: 40,
+      friction: 10,
       useNativeDriver: true,
     }).start();
 
+    // Name reveal: delayed fade for sequenced drama
+    Animated.timing(nameReveal, {
+      toValue: 1,
+      duration: 600,
+      delay: 300,
+      easing: Easing.out(Easing.ease),
+      useNativeDriver: true,
+    }).start();
+
+    // Concentric rings expand
+    Animated.parallel([
+      Animated.spring(ringScale1, { toValue: 1, tension: 20, friction: 12, useNativeDriver: true }),
+      Animated.spring(ringScale2, { toValue: 1, tension: 18, friction: 14, delay: 100, useNativeDriver: true }),
+      Animated.spring(ringScale3, { toValue: 1, tension: 16, friction: 16, delay: 200, useNativeDriver: true }),
+    ]).start();
+
+    // Glow pulse: slow breathing rhythm
     Animated.loop(
       Animated.sequence([
-        Animated.spring(heartPulse, {
-          toValue: 1.14,
-          tension: 120,
-          friction: 4,
+        Animated.timing(glowPulse, {
+          toValue: 0.35,
+          duration: 2600,
+          easing: Easing.inOut(Easing.ease),
           useNativeDriver: true,
         }),
-        Animated.spring(heartPulse, {
-          toValue: 1,
-          tension: 120,
-          friction: 4,
+        Animated.timing(glowPulse, {
+          toValue: 0.15,
+          duration: 2600,
+          easing: Easing.inOut(Easing.ease),
           useNativeDriver: true,
         }),
-      ])
+      ]),
     ).start();
 
-    confetti.forEach((piece, i) => {
-      const delay = i * 45;
-      const duration = 1800 + Math.random() * 1100;
+    // Sparkles: staggered float-up
+    sparkles.forEach((sp, i) => {
+      const delay = 500 + i * 350;
+      const duration = 3500 + Math.random() * 2000;
 
-      Animated.sequence([
-        Animated.delay(delay),
-        Animated.parallel([
-          Animated.timing(piece.y, {
-            toValue: SCREEN_HEIGHT + 80,
-            duration,
-            useNativeDriver: true,
-          }),
-          Animated.timing(piece.rotation, {
-            toValue: 720 + Math.random() * 360,
-            duration,
-            useNativeDriver: true,
-          }),
-          Animated.timing(piece.opacity, {
-            toValue: 0,
-            duration: Math.max(500, duration * 0.45),
-            delay: duration * 0.45,
-            useNativeDriver: true,
-          }),
+      Animated.loop(
+        Animated.sequence([
+          Animated.delay(delay),
+          Animated.parallel([
+            Animated.timing(sp.drift, {
+              toValue: 1,
+              duration,
+              easing: Easing.out(Easing.ease),
+              useNativeDriver: true,
+            }),
+            Animated.sequence([
+              Animated.timing(sp.opacity, {
+                toValue: 0.6,
+                duration: duration * 0.2,
+                useNativeDriver: true,
+              }),
+              Animated.timing(sp.opacity, {
+                toValue: 0,
+                duration: duration * 0.8,
+                useNativeDriver: true,
+              }),
+            ]),
+          ]),
+          Animated.parallel([
+            Animated.timing(sp.drift, { toValue: 0, duration: 0, useNativeDriver: true }),
+            Animated.timing(sp.opacity, { toValue: 0, duration: 0, useNativeDriver: true }),
+          ]),
         ]),
-      ]).start();
+      ).start();
     });
-  }, [confetti, fadeAnim, heartPulse, scaleAnim]);
+  }, [fadeAnim, glowPulse, nameReveal, ringScale1, ringScale2, ringScale3, scaleAnim, sparkles]);
 
   return (
     <Modal transparent animationType="none" visible statusBarTranslucent>
-      <Animated.View style={[styles.backdrop, { opacity: fadeAnim }]}>
-        <LinearGradient colors={theme.gradient} style={StyleSheet.absoluteFill} />
-      </Animated.View>
+      {/* Soft blush backdrop — full-screen, but still part of the app */}
+      <Animated.View style={[styles.backdrop, { opacity: fadeAnim }]} />
 
-      {confetti.map((piece, i) => {
-        const rotateStr = piece.rotation.interpolate({
-          inputRange: [0, 360],
-          outputRange: ['0deg', '360deg'],
+      {/* Floating sparkles */}
+      {sparkles.map((sp, i) => {
+        const translateY = sp.drift.interpolate({
+          inputRange: [0, 1],
+          outputRange: [0, -100],
         });
-
         return (
           <Animated.View
             key={i}
             pointerEvents="none"
             style={[
-              styles.confettiPiece,
+              styles.sparkle,
               {
-                opacity: piece.opacity,
-                width: piece.size,
-                height: piece.size,
-                backgroundColor: piece.color,
-                borderRadius: Math.random() > 0.5 ? piece.size / 2 : 2,
-                transform: [
-                  { translateX: piece.x },
-                  { translateY: piece.y },
-                  { rotate: rotateStr },
-                ],
+                left: `${sp.x * 100}%` as any,
+                top: `${sp.startY * 100}%` as any,
+                width: sp.size,
+                height: sp.size,
+                borderRadius: sp.size / 2,
+                backgroundColor: theme.sparkle,
+                opacity: sp.opacity,
+                transform: [{ translateY }],
               },
             ]}
           />
         );
       })}
 
+      {/* Full-page content */}
       <Animated.View
         style={[
-          styles.cardWrap,
-          {
-            opacity: fadeAnim,
-            transform: [{ scale: scaleAnim }],
-          },
+          styles.contentWrap,
+          { opacity: fadeAnim, transform: [{ scale: scaleAnim }] },
         ]}
       >
-        <View style={styles.card}>
-          <Animated.Text
-            style={[
-              styles.heartEmoji,
-              { transform: [{ scale: heartPulse }] },
-            ]}
+        {/* Radial glow behind the name */}
+        <Animated.View
+          style={[
+            styles.glowOrb,
+            { backgroundColor: theme.glow, opacity: glowPulse },
+          ]}
+        />
+
+        {/* Concentric rings — reverence, not gamification */}
+        <Animated.View style={[styles.ring, styles.ring1, { borderColor: theme.ring, transform: [{ scale: ringScale3 }] }]} />
+        <Animated.View style={[styles.ring, styles.ring2, { borderColor: theme.ring, transform: [{ scale: ringScale2 }] }]} />
+        <Animated.View style={[styles.ring, styles.ring3, { borderColor: theme.ring, transform: [{ scale: ringScale1 }] }]} />
+
+        {/* Headline: "You both chose {name}" */}
+        <Text
+          style={styles.headline}
+          numberOfLines={2}
+          adjustsFontSizeToFit
+          minimumFontScale={0.7}
+        >
+          {t('match.title', { name: name.name })}
+        </Text>
+
+        <Text style={styles.subtitle} numberOfLines={2}>
+          {t('match.subtitle')}
+        </Text>
+
+        {/* The name — hero, centered, large */}
+        <Animated.View style={[styles.nameArea, { opacity: nameReveal }]}>
+          <Text
+            style={styles.nameText}
+            numberOfLines={2}
+            adjustsFontSizeToFit
+            minimumFontScale={0.5}
           >
-            {theme.emoji}
-          </Animated.Text>
+            {name.name}
+          </Text>
 
-          <Text style={[styles.matchLabel, { color: theme.primary }]}>{theme.label}</Text>
-          <Text style={styles.subtitle}>You both love</Text>
-
-          <View style={[styles.nameBubble, { backgroundColor: theme.bubble }]}>
-            <Text
-              style={[styles.nameText, { color: theme.primary }]}
-              numberOfLines={2}
-              adjustsFontSizeToFit
-              minimumFontScale={0.58}
-            >
-              {name.name}
-            </Text>
-          </View>
-
-          {!!name.origin && <Text style={[styles.originText, { color: theme.secondary }]}>{name.origin}</Text>}
-          {!!name.meaning && (
-            <Text style={styles.meaningText} numberOfLines={3}>
-              “{name.meaning}”
+          {/* Origin + meaning below name */}
+          {!!name.origin && (
+            <Text style={styles.originText}>{name.origin}</Text>
+          )}
+          {!!localizedMeaning && (
+            <Text style={styles.meaningText} numberOfLines={2}>
+              &ldquo;{localizedMeaning}&rdquo;
             </Text>
           )}
+        </Animated.View>
 
-          <View style={styles.btnRow}>
-            <TouchableOpacity style={[styles.continueBtn, { backgroundColor: theme.primary }]} onPress={onDismiss} activeOpacity={0.9}>
-              <Text style={styles.continueBtnText}>Keep Swiping</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={[styles.shareBtn, { borderColor: theme.primary }]} onPress={handleShare} activeOpacity={0.8}>
-              <Text style={[styles.shareBtnText, { color: theme.primary }]}>📤 Share</Text>
-            </TouchableOpacity>
+        {/* Heart pulse — emotional anchor, not a button */}
+        <Animated.View style={[styles.heartPulse, { opacity: nameReveal }]}>
+          <View style={[styles.heartOuter, { backgroundColor: theme.ring }]}>
+            <View style={[styles.heartInner, { backgroundColor: theme.ring }]}>
+              <Text style={[styles.heartIcon, { color: theme.accent }]}>&#x2665;</Text>
+            </View>
           </View>
+        </Animated.View>
 
+        {/* Actions — bottom-anchored, de-emphasized */}
+        <View style={styles.actionsArea}>
+          {/* Primary: Keep Swiping */}
           <TouchableOpacity
-            style={styles.matchesBtn}
-            onPress={onViewMatches ?? onDismiss}
-            activeOpacity={0.8}
+            style={[styles.primaryBtn, { backgroundColor: theme.accent }]}
+            onPress={onDismiss}
+            activeOpacity={0.85}
           >
-            <Text style={[styles.matchesBtnText, { color: theme.primary }]}>View All Matches →</Text>
+            <Text
+              style={styles.primaryBtnText}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.76}
+            >
+              {t('match.keepSwiping')}
+            </Text>
           </TouchableOpacity>
+
+          {/* Secondary: Share — text-only, soft */}
+          <TouchableOpacity
+            style={styles.secondaryBtn}
+            onPress={handleShare}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.secondaryBtnText, { color: theme.accent }]}>
+              {t('match.share')}
+            </Text>
+          </TouchableOpacity>
+
+          {/* Tertiary: View Matches — barely visible, no pressure */}
+          {onViewMatches && (
+            <TouchableOpacity
+              style={styles.tertiaryBtn}
+              onPress={onViewMatches}
+              activeOpacity={0.6}
+            >
+              <Text style={[styles.tertiaryBtnText, { color: theme.accent }]}>
+                {t('match.viewAll')}
+              </Text>
+            </TouchableOpacity>
+          )}
         </View>
       </Animated.View>
     </Modal>
@@ -262,111 +343,157 @@ export default function MatchCelebration({ name, onDismiss, onViewMatches }: Mat
 const styles = StyleSheet.create({
   backdrop: {
     ...StyleSheet.absoluteFillObject,
+    backgroundColor: BLUSH_BACKGROUND,
     zIndex: 0,
   },
-  confettiPiece: {
+  sparkle: {
     position: 'absolute',
-    top: 0,
-    left: SCREEN_WIDTH / 2,
     zIndex: 1,
   },
-  cardWrap: {
+  contentWrap: {
     flex: 1,
+    alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: SPACING.xl,
     zIndex: 10,
   },
-  card: {
-    backgroundColor: COLORS.surface,
-    borderRadius: RADIUS.xl,
-    paddingHorizontal: SPACING.xl,
-    paddingVertical: SPACING.xl + 2,
-    alignItems: 'center',
-    ...SHADOWS.card,
+  // ── Radial glow ──
+  glowOrb: {
+    position: 'absolute',
+    width: 280,
+    height: 280,
+    borderRadius: 140,
+    alignSelf: 'center',
   },
-  heartEmoji: {
-    fontSize: 68,
-    marginBottom: SPACING.sm,
+  // ── Concentric rings ──
+  ring: {
+    position: 'absolute',
+    borderWidth: 1,
+    borderRadius: 9999,
+    alignSelf: 'center',
   },
-  matchLabel: {
-    fontSize: FONTS.sizes.xxl,
-    fontWeight: '900',
-    letterSpacing: 1.2,
+  ring1: {
+    width: 200,
+    height: 200,
+  },
+  ring2: {
+    width: 280,
+    height: 280,
+  },
+  ring3: {
+    width: 360,
+    height: 360,
+  },
+  // ── Typography ──
+  headline: {
+    fontSize: FONTS.sizes.xl,
+    fontWeight: '700',
+    color: TEXT_PRIMARY,
     textAlign: 'center',
+    letterSpacing: 0.3,
+    marginBottom: 4,
   },
   subtitle: {
-    fontSize: FONTS.sizes.lg,
-    color: COLORS.textSecondary,
-    marginTop: 4,
+    fontSize: FONTS.sizes.sm,
+    fontWeight: '400',
+    color: TEXT_BODY,
+    textAlign: 'center',
+    opacity: 0.78,
+    marginBottom: SPACING.xl,
   },
-  nameBubble: {
-    width: '100%',
-    minHeight: 116,
-    borderRadius: 999,
-    paddingHorizontal: SPACING.xl,
-    paddingVertical: SPACING.lg,
+  // ── Name hero ──
+  nameArea: {
+    alignItems: 'center',
+    marginBottom: SPACING.lg,
+  },
+  nameText: {
+    fontSize: 56,
+    lineHeight: 64,
+    fontWeight: '700',
+    color: TEXT_PRIMARY,
+    textAlign: 'center',
+    letterSpacing: 1.5,
+  },
+  originText: {
+    fontSize: FONTS.sizes.sm,
+    fontWeight: '600',
+    color: TEXT_MUTED,
+    textAlign: 'center',
     marginTop: SPACING.md,
-    marginBottom: SPACING.md,
+    textTransform: 'uppercase',
+    letterSpacing: 1.5,
+    opacity: 0.85,
+  },
+  meaningText: {
+    fontSize: FONTS.sizes.md,
+    fontWeight: '400',
+    color: TEXT_BODY,
+    textAlign: 'center',
+    marginTop: SPACING.sm,
+    fontStyle: 'italic',
+    opacity: 0.9,
+  },
+  // ── Heart pulse ──
+  heartPulse: {
+    marginTop: SPACING.lg,
+    marginBottom: SPACING.xxl,
+    alignItems: 'center',
+  },
+  heartOuter: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  nameText: {
-    fontSize: 52,
-    lineHeight: 58,
-    fontWeight: '900',
-    letterSpacing: -1.5,
-    textAlign: 'center',
-    width: '100%',
-    flexShrink: 1,
+  heartInner: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  originText: {
-    fontSize: FONTS.sizes.lg,
-    fontStyle: 'italic',
-    textAlign: 'center',
+  heartIcon: {
+    fontSize: 22,
   },
-  meaningText: {
-    marginTop: SPACING.xs,
-    fontSize: FONTS.sizes.md,
-    lineHeight: 22,
-    color: COLORS.textSecondary,
-    textAlign: 'center',
-  },
-  btnRow: {
-    marginTop: SPACING.xl,
-    flexDirection: 'row',
-    gap: SPACING.sm,
-    width: '100%',
-  },
-  continueBtn: {
-    flex: 2,
-    borderRadius: RADIUS.full,
-    paddingVertical: SPACING.md,
+  // ── Actions ──
+  actionsArea: {
+    position: 'absolute',
+    bottom: 60,
+    left: SPACING.xl,
+    right: SPACING.xl,
     alignItems: 'center',
   },
-  continueBtnText: {
-    color: '#FFFFFF',
-    fontSize: FONTS.sizes.md,
-    fontWeight: '800',
-  },
-  shareBtn: {
-    flex: 1,
-    borderRadius: RADIUS.full,
-    paddingVertical: SPACING.md,
+  primaryBtn: {
+    width: '100%',
+    borderRadius: 26,
+    paddingVertical: SPACING.md + 2,
     alignItems: 'center',
-    borderWidth: 2,
-    backgroundColor: 'transparent',
+    ...SHADOWS.button,
   },
-  shareBtnText: {
+  primaryBtnText: {
+    color: colors.neutral.white,
     fontSize: FONTS.sizes.md,
     fontWeight: '700',
+    letterSpacing: 0.3,
   },
-  matchesBtn: {
-    marginTop: SPACING.sm,
+  secondaryBtn: {
+    marginTop: SPACING.md,
     paddingVertical: SPACING.sm,
-    alignItems: 'center',
+    paddingHorizontal: SPACING.lg,
   },
-  matchesBtnText: {
-    fontSize: FONTS.sizes.md,
-    fontWeight: '700',
+  secondaryBtnText: {
+    fontSize: FONTS.sizes.sm,
+    fontWeight: '600',
+    opacity: 0.9,
+  },
+  tertiaryBtn: {
+    marginTop: SPACING.xs,
+    paddingVertical: SPACING.xs,
+  },
+  tertiaryBtnText: {
+    fontSize: FONTS.sizes.xs,
+    fontWeight: '500',
+    opacity: 0.65,
   },
 });
