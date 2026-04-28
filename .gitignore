@@ -5,3 +5,15 @@ android/.gradle/
 tsconfig.check.json
 *.bak
 *.pre-fix
+
+# Local environment (do not commit secrets)
+.env
+.env.*
+!.env.example
+
+# iOS local env
+ios/.xcode.env
+
+.env
+ios/.xcode.env
+.DS_Store
