@@ -5,11 +5,18 @@ android/.gradle/
 tsconfig.check.json
 *.bak
 *.pre-fix
+*.tmp
+*.temp
+tmp/
+temp/
 
 # Local environment (do not commit secrets)
 .env
 .env.*
 !.env.example
+env/
+env
+.env.scripts
 
 # iOS local env
 ios/.xcode.env
@@ -18,4 +25,11 @@ ios/.xcode.env
 ios/.xcode.env
 .DS_Store
 
-.env.scripts
+# Local agent notes
+AGENT_NOTES.md
+agent-notes.md
+
+# Local generated data artifacts
+scripts/data/raw/
+scripts/data/batches/
+scripts/data/meaning-enrichment/

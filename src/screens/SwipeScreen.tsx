@@ -204,7 +204,9 @@ export default function SwipeScreen() {
       return;
     }
     if (isSwipingRef.current) return;
-    console.log('[SwipeScreen] handleSwipe', name.id, direction);
+    if (__DEV__) {
+      console.log('[SwipeScreen] handleSwipe', name.id, direction);
+    }
     isSwipingRef.current = true;
     let swipePromise: Promise<boolean>;
     try {
@@ -298,7 +300,9 @@ export default function SwipeScreen() {
     );
   }
 
-  console.log('[SwipeScreen] top ids (render)', namesToSwipe.slice(0, 3).map((n) => n.id));
+  if (__DEV__) {
+    console.log('[SwipeScreen] top ids (render)', namesToSwipe.slice(0, 3).map((n) => n.id));
+  }
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>

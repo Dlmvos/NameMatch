@@ -80,17 +80,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     if (data) {
-      console.log('[AuthContext] profile found', { userId: uid });
+      if (__DEV__) {
+        console.log('[AuthContext] profile found', { userId: uid });
+      }
       setProfile(data as Profile);
       return data as Profile;
     }
 
-    console.warn('[AuthContext] profile missing, ensuring row exists', { userId: uid });
+    if (__DEV__) {
+      console.warn('[AuthContext] profile missing, ensuring row exists', { userId: uid });
+    }
     const createdProfile = await ensureProfile(authUser);
     if (activeAuthUserIdRef.current !== uid) {
       return null;
     }
-    console.log('[AuthContext] profile created successfully', { userId: uid });
+    if (__DEV__) {
+      console.log('[AuthContext] profile created successfully', { userId: uid });
+    }
     setProfile(createdProfile as Profile);
     return createdProfile;
   }, [ensureProfile]);
@@ -98,7 +104,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Bootstrap on mount
   useEffect(() => {
     PurchaseService.configure();
-    console.log('[AuthContext] bootstrap: start getSession + 8s safety timer');
+    if (__DEV__) {
+      console.log('[AuthContext] bootstrap: start getSession + 8s safety timer');
+    }
 
     // Safety valve: if getSession() rejects or hangs (e.g. stale refresh token,
     // invalid/empty Supabase URL, network timeout), force-exit loading after 8 s
@@ -114,10 +122,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       .getSession()
       .then(({ data: { session: s } }) => {
         clearTimeout(safetyTimeout);
-        console.log('[AuthContext] branch: getSession resolved', {
-          hasSession: !!s,
-          hasUser: !!s?.user,
-        });
+        if (__DEV__) {
+          console.log('[AuthContext] branch: getSession resolved', {
+            hasSession: !!s,
+            hasUser: !!s?.user,
+          });
+        }
         setSession(s);
         const bootUser = s?.user ?? null;
         activeAuthUserIdRef.current = bootUser?.id ?? null;
@@ -126,30 +136,38 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           PurchaseService.logIn(bootUser.id).catch((err) => {
             console.error('[AuthContext] RevenueCat logIn failed after getSession:', err);
           });
-          console.log(
-            '[AuthContext] branch: fetchProfile for user — isLoading clears in fetchProfile.finally',
-          );
+          if (__DEV__) {
+            console.log(
+              '[AuthContext] branch: fetchProfile for user — isLoading clears in fetchProfile.finally',
+            );
+          }
           fetchProfile(bootUser)
             .catch((err) => {
               console.error('[AuthContext] fetchProfile failed after getSession:', err);
             })
             .finally(() => {
-              console.log(
-                '[AuthContext] fetchProfile settled — isLoading -> false',
-              );
+              if (__DEV__) {
+                console.log(
+                  '[AuthContext] fetchProfile settled — isLoading -> false',
+                );
+              }
               setIsLoading(false);
             });
         } else {
-          console.log(
-            '[AuthContext] branch: no session user — isLoading -> false (immediate)',
-          );
+          if (__DEV__) {
+            console.log(
+              '[AuthContext] branch: no session user — isLoading -> false (immediate)',
+            );
+          }
           activeAuthUserIdRef.current = null;
           setIsLoading(false);
         }
       })
       .catch((err) => {
         clearTimeout(safetyTimeout);
-        console.log('[AuthContext] branch: getSession catch', err);
+        if (__DEV__) {
+          console.log('[AuthContext] branch: getSession catch', err);
+        }
         console.error('[AuthContext] getSession error:', err);
         activeAuthUserIdRef.current = null;
         setIsLoading(false);

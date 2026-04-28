@@ -13,6 +13,7 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
+  Switch,
   FlatList,
   TextInput,
   ActivityIndicator,
@@ -23,41 +24,86 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useAuth } from '../context/AuthContext';
 import { useApp } from '../context/AppContext';
+import { useTranslation } from '../i18n/I18nProvider';
 import { RootStackParamList } from '../types';
-import { COUNTRY_OPTIONS, findCountry, CountryOption } from '../data/countries';
+import { COUNTRY_OPTIONS, CountryOption } from '../data/countries';
+import { getSuggestedLanguage } from '../services/languageService';
 import { colors, COLORS, FONTS, RADIUS, SPACING, SHADOWS } from '../theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Country'>;
 
-export default function CountryScreen({ navigation }: Props) {
+const countryToI18nKey = (name: string): string =>
+  name
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '');
+
+export default function CountryScreen({ navigation, route }: Props) {
+  const { t } = useTranslation();
   const { updateProfile } = useAuth();
-  const { setCountryPreference } = useApp();
+  const { setCountryPreference, setResidenceCountry } = useApp();
+  const isResidenceMode = route.params?.source === 'settingsResidence';
+  const fromSettings = route.params?.source === 'settings' || isResidenceMode;
 
   const [selected, setSelected] = useState<CountryOption | null>(null);
   const [query, setQuery] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [useAsResidenceCountry, setUseAsResidenceCountry] = useState(true);
 
-  // Filter countries by search query
+  const localizedCountryLabel = (c: CountryOption): string => {
+    const k = `country.${countryToI18nKey(c.name)}`;
+    const tr = t(k);
+    return tr === k ? c.name : tr;
+  };
+
+  // Filter countries by search query (match English + localized labels)
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return COUNTRY_OPTIONS;
-    return COUNTRY_OPTIONS.filter((c) => c.name.toLowerCase().includes(q));
-  }, [query]);
+    return COUNTRY_OPTIONS.filter((c) => {
+      const label = localizedCountryLabel(c).toLowerCase();
+      return c.name.toLowerCase().includes(q) || label.includes(q);
+    });
+  }, [query, t]);
 
   const handleContinue = async () => {
     if (!selected) {
-      Alert.alert('Almost there!', 'Please select your country to continue.');
+      Alert.alert(t('country.alert.selectTitle'), t('country.alert.selectBody'));
       return;
     }
     setIsLoading(true);
     try {
+      if (isResidenceMode) {
+        await setResidenceCountry(selected.name);
+        navigation.goBack();
+        return;
+      }
+
       // Persist region to Supabase (required for hasPreferences check in AppNavigator)
       await updateProfile({ region_preference: selected.region });
       // Persist country to AsyncStorage (country-weighted name engine)
       await setCountryPreference(selected.name);
-      navigation.navigate('PartnerConnect');
+      if (!fromSettings && useAsResidenceCountry) {
+        await setResidenceCountry(selected.name);
+      }
+      const deviceLanguage =
+        Intl.DateTimeFormat().resolvedOptions().locale?.split(/[-_]/)[0] ?? 'en';
+      const suggestedLanguage = getSuggestedLanguage(selected.name, deviceLanguage);
+      if (__DEV__) {
+        console.log('[CountryScreen] suggested language', {
+          country: selected.name,
+          deviceLanguage,
+          suggestedLanguage,
+        });
+      }
+      if (fromSettings) {
+        navigation.goBack();
+      } else {
+        navigation.navigate('PartnerConnect');
+      }
     } catch (err: any) {
-      Alert.alert('Error', err.message ?? 'Something went wrong. Please try again.');
+      Alert.alert(t('common.error'), err.message ?? t('country.alert.genericError'));
     } finally {
       setIsLoading(false);
     }
@@ -73,7 +119,7 @@ export default function CountryScreen({ navigation }: Props) {
       >
         <Text style={styles.flag}>{item.flag}</Text>
         <Text style={[styles.countryName, isSelected && styles.countryNameSelected]}>
-          {item.name}
+          {localizedCountryLabel(item)}
         </Text>
         {isSelected && (
           <View style={styles.checkDot}>
@@ -89,16 +135,18 @@ export default function CountryScreen({ navigation }: Props) {
       {/* Header */}
       <View style={styles.header}>
         {/* Progress dots: step 2 of 3 */}
-        <View style={styles.progress}>
-          <View style={styles.dot} />
-          <View style={[styles.dot, styles.dotActive]} />
-          <View style={styles.dot} />
-        </View>
+        {!fromSettings && (
+          <View style={styles.progress}>
+            <View style={styles.dot} />
+            <View style={[styles.dot, styles.dotActive]} />
+            <View style={styles.dot} />
+          </View>
+        )}
 
         <Text style={styles.emoji}>🌍</Text>
-        <Text style={styles.title}>Where are you{'\n'}from?</Text>
+        <Text style={styles.title}>{t('country.title')}</Text>
         <Text style={styles.subtitle}>
-          We'll prioritise names that feel natural in your culture.
+          {t('country.subtitle')}
         </Text>
 
         {/* Search */}
@@ -106,7 +154,7 @@ export default function CountryScreen({ navigation }: Props) {
           <Text style={styles.searchIcon}>🔍</Text>
           <TextInput
             style={styles.searchInput}
-            placeholder="Search countries..."
+            placeholder={t('country.search')}
             placeholderTextColor={colors.neutral.border}
             value={query}
             onChangeText={setQuery}
@@ -114,6 +162,20 @@ export default function CountryScreen({ navigation }: Props) {
             clearButtonMode="while-editing"
           />
         </View>
+        {!fromSettings && (
+          <View style={styles.residenceRow}>
+            <View style={styles.residenceCopy}>
+              <Text style={styles.residenceTitle}>Use this as residence country</Text>
+              <Text style={styles.residenceSubtitle}>Used for pricing and currency</Text>
+            </View>
+            <Switch
+              value={useAsResidenceCountry}
+              onValueChange={setUseAsResidenceCountry}
+              trackColor={{ false: colors.neutral.border, true: colors.onboarding.secondary }}
+              thumbColor={useAsResidenceCountry ? colors.onboarding.primary : colors.neutral.white}
+            />
+          </View>
+        )}
       </View>
 
       {/* Country list */}
@@ -127,7 +189,7 @@ export default function CountryScreen({ navigation }: Props) {
         ItemSeparatorComponent={() => <View style={styles.separator} />}
         ListEmptyComponent={
           <View style={styles.emptyState}>
-            <Text style={styles.emptyText}>No countries found for "{query}"</Text>
+            <Text style={styles.emptyText}>{t('country.emptySearch', { query })}</Text>
           </View>
         }
       />
@@ -141,7 +203,11 @@ export default function CountryScreen({ navigation }: Props) {
           activeOpacity={0.85}
         >
           <LinearGradient
-            colors={selected ? COLORS.gradientPink : [colors.neutral.border, colors.neutral.border]}
+            colors={
+              selected
+                ? [colors.onboarding.primary, colors.onboarding.secondary]
+                : [colors.neutral.border, colors.neutral.border]
+            }
             style={styles.continueBtnGradient}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
@@ -150,7 +216,12 @@ export default function CountryScreen({ navigation }: Props) {
               <ActivityIndicator color="#FFF" />
             ) : (
               <Text style={styles.continueBtnText}>
-                {selected ? `Continue with ${selected.flag} ${selected.name} →` : 'Select a country'}
+                {selected
+                  ? t('country.continue.with', {
+                      flag: selected.flag,
+                      country: localizedCountryLabel(selected),
+                    })
+                  : t('country.continue.select')}
               </Text>
             )}
           </LinearGradient>
@@ -164,15 +235,23 @@ export default function CountryScreen({ navigation }: Props) {
             setIsLoading(true);
             try {
               await updateProfile({ region_preference: 'WORLDWIDE' });
-              navigation.navigate('PartnerConnect');
+              if (fromSettings) {
+                navigation.goBack();
+              } else {
+                navigation.navigate('PartnerConnect');
+              }
             } catch {
-              navigation.navigate('PartnerConnect');
+              if (fromSettings) {
+                navigation.goBack();
+              } else {
+                navigation.navigate('PartnerConnect');
+              }
             } finally {
               setIsLoading(false);
             }
           }}
         >
-          <Text style={styles.skipText}>Skip for now</Text>
+          <Text style={styles.skipText}>{t('country.skip')}</Text>
         </TouchableOpacity>
       </View>
     </LinearGradient>
@@ -248,6 +327,33 @@ const styles = StyleSheet.create({
     fontSize: FONTS.sizes.md,
     color: COLORS.text,
     paddingVertical: 0,
+  },
+  residenceRow: {
+    width: '100%',
+    marginBottom: SPACING.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: colors.neutral.white,
+    borderRadius: RADIUS.md,
+    borderWidth: 1,
+    borderColor: colors.neutral.border,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+  },
+  residenceCopy: {
+    flex: 1,
+    paddingRight: SPACING.sm,
+  },
+  residenceTitle: {
+    fontSize: FONTS.sizes.sm,
+    fontWeight: '700',
+    color: COLORS.text,
+  },
+  residenceSubtitle: {
+    fontSize: FONTS.sizes.xs,
+    color: COLORS.textSecondary,
+    marginTop: 2,
   },
 
   // ── List ──
