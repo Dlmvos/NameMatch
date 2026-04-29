@@ -2,6 +2,8 @@ node_modules/
 .expo/
 ios/build/
 android/.gradle/
+android/app/*.keystore
+android/app/*.jks
 tsconfig.check.json
 *.bak
 *.pre-fix
