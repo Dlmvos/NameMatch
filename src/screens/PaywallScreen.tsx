@@ -18,6 +18,7 @@ export default function PaywallScreen({ navigation }: Props) {
   const { t } = useTranslation();
   const { refreshProfile } = useAuth();
   const [premiumPrice, setPremiumPrice] = useState('...');
+  const [isBusy, setIsBusy] = useState(false);
   const premiumFeatures = [
     t('paywall.couple.feature.unlimitedSwipes'),
     t('paywall.couple.feature.curatedNames'),
@@ -44,10 +45,13 @@ export default function PaywallScreen({ navigation }: Props) {
   };
 
   const handleContinueFree = () => {
+    if (isBusy) return;
     navigation.replace('MainTabs');
   };
 
   const handlePurchase = async () => {
+    if (isBusy) return;
+    setIsBusy(true);
     try {
       const result = await PurchaseService.purchasePremium();
       if (!result.success) return;
@@ -60,10 +64,14 @@ export default function PaywallScreen({ navigation }: Props) {
       navigateAfterPremiumVerified();
     } catch (err: any) {
       Alert.alert(t('common.error'), err?.message ?? t('shop.purchaseError'));
+    } finally {
+      setIsBusy(false);
     }
   };
 
   const handleRestore = async () => {
+    if (isBusy) return;
+    setIsBusy(true);
     try {
       const customerInfo = await PurchaseService.restorePurchases();
       if (!PurchaseService.hasPremiumEntitlement(customerInfo)) {
@@ -76,6 +84,8 @@ export default function PaywallScreen({ navigation }: Props) {
       navigateAfterPremiumVerified();
     } catch (err: any) {
       Alert.alert(t('common.error'), err?.message ?? t('shop.restoreError'));
+    } finally {
+      setIsBusy(false);
     }
   };
 
@@ -120,8 +130,9 @@ export default function PaywallScreen({ navigation }: Props) {
         </View>
 
         <TouchableOpacity
-          style={styles.primaryButton}
+          style={[styles.primaryButton, isBusy && styles.disabledButton]}
           onPress={handlePurchase}
+          disabled={isBusy}
           activeOpacity={0.9}
         >
           <Text style={styles.primaryButtonText}>{t('paywall.couple.primaryCta')}</Text>
@@ -130,8 +141,9 @@ export default function PaywallScreen({ navigation }: Props) {
         <Text style={styles.trustText}>{t('paywall.couple.trustCopy')}</Text>
 
         <TouchableOpacity
-          style={styles.secondaryButton}
+          style={[styles.secondaryButton, isBusy && styles.disabledButton]}
           onPress={handleContinueFree}
+          disabled={isBusy}
           activeOpacity={0.85}
         >
           <Text style={styles.secondaryButtonText}>{t('paywall.secondaryCta')}</Text>
@@ -140,7 +152,12 @@ export default function PaywallScreen({ navigation }: Props) {
         <Text style={styles.footerText}>
           {t('paywall.couple.footer')}
         </Text>
-        <TouchableOpacity style={styles.restoreLink} onPress={handleRestore} activeOpacity={0.85}>
+        <TouchableOpacity
+          style={[styles.restoreLink, isBusy && styles.disabledButton]}
+          onPress={handleRestore}
+          disabled={isBusy}
+          activeOpacity={0.85}
+        >
           <Text style={styles.restoreLinkText}>{t('shop.restorePurchases')}</Text>
         </TouchableOpacity>
       </ScrollView>
@@ -245,6 +262,9 @@ const styles = StyleSheet.create({
     color: colors.neutral.textDark,
     fontSize: 15,
     fontWeight: '700',
+  },
+  disabledButton: {
+    opacity: 0.6,
   },
   footerText: {
     fontSize: 12,
