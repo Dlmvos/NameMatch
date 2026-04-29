@@ -78,19 +78,27 @@ function setDevLogLevel(): void {
 }
 
 function warnPurchasesUnavailable(method: string): void {
-  if (!__DEV__ || warnedDisabledMethods.has(method)) return;
+  if (warnedDisabledMethods.has(method)) return;
   warnedDisabledMethods.add(method);
   const reason = purchasesDisabledReason ?? 'RevenueCat has not been configured.';
+  const message = `[PurchaseService] ${method} skipped: ${reason}`;
   if (isExpoGo()) {
     console.warn(
-      `[PurchaseService] ${method} skipped: ${reason} ` +
+      `${message} ` +
         'Use a native development build, production build, or set EXPO_PUBLIC_REVENUECAT_TEST_STORE_API_KEY.',
     );
     return;
   }
   if (__DEV__) {
-    console.warn(`[PurchaseService] ${method} skipped: ${reason}`);
+    console.warn(message);
+    return;
   }
+  console.error(message);
+}
+
+function purchasesUnavailableError(method: string): Error {
+  const reason = purchasesDisabledReason ?? 'RevenueCat has not been configured.';
+  return new Error(`${method} is unavailable: ${reason}`);
 }
 
 function canUsePurchases(method: string): boolean {
@@ -138,6 +146,7 @@ export const PurchaseService = {
 
   async purchasePremium(): Promise<PurchaseSuccess | PurchaseCancelled> {
     if (!canUsePurchases('purchasePremium')) {
+      if (!__DEV__) throw purchasesUnavailableError('purchasePremium');
       return { success: false, cancelled: true };
     }
     const premiumPackage = await this.getPremiumPackage();
@@ -154,7 +163,7 @@ export const PurchaseService = {
 
   async restorePurchases(): Promise<CustomerInfo> {
     if (!canUsePurchases('restorePurchases')) {
-      throw new Error('Purchases are only available in a native build or RevenueCat Test Store mode.');
+      throw purchasesUnavailableError('restorePurchases');
     }
     return Purchases.restorePurchases();
   },
@@ -167,7 +176,7 @@ export const PurchaseService = {
 
   async getLocalizedPrice(): Promise<string> {
     if (!canUsePurchases('getLocalizedPrice')) {
-      throw new Error('RevenueCat price lookup is unavailable in Expo Go.');
+      throw purchasesUnavailableError('getLocalizedPrice');
     }
     const premiumPackage = await this.getPremiumPackage();
     return premiumPackage.product.priceString;
@@ -185,7 +194,7 @@ export const PurchaseService = {
 
   async getPremiumPackage(): Promise<PurchasesPackage> {
     if (!canUsePurchases('getPremiumPackage')) {
-      throw new Error('RevenueCat offerings are unavailable in Expo Go.');
+      throw purchasesUnavailableError('getPremiumPackage');
     }
     const offerings = await Purchases.getOfferings();
     const availablePackages = Object.values(offerings.all).flatMap(
