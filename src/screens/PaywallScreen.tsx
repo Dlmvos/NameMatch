@@ -16,7 +16,7 @@ type Props = NativeStackScreenProps<RootStackParamList, 'Paywall'>;
 
 export default function PaywallScreen({ navigation }: Props) {
   const { t } = useTranslation();
-  const { refreshProfile, restorePurchases } = useAuth();
+  const { refreshProfile } = useAuth();
   const [premiumPrice, setPremiumPrice] = useState('...');
   const premiumFeatures = [
     t('paywall.couple.feature.unlimitedSwipes'),
@@ -39,16 +39,25 @@ export default function PaywallScreen({ navigation }: Props) {
     };
   }, [t]);
 
+  const navigateAfterPremiumVerified = () => {
+    navigation.replace('MainTabs');
+  };
+
+  const handleContinueFree = () => {
+    navigation.replace('MainTabs');
+  };
+
   const handlePurchase = async () => {
     try {
       const result = await PurchaseService.purchasePremium();
       if (!result.success) return;
-      await refreshProfile();
-      if (PurchaseService.hasPremiumEntitlement(result.customerInfo)) {
-        await PurchaseService.syncRevenueCatEntitlement();
-        await refreshProfile();
+      if (!PurchaseService.hasPremiumEntitlement(result.customerInfo)) {
+        Alert.alert(t('common.error'), t('shop.purchaseError'));
+        return;
       }
-      navigation.replace('MainTabs');
+      await PurchaseService.syncRevenueCatEntitlement();
+      await refreshProfile();
+      navigateAfterPremiumVerified();
     } catch (err: any) {
       Alert.alert(t('common.error'), err?.message ?? t('shop.purchaseError'));
     }
@@ -56,9 +65,15 @@ export default function PaywallScreen({ navigation }: Props) {
 
   const handleRestore = async () => {
     try {
-      await restorePurchases();
+      const customerInfo = await PurchaseService.restorePurchases();
+      if (!PurchaseService.hasPremiumEntitlement(customerInfo)) {
+        Alert.alert(t('common.error'), t('shop.restoreError'));
+        return;
+      }
+      await PurchaseService.syncRevenueCatEntitlement();
+      await refreshProfile();
       Alert.alert(t('shop.restoreSuccessTitle'), t('shop.restoreSuccessBody'));
-      navigation.replace('MainTabs');
+      navigateAfterPremiumVerified();
     } catch (err: any) {
       Alert.alert(t('common.error'), err?.message ?? t('shop.restoreError'));
     }
@@ -116,7 +131,7 @@ export default function PaywallScreen({ navigation }: Props) {
 
         <TouchableOpacity
           style={styles.secondaryButton}
-          onPress={() => navigation.replace('MainTabs')}
+          onPress={handleContinueFree}
           activeOpacity={0.85}
         >
           <Text style={styles.secondaryButtonText}>{t('paywall.secondaryCta')}</Text>
