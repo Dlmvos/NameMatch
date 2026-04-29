@@ -158,6 +158,8 @@ function AuthenticatedRootNavigator() {
             <Stack.Screen name="PartnerConnect" component={PartnerConnectScreen} />
             <Stack.Screen name="Paywall" component={PaywallScreen} options={{ headerShown: false }} />
             <Stack.Screen name="MainTabs" component={MainTabs} />
+            <Stack.Screen name="Country" component={CountryScreen} />
+            <Stack.Screen name="Region" component={RegionScreen} />
           </>
         ) : (
           <>
