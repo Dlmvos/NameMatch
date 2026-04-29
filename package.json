@@ -45,7 +45,8 @@
     "extract:baby-names:it-workbook-xlsx": "tsx scripts/extractItalyWorkbookToCanonicalCsv.ts",
     "extract:baby-names:pt-hybrid-sources": "tsx scripts/extractPortugalHybridSourcesToCanonicalCsv.ts",
     "extract:baby-names:br-hybrid-sources": "tsx scripts/extractBrazilHybridSourcesToCanonicalCsv.ts",
-    "extract:baby-names:es-hybrid-sources": "tsx scripts/extractSpainHybridSourcesToCanonicalCsv.ts"
+    "extract:baby-names:es-hybrid-sources": "tsx scripts/extractSpainHybridSourcesToCanonicalCsv.ts",
+    "build:baby-name-meaning-enrichment": "tsx scripts/buildMeaningEnrichmentBatch.ts"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
@@ -63,7 +64,6 @@
     "expo-device": "~8.0.10",
     "expo-font": "~14.0.11",
     "expo-haptics": "~15.0.8",
-    "expo-in-app-purchases": "^14.5.0",
     "expo-linear-gradient": "~15.0.8",
     "expo-linking": "~8.0.12",
     "expo-notifications": "~0.32.17",
