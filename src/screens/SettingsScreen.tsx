@@ -9,38 +9,57 @@ import {
   Switch,
   Alert,
   Share,
+  Linking,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
 import { useApp } from '../context/AppContext';
-import { REGION_OPTIONS, GenderPreference, Region } from '../types';
+import { REGION_OPTIONS, GenderPreference, Region, RootStackParamList } from '../types';
+import { SUPPORTED_LANGUAGE_OPTIONS } from '../services/languageService';
+import { useTranslation } from '../i18n/I18nProvider';
+import { translateCountryName } from '../i18n/display';
 import { COLORS, FONTS, RADIUS, SPACING, SHADOWS } from '../theme';
 import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useRoomActions, useRoomState } from '../context/RoomContext';
+
+const PRIVACY_POLICY_URL = 'https://babinom.com/privacy/';
+const SUPPORT_URL = 'https://babinom.com/support/';
 
 export default function SettingsScreen() {
-  const navigation = useNavigation<any>();
-  const { profile, signOut, updateProfile } = useAuth();
-  const { room, leaveRoom } = useApp();
+  const { t } = useTranslation();
+  const tr = t;
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const { profile, signOut, updateProfile, restorePurchases } = useAuth();
+  const { room } = useRoomState();
+  const { leaveRoom } = useRoomActions();
+  const {
+    languagePreference,
+    setLanguagePreference,
+    effectiveLanguage,
+    countryPreference,
+    residenceCountry,
+  } = useApp();
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
 
   const handleSignOut = async () => {
     Alert.alert(
-      'Sign Out',
-      'Are you sure you want to sign out?',
+      tr('settings.signOut'),
+      tr('settings.signOutConfirm'),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: tr('common.cancel'), style: 'cancel' },
         {
-          text: 'Sign Out',
+          text: tr('settings.signOut'),
           style: 'destructive',
           onPress: async () => {
             setIsSigningOut(true);
             try {
               await signOut();
             } catch (err: any) {
-              Alert.alert('Error', err.message);
+              Alert.alert(tr('common.error'), err.message);
               setIsSigningOut(false);
             }
           },
@@ -51,12 +70,12 @@ export default function SettingsScreen() {
 
   const handleLeaveRoom = () => {
     Alert.alert(
-      'Leave Room',
-      'Are you sure? You\'ll need a new code to reconnect with your partner.',
+      tr('settings.leaveRoom'),
+      tr('settings.leaveRoomConfirm'),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: tr('common.cancel'), style: 'cancel' },
         {
-          text: 'Leave Room',
+          text: tr('settings.leaveRoom'),
           style: 'destructive',
           onPress: leaveRoom,
         },
@@ -68,7 +87,7 @@ export default function SettingsScreen() {
     try {
       await updateProfile({ gender_preference: pref });
     } catch (err: any) {
-      Alert.alert('Error', err.message);
+      Alert.alert(tr('common.error'), err.message);
     }
   };
 
@@ -76,13 +95,46 @@ export default function SettingsScreen() {
     try {
       await updateProfile({ region_preference: region });
     } catch (err: any) {
-      Alert.alert('Error', err.message);
+      Alert.alert(tr('common.error'), err.message);
     }
+  };
+
+  const handleRestorePurchases = async () => {
+    try {
+      await restorePurchases();
+      Alert.alert(tr('settings.restorePurchasesSuccessTitle'), tr('settings.restorePurchasesSuccessBody'));
+    } catch (err: any) {
+      Alert.alert(tr('common.error'), err?.message ?? tr('settings.restorePurchasesError'));
+    }
+  };
+
+  const openExternalUrl = (url: string) => {
+    Linking.openURL(url).catch((err: any) => {
+      Alert.alert(tr('common.error'), err?.message ?? url);
+    });
   };
 
   const currentRegionLabel = REGION_OPTIONS.find(
     (r) => r.key === profile?.region_preference
   );
+  const getTranslated = (key: string, fallback: string): string => {
+    const translated = tr(key);
+    return translated === key ? fallback : translated;
+  };
+  const translatedRegion = profile?.region_preference
+    ? getTranslated(
+        profile.region_preference === 'LATIN_AMERICA'
+          ? 'region.latinAmerica'
+          : `region.${profile.region_preference.toLowerCase()}`,
+        currentRegionLabel?.label ?? profile.region_preference
+      )
+    : '';
+  const translatedCountry = countryPreference
+    ? translateCountryName(tr, countryPreference, countryPreference)
+    : tr('settings.notSet');
+  const translatedResidenceCountry = residenceCountry
+    ? translateCountryName(tr, residenceCountry, residenceCountry)
+    : tr('settings.notSet');
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -91,7 +143,7 @@ export default function SettingsScreen() {
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>Settings</Text>
+          <Text style={styles.headerTitle}>{tr('settings.title')}</Text>
         </View>
 
         {/* Profile card */}
@@ -102,32 +154,32 @@ export default function SettingsScreen() {
             </Text>
           </View>
           <View>
-            <Text style={styles.profileName}>{profile?.display_name ?? 'Name not set'}</Text>
+            <Text style={styles.profileName}>{profile?.display_name ?? tr('settings.nameNotSet')}</Text>
             <Text style={styles.profileSub}>
-              {profile?.free_swipes_remaining ?? 0} free swipes remaining
+              {tr('settings.freeSwipesRemaining', { count: profile?.free_swipes_remaining ?? 0 })}
             </Text>
           </View>
         </View>
 
         {/* Room section */}
-        <SettingsSection title="Partner Room">
+        <SettingsSection title={tr('settings.partnerRoom')}>
           {room ? (
             <>
               <SettingsRow
                 icon="people"
-                label="Room Code"
+                label={tr('settings.roomCode')}
                 value={room.code}
-                onPress={() => {}}
+                onPress={() => navigation.navigate('RoomManagement')}
               />
               <SettingsRow
                 icon="wifi"
-                label="Partner Status"
-                value={room.user2_id ? '✅ Connected' : '⏳ Waiting'}
+                label={tr('settings.partnerStatus')}
+                value={room.user2_id ? tr('settings.partnerConnected') : tr('settings.partnerWaiting')}
                 onPress={() => navigation.navigate('PartnerConnect')}
               />
               <SettingsRow
                 icon="exit-outline"
-                label="Leave Room"
+                label={tr('settings.leaveRoom')}
                 value=""
                 onPress={handleLeaveRoom}
                 destructive
@@ -136,7 +188,7 @@ export default function SettingsScreen() {
           ) : (
             <SettingsRow
               icon="add-circle-outline"
-              label="Connect with Partner"
+              label={tr('settings.connectPartner')}
               value=""
               onPress={() => navigation.navigate('PartnerConnect')}
             />
@@ -144,13 +196,13 @@ export default function SettingsScreen() {
         </SettingsSection>
 
         {/* Preferences section */}
-        <SettingsSection title="Name Preferences">
+        <SettingsSection title={tr('settings.namePreferences')}>
           <View style={styles.settingsRow}>
             <View style={styles.rowLeft}>
               <View style={styles.rowIcon}>
                 <Ionicons name="heart" size={18} color={colors.shortlist.primary} />
               </View>
-              <Text style={styles.rowLabel}>Show Names For</Text>
+              <Text style={styles.rowLabel}>{tr('settings.showNamesFor')}</Text>
             </View>
             <View style={styles.genderPicker}>
               {(['boy', 'girl', 'both'] as GenderPreference[]).map((g) => (
@@ -177,20 +229,85 @@ export default function SettingsScreen() {
 
           <SettingsRow
             icon="globe-outline"
-            label="Region"
-            value={`${currentRegionLabel?.emoji ?? ''} ${currentRegionLabel?.label ?? ''}`}
+            label={tr('settings.region')}
+            value={`${currentRegionLabel?.emoji ?? ''} ${translatedRegion}`}
             onPress={() => navigation.navigate('Region')}
+          />
+          <SettingsRow
+            icon="flag-outline"
+            label={tr('settings.country')}
+            value={translatedCountry}
+            onPress={() => navigation.navigate('Country', { source: 'settings' })}
+          />
+          <SettingsRow
+            icon="card-outline"
+            label={tr('settings.residenceCountry')}
+            value={translatedResidenceCountry}
+            onPress={() => navigation.navigate('Country', { source: 'settingsResidence' })}
           />
         </SettingsSection>
 
+        <SettingsSection title={tr('settings.section.language')}>
+          <View style={styles.settingsRow}>
+            <View style={styles.rowLeft}>
+              <View style={styles.rowIcon}>
+                <Ionicons name="language-outline" size={18} color={colors.shortlist.primary} />
+              </View>
+              <View>
+                <Text style={styles.rowLabel}>{tr('settings.language.app')}</Text>
+                <Text style={styles.rowSubLabel}>
+                  {tr('settings.activeLanguage', { code: effectiveLanguage.toUpperCase() })}
+                </Text>
+              </View>
+            </View>
+          </View>
+          <View style={styles.languagePicker}>
+            <TouchableOpacity
+              style={[
+                styles.languageBtn,
+                !languagePreference && styles.languageBtnActive,
+              ]}
+              onPress={() => setLanguagePreference(null)}
+            >
+              <Text
+                style={[
+                  styles.languageBtnText,
+                  !languagePreference && styles.languageBtnTextActive,
+                ]}
+              >
+                {tr('settings.language.auto')}
+              </Text>
+            </TouchableOpacity>
+            {SUPPORTED_LANGUAGE_OPTIONS.map((opt) => (
+              <TouchableOpacity
+                key={opt.code}
+                style={[
+                  styles.languageBtn,
+                  languagePreference === opt.code && styles.languageBtnActive,
+                ]}
+                onPress={() => setLanguagePreference(opt.code)}
+              >
+                <Text
+                  style={[
+                    styles.languageBtnText,
+                    languagePreference === opt.code && styles.languageBtnTextActive,
+                  ]}
+                >
+                  {opt.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </SettingsSection>
+
         {/* Notifications */}
-        <SettingsSection title="Notifications">
+        <SettingsSection title={tr('settings.notifications')}>
           <View style={styles.settingsRow}>
             <View style={styles.rowLeft}>
               <View style={styles.rowIcon}>
                 <Ionicons name="notifications" size={18} color={colors.shortlist.primary} />
               </View>
-              <Text style={styles.rowLabel}>Match Notifications</Text>
+              <Text style={styles.rowLabel}>{tr('settings.matchNotifications')}</Text>
             </View>
             <Switch
               value={notificationsEnabled}
@@ -202,17 +319,23 @@ export default function SettingsScreen() {
         </SettingsSection>
 
         {/* About */}
-        <SettingsSection title="About">
-          <SettingsRow icon="heart" label="Rate NameMatch" value="" onPress={() => Alert.alert('Coming soon', 'Add your App Store / Play Store link here once the app is published.')} />
-          <SettingsRow icon="share-outline" label="Share with Friends" value="" onPress={() => Share.share({ message: 'Try NameMatch — the baby-name matching app for couples.' })} />
-          <SettingsRow icon="document-text-outline" label="Privacy Policy" value="" onPress={() => Alert.alert('Privacy Policy', 'Add your privacy policy URL here.')} />
-          <SettingsRow icon="help-circle-outline" label="Help & Support" value="" onPress={() => Alert.alert('Help & Support', 'Add your support email or support page here.')} />
+        <SettingsSection title={tr('settings.about')}>
+          <SettingsRow
+            icon="refresh-circle-outline"
+            label={tr('settings.restorePurchases')}
+            value=""
+            onPress={handleRestorePurchases}
+          />
+          <SettingsRow icon="heart" label={tr('settings.rate')} value="" onPress={() => Alert.alert(tr('common.comingSoon'), tr('settings.rateComingSoon'))} />
+          <SettingsRow icon="share-outline" label={tr('settings.shareWithFriends')} value="" onPress={() => Share.share({ message: tr('settings.shareAppMessage') })} />
+          <SettingsRow icon="document-text-outline" label={tr('settings.privacyPolicy')} value="" onPress={() => openExternalUrl(PRIVACY_POLICY_URL)} />
+          <SettingsRow icon="help-circle-outline" label={tr('settings.helpSupport')} value="" onPress={() => openExternalUrl(SUPPORT_URL)} />
           <View style={styles.settingsRow}>
             <View style={styles.rowLeft}>
               <View style={styles.rowIcon}>
                 <Ionicons name="information-circle" size={18} color={colors.shortlist.primary} />
               </View>
-              <Text style={styles.rowLabel}>Version</Text>
+              <Text style={styles.rowLabel}>{tr('settings.version')}</Text>
             </View>
             <Text style={styles.rowValue}>1.0.0</Text>
           </View>
@@ -227,11 +350,11 @@ export default function SettingsScreen() {
         >
           <Ionicons name="log-out-outline" size={20} color={COLORS.skip} />
           <Text style={styles.signOutText}>
-            {isSigningOut ? 'Signing out...' : 'Sign Out'}
+            {isSigningOut ? tr('settings.signingOut') : tr('settings.signOut')}
           </Text>
         </TouchableOpacity>
 
-        <Text style={styles.footer}>Made with 💕 for expecting parents</Text>
+        <Text style={styles.footer}>{tr('settings.footerMadeWithLove')}</Text>
       </ScrollView>
     </SafeAreaView>
   );
@@ -411,13 +534,46 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
   },
   genderBtnActive: {
-    borderColor: COLORS.primary,
+    borderColor: colors.shortlist.primary,
     backgroundColor: colors.onboarding.background,
   },
   genderBtnText: {
     fontSize: 18,
   },
   genderBtnTextActive: {},
+  rowSubLabel: {
+    fontSize: FONTS.sizes.xs,
+    color: COLORS.textMuted,
+    marginTop: 1,
+  },
+  languagePicker: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    paddingHorizontal: SPACING.md,
+    paddingBottom: SPACING.md,
+  },
+  languageBtn: {
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: COLORS.divider,
+    backgroundColor: colors.onboarding.background,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 6,
+  },
+  languageBtnActive: {
+    borderColor: colors.shortlist.primary,
+    backgroundColor: colors.onboarding.accent,
+  },
+  languageBtnText: {
+    fontSize: FONTS.sizes.sm,
+    color: colors.onboarding.text,
+    fontWeight: '500',
+  },
+  languageBtnTextActive: {
+    color: colors.shortlist.primary,
+    fontWeight: '700',
+  },
   signOutBtn: {
     flexDirection: 'row',
     alignItems: 'center',

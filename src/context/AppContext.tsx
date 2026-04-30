@@ -28,6 +28,7 @@ interface AppContextValue {
   effectiveUnlockedPacks: string[];
   refreshUnlockedPacks: () => Promise<void>;
   isCountryPrefHydrated: boolean;
+  isUnlockedPacksHydrated: boolean;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -60,6 +61,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [languagePreference, setLanguagePreferenceState] = useState<string | null>(null);
   const [devUnlockedPacks, setDevUnlockedPacks] = useState<string[]>([]);
   const [isCountryPrefHydrated, setIsCountryPrefHydrated] = useState(false);
+  const [isUnlockedPacksHydrated, setIsUnlockedPacksHydrated] = useState(false);
 
   const getDevUnlockedPacks = useCallback(async (): Promise<string[]> => {
     if (!__DEV__) return [];
@@ -74,12 +76,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const refreshUnlockedPacks = useCallback(async () => {
+    setIsUnlockedPacksHydrated(false);
     if (!user?.id || !__DEV__) {
       setDevUnlockedPacks([]);
+      setIsUnlockedPacksHydrated(true);
       return;
     }
     const localPacks = await getDevUnlockedPacks();
     setDevUnlockedPacks(localPacks);
+    setIsUnlockedPacksHydrated(true);
   }, [user?.id, getDevUnlockedPacks]);
 
   // ── Hydrate country/residence preferences (Supabase primary) ───────────────────────
@@ -260,6 +265,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         effectiveUnlockedPacks,
         refreshUnlockedPacks,
         isCountryPrefHydrated,
+        isUnlockedPacksHydrated,
       }}
     >
       {children}

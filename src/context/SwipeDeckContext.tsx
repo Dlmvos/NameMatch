@@ -158,6 +158,8 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
   const [publicDeckSupplement, setPublicDeckSupplement] = useState<BabyName[]>([]);
   /** Remote premium rows only; `null` = not entitled, failed fetch, or empty catalog. */
   const [remotePremiumList, setRemotePremiumList] = useState<BabyName[] | null>(null);
+  const [publicDeckHydrationKey, setPublicDeckHydrationKey] = useState<string | null>(null);
+  const [premiumDeckHydrationKey, setPremiumDeckHydrationKey] = useState<string | null>(null);
 
   const deckNames = useMemo(
     () => mergeDeckSourcesByNameGender(baselineDeckNames, publicDeckSupplement, remotePremiumList),
@@ -165,8 +167,9 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
   );
 
   const [namesToSwipe, setNamesToSwipe] = useState<BabyName[]>([]);
-  const [isLoadingNames, setIsLoadingNames] = useState(false);
+  const [isLoadingNames, setIsLoadingNames] = useState(true);
   const [filters, setFiltersState] = useState<NameFilters>(DEFAULT_FILTERS);
+  const [swipeStateHydrationKey, setSwipeStateHydrationKey] = useState<string | null>(null);
 
   const swipedIdsRef = useRef<Set<string>>(new Set());
   /** IDs of custom names the partner created that the current user hasn't swiped yet — front-loaded in deck. */
@@ -208,6 +211,51 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
   );
 
   const hasFreeSwipeEntitlement = (profile?.free_swipes_remaining ?? 0) > 0;
+  const expectedSwipeStateHydrationKey = `${user?.id ?? 'no-user'}:${room?.id ?? profile?.room_id ?? 'no-room'}`;
+  const expectedPublicDeckHydrationKey = [
+    profile?.id ?? 'no-profile',
+    isCountryPrefHydrated ? 'country-ready' : 'country-loading',
+    hasFreeSwipeEntitlement ? 'free' : 'no-free',
+    effectiveUnlockedPacks.length > 0 ? 'paid' : 'unpaid',
+    profile?.region_preference ?? '',
+    profile?.gender_preference ?? '',
+  ].join('|');
+  const expectedPremiumDeckHydrationKey = [
+    user?.id ?? 'no-user',
+    purchasedPacksKey,
+    effectiveLanguage,
+  ].join('|');
+  const isSwipeStateHydrated = swipeStateHydrationKey === expectedSwipeStateHydrationKey;
+  const isPublicDeckHydrated = publicDeckHydrationKey === expectedPublicDeckHydrationKey;
+  const isPremiumDeckHydrated = premiumDeckHydrationKey === expectedPremiumDeckHydrationKey;
+  const isDeckReadyToBuild =
+    !!profile &&
+    isCountryPrefHydrated &&
+    isSwipeStateHydrated &&
+    isPublicDeckHydrated &&
+    isPremiumDeckHydrated;
+
+  useEffect(() => {
+    if (!__DEV__ || isDeckReadyToBuild) return;
+    console.log('[SwipeDeck] initial render gated', {
+      hasProfile: !!profile,
+      isCountryPrefHydrated,
+      isSwipeStateHydrated,
+      isPublicDeckHydrated,
+      isPremiumDeckHydrated,
+      expectedSwipeStateHydrationKey,
+      swipeStateHydrationKey,
+    });
+  }, [
+    isDeckReadyToBuild,
+    profile,
+    isCountryPrefHydrated,
+    isSwipeStateHydrated,
+    isPublicDeckHydrated,
+    isPremiumDeckHydrated,
+    expectedSwipeStateHydrationKey,
+    swipeStateHydrationKey,
+  ]);
 
   /** Stable key: rebuild deck only when pool inputs change — not on every `free_swipes_remaining` tick. */
   const nameQueueRebuildKey = useMemo(() => {
@@ -237,21 +285,31 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!profile?.id || !isCountryPrefHydrated) {
       setPublicDeckSupplement([]);
+      setPublicDeckHydrationKey(expectedPublicDeckHydrationKey);
       return;
     }
     if (!hasFreeSwipeEntitlement && effectiveUnlockedPacks.length === 0) {
       setPublicDeckSupplement([]);
+      setPublicDeckHydrationKey(expectedPublicDeckHydrationKey);
       return;
     }
 
     let cancelled = false;
+    setPublicDeckHydrationKey(null);
     PremiumContentService.fetchRemotePublicDeckSupplement({
       limit: 400,
       region: profile.region_preference ?? null,
       gender: profile.gender_preference ?? 'both',
-    }).then((rows) => {
-      if (!cancelled) setPublicDeckSupplement(rows);
-    });
+    })
+      .then((rows) => {
+        if (!cancelled) setPublicDeckSupplement(rows);
+      })
+      .catch(() => {
+        if (!cancelled) setPublicDeckSupplement([]);
+      })
+      .finally(() => {
+        if (!cancelled) setPublicDeckHydrationKey(expectedPublicDeckHydrationKey);
+      });
 
     return () => {
       cancelled = true;
@@ -263,32 +321,42 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
     isCountryPrefHydrated,
     hasFreeSwipeEntitlement,
     effectiveUnlockedPacks.length,
+    expectedPublicDeckHydrationKey,
   ]);
 
   useEffect(() => {
     const includePremium = effectiveUnlockedPacks.length > 0;
     if (!includePremium || !user?.id) {
       setRemotePremiumList(null);
+      setPremiumDeckHydrationKey(expectedPremiumDeckHydrationKey);
       return;
     }
 
     let cancelled = false;
+    setPremiumDeckHydrationKey(null);
     PremiumContentService.fetchRemotePremiumNames({
       includePremium: true,
       userId: user.id,
       meaningLocale: effectiveLanguage,
-    }).then((remotePremium) => {
-      if (cancelled || !remotePremium?.length) {
+    })
+      .then((remotePremium) => {
+        if (cancelled || !remotePremium?.length) {
+          if (!cancelled) setRemotePremiumList(null);
+          return;
+        }
+        if (!cancelled) setRemotePremiumList(remotePremium);
+      })
+      .catch(() => {
         if (!cancelled) setRemotePremiumList(null);
-        return;
-      }
-      if (!cancelled) setRemotePremiumList(remotePremium);
-    });
+      })
+      .finally(() => {
+        if (!cancelled) setPremiumDeckHydrationKey(expectedPremiumDeckHydrationKey);
+      });
 
     return () => {
       cancelled = true;
     };
-  }, [user?.id, effectiveUnlockedPacks.length, purchasedPacksKey, effectiveLanguage]);
+  }, [user?.id, effectiveUnlockedPacks.length, purchasedPacksKey, effectiveLanguage, expectedPremiumDeckHydrationKey]);
 
   useEffect(() => {
     if (!__DEV__) return;
@@ -444,7 +512,10 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
 
   // ── Core name queue builder (synchronous — guaranteed safe) ──
   const buildNameQueue = useCallback(() => {
-    if (!profile || !isCountryPrefHydrated) return;
+    if (!profile || !isDeckReadyToBuild) {
+      setIsLoadingNames(true);
+      return;
+    }
     setIsLoadingNames(true);
 
     const genderPref = profile.gender_preference ?? 'both';
@@ -555,17 +626,17 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
     setNamesToSwipe(pool);
     setIsLoadingNames(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- closure reads profile/filters/packs; nameQueueRebuildKey gates when those inputs meaningfully change
-  }, [isCountryPrefHydrated, nameQueueRebuildKey, deckNames, room?.id, profile?.room_id]);
+  }, [isDeckReadyToBuild, nameQueueRebuildKey, deckNames, room?.id, profile?.room_id]);
 
   // Rebuild when preferences, filters, packs, or swipe access *tier* change — not each free_swipes tick
   // profile?.id only (not whole profile) avoids rebuild on every free_swipes_remaining tick
   useEffect(() => {
-    if (profile && isCountryPrefHydrated) buildNameQueue();
-  }, [profile?.id, isCountryPrefHydrated, nameQueueRebuildKey, buildNameQueue]);
+    if (profile) buildNameQueue();
+  }, [profile?.id, isDeckReadyToBuild, nameQueueRebuildKey, buildNameQueue]);
 
   // Explicitly react to country/region preference changes so deck composition updates without app refresh.
   useEffect(() => {
-    if (!profile || !isCountryPrefHydrated) return;
+    if (!isDeckReadyToBuild) return;
     if (__DEV__) {
       console.log('[SwipeDeck] preference-triggered rebuild', {
         regionPref: profile.region_preference ?? null,
@@ -573,24 +644,42 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
       });
     }
     buildNameQueue();
-  }, [profile?.region_preference, countryPreference, isCountryPrefHydrated, profile?.id, buildNameQueue]);
+  }, [profile?.region_preference, countryPreference, isDeckReadyToBuild, profile?.id, buildNameQueue]);
 
   useEffect(() => {
     const roomId = room?.id ?? profile?.room_id ?? null;
-    if (!user || !roomId) return;
+    const hydrationKey = expectedSwipeStateHydrationKey;
+
+    swipedIdsRef.current = new Set();
+    partnerCustomIdsRef.current = new Set();
+    setSwipeStateHydrationKey(null);
+
+    if (!user || !roomId) {
+      setSwipeStateHydrationKey(hydrationKey);
+      return;
+    }
+
+    let cancelled = false;
 
     const loadSwipedIds = async () => {
       const [ids, partnerCustom] = await Promise.all([
         SwipeService.getSwipedNameIds(user.id, roomId),
         SwipeService.getPartnerCustomNameIds({ userId: user.id, roomId }),
       ]);
+      if (cancelled) return;
       swipedIdsRef.current = ids;
       partnerCustomIdsRef.current = partnerCustom;
+      setSwipeStateHydrationKey(hydrationKey);
     };
 
-    loadSwipedIds().then(() => buildNameQueue());
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- buildNameQueue closure is gated by isCountryPrefHydrated + nameQueueRebuildKey
-  }, [room?.id, profile?.room_id, user?.id]);
+    loadSwipedIds().catch(() => {
+      if (!cancelled) setSwipeStateHydrationKey(hydrationKey);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [expectedSwipeStateHydrationKey, room?.id, profile?.room_id, user?.id]);
 
   // ── Swipe recording ─────────────────────────────────────────
   const loadMoreNames = useCallback(() => buildNameQueue(), [buildNameQueue]);
@@ -699,11 +788,11 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
   const stateValue = useMemo(
     () => ({
       namesToSwipe,
-      isLoadingNames,
+      isLoadingNames: isLoadingNames || !isDeckReadyToBuild,
       filters,
       activeFilterCount,
     }),
-    [namesToSwipe, isLoadingNames, filters, activeFilterCount],
+    [namesToSwipe, isLoadingNames, isDeckReadyToBuild, filters, activeFilterCount],
   );
 
   const actionsValue = useMemo(

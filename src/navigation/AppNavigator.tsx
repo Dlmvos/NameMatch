@@ -102,8 +102,12 @@ function MainTabs() {
 
 function AuthenticatedRootNavigator() {
   const { session, profile } = useAuth();
-  const { effectiveUnlockedPacks } = useApp();
-  const { room } = useRoomState();
+  const {
+    effectiveUnlockedPacks,
+    isCountryPrefHydrated,
+    isUnlockedPacksHydrated,
+  } = useApp();
+  const { room, isLoadingRoom, isRoomHydrated } = useRoomState();
 
   const hasCompletedOnboarding = !!(
     profile?.gender_preference &&
@@ -112,6 +116,10 @@ function AuthenticatedRootNavigator() {
   );
   const hasRoom = !!profile?.room_id;
   const isPaid = effectiveUnlockedPacks.length > 0;
+  const isStartupReady =
+    isCountryPrefHydrated &&
+    isUnlockedPacksHydrated &&
+    (!hasRoom || isRoomHydrated);
   const stackKind: 'onboarding' | 'partner' | 'main' = !hasCompletedOnboarding
     ? 'onboarding'
     : !hasRoom
@@ -120,15 +128,40 @@ function AuthenticatedRootNavigator() {
 
   useEffect(() => {
     if (!__DEV__) return;
-    console.log('[AppNavigator] authenticated snapshot', {
+    console.log('[StartupGate] ready state', {
+      isStartupReady,
       hasCompletedOnboarding,
       hasRoom,
       isPaid,
+      isCountryPrefHydrated,
+      isUnlockedPacksHydrated,
+      isLoadingRoom,
+      isRoomHydrated,
       roomPremiumPacks: room?.premium_packs ?? [],
       hasSession: !!session,
       hasProfile: !!profile,
     });
-  }, [hasCompletedOnboarding, hasRoom, isPaid, room?.premium_packs, session, profile]);
+  }, [
+    isStartupReady,
+    hasCompletedOnboarding,
+    hasRoom,
+    isPaid,
+    isCountryPrefHydrated,
+    isUnlockedPacksHydrated,
+    isLoadingRoom,
+    isRoomHydrated,
+    room?.premium_packs,
+    session,
+    profile,
+  ]);
+
+  if (!isStartupReady) {
+    return (
+      <View style={styles.loading}>
+        <ActivityIndicator size="large" color={COLORS.primary} />
+      </View>
+    );
+  }
 
   const partnerInitialRoute = isPaid ? 'MainTabs' : 'Paywall';
   const mainInitialRoute = isPaid ? 'MainTabs' : 'Paywall';
