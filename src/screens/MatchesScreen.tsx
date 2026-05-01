@@ -52,11 +52,11 @@ const NOTES_STORAGE_KEY = 'namenest:match_notes';
 
 const DEV_SAMPLE_MATCHES: Match[] = __DEV__
   ? ([
-      { name: 'Noah', gender: 'boy', origin: 'Hebrew' },
-      { name: 'Emma', gender: 'girl', origin: 'German' },
-      { name: 'Liam', gender: 'boy', origin: 'Irish' },
-      { name: 'Olivia', gender: 'girl', origin: 'Latin' },
-      { name: 'Lucas', gender: 'boy', origin: 'Latin' },
+      { name: 'Aurelia', gender: 'girl', origin: 'Latin', meaning: 'Golden; radiant' },
+      { name: 'Mateo', gender: 'boy', origin: 'Spanish', meaning: 'Gift of God' },
+      { name: 'Livia', gender: 'girl', origin: 'Roman', meaning: 'Graceful; blue' },
+      { name: 'Elio', gender: 'boy', origin: 'Italian', meaning: 'Sun' },
+      { name: 'Noa', gender: 'neutral', origin: 'Hebrew', meaning: 'Motion; rest' },
     ] as const).map((name, index) => ({
       id: `dev-match-${index + 1}`,
       room_id: 'dev-room',
@@ -65,15 +65,23 @@ const DEV_SAMPLE_MATCHES: Match[] = __DEV__
       baby_names: {
         id: `dev-name-${index + 1}`,
         name: name.name,
-        meaning: index === 0 ? 'Rest; comfort' : 'A meaningful favorite for your family',
+        meaning: name.meaning,
         origin: name.origin,
-        gender: name.gender,
+        gender: name.gender as Gender,
         country: 'Worldwide',
         region: 'WORLDWIDE',
         is_worldwide: true,
         popularity_rank: index + 1,
         trend: index < 2 ? 'rising' : 'stable',
       },
+    }))
+  : [];
+
+const DEV_SAMPLE_LIKED_NAMES: LikedName[] = __DEV__
+  ? DEV_SAMPLE_MATCHES.slice(0, 4).map((match, index) => ({
+      swipeId: `dev-liked-${index + 1}`,
+      swipedAt: new Date(Date.now() - index * 43200000).toISOString(),
+      name: match.baby_names as BabyName,
     }))
   : [];
 
@@ -158,6 +166,10 @@ export default function MatchesScreen() {
   // ── Liked names state ──
   const [likedNames, setLikedNames] = useState<LikedName[]>([]);
   const [isLoadingLikes, setIsLoadingLikes] = useState(false);
+  const displayedLikedNames =
+    __DEV__ && DEV_PREVIEW.disableEmptyStates && likedNames.length === 0
+      ? DEV_SAMPLE_LIKED_NAMES
+      : likedNames;
 
   // ── Name detail modal state ──
   const [detailName, setDetailName] = useState<BabyName | null>(null);
@@ -385,7 +397,7 @@ export default function MatchesScreen() {
         >
           <Text style={[tabStyles.tabText, activeTab === 'likes' && tabStyles.tabTextActive]}>
             {t('matches.tab.myLikes')}
-            {likedNames.length > 0 ? ` (${likedNames.length})` : ''}
+            {displayedLikedNames.length > 0 ? ` (${displayedLikedNames.length})` : ''}
           </Text>
         </TouchableOpacity>
       </View>
@@ -429,14 +441,14 @@ export default function MatchesScreen() {
 
       {/* ── My Likes tab ── */}
       {activeTab === 'likes' && (
-        likedNames.length === 0 && !isLoadingLikes ? (
+        displayedLikedNames.length === 0 && !isLoadingLikes ? (
           <View style={styles.emptyState}>
             <Text style={styles.emptyEmoji}>💕</Text>
             <Text style={styles.emptyTitle}>{t('matches.likes.empty')}</Text>
           </View>
         ) : (
           <FlatList
-            data={likedNames}
+            data={displayedLikedNames}
             keyExtractor={(item) => item.swipeId}
             contentContainerStyle={styles.list}
             showsVerticalScrollIndicator={false}

@@ -335,14 +335,14 @@ const styles = StyleSheet.create({
     color: colors.onboarding.text,
   },
   primaryBtn: {
-    backgroundColor: colors.shortlist.primary,
-    borderRadius: RADIUS.md,
+    backgroundColor: colors.onboarding.primary,
+    borderRadius: RADIUS.lg,
     paddingHorizontal: SPACING.lg,
     paddingVertical: SPACING.sm,
   },
   primaryBtnText: {
     color: colors.neutral.white,
     fontSize: FONTS.sizes.md,
-    fontWeight: '700',
+    fontWeight: '800',
   },
 });

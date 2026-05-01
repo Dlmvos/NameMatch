@@ -25,7 +25,7 @@ export const colors = {
     like: '#38D39F',
     pass: '#FF6B6B',
     primary: '#38D39F',
-    secondary: '#A78BFA',
+    secondary: '#4EC5C1',
     background: '#F6F7F9',
     surface: '#FCFCFD',
     text: '#1F2937',

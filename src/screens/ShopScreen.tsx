@@ -554,7 +554,7 @@ const styles = StyleSheet.create({
   },
   freeCard: {
     marginHorizontal: SPACING.xl,
-    backgroundColor: colors.shortlist.background,
+    backgroundColor: colors.neutral.white,
     borderRadius: RADIUS.lg,
     padding: SPACING.md,
     marginBottom: SPACING.lg,
@@ -576,17 +576,17 @@ const styles = StyleSheet.create({
   },
   freeCardSub: {
     fontSize: FONTS.sizes.sm,
-    color: colors.shortlist.text,
+    color: COLORS.textMuted,
   },
   freeProgress: {
     height: 6,
-    backgroundColor: colors.shortlist.background,
+    backgroundColor: colors.neutral.border,
     borderRadius: 3,
     overflow: 'hidden',
   },
   freeProgressFill: {
     height: '100%',
-    backgroundColor: colors.shortlist.background,
+    backgroundColor: colors.onboarding.primary,
     borderRadius: 3,
   },
   browseCountryBtn: {

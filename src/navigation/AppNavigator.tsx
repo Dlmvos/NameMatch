@@ -26,6 +26,7 @@ import MatchesScreen from '../screens/MatchesScreen';
 import ShopScreen from '../screens/ShopScreen';
 import PaywallScreen from '../screens/PaywallScreen';
 import SettingsScreen from '../screens/SettingsScreen';
+import DevAnalyticsScreen from '../screens/DevAnalyticsScreen';
 
 import { RootStackParamList, MainTabParamList } from '../types';
 
@@ -187,6 +188,7 @@ function AuthenticatedRootNavigator() {
             <Stack.Screen name="Paywall" component={PaywallScreen} options={{ headerShown: false }} />
             <Stack.Screen name="PartnerConnect" component={PartnerConnectScreen} />
             <Stack.Screen name="RoomManagement" component={RoomManagementScreen} />
+            {__DEV__ ? <Stack.Screen name="DevAnalytics" component={DevAnalyticsScreen} /> : null}
           </>
         ) : !hasRoom ? (
           <>
@@ -205,6 +207,7 @@ function AuthenticatedRootNavigator() {
             <Stack.Screen name="Region" component={RegionScreen} />
             <Stack.Screen name="PartnerConnect" component={PartnerConnectScreen} />
             <Stack.Screen name="RoomManagement" component={RoomManagementScreen} />
+            {__DEV__ ? <Stack.Screen name="DevAnalytics" component={DevAnalyticsScreen} /> : null}
           </>
         )}
       </Stack.Navigator>

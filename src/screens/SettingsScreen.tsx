@@ -320,6 +320,14 @@ export default function SettingsScreen() {
 
         {/* About */}
         <SettingsSection title={tr('settings.about')}>
+          {__DEV__ ? (
+            <SettingsRow
+              icon="analytics-outline"
+              label="Dev Analytics"
+              value=""
+              onPress={() => navigation.navigate('DevAnalytics')}
+            />
+          ) : null}
           <SettingsRow
             icon="refresh-circle-outline"
             label={tr('settings.restorePurchases')}

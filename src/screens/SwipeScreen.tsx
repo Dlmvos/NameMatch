@@ -27,6 +27,7 @@ import { formatLocalizedPrice, resolveCurrencyCode } from '../lib/currency';
 import { getSwipeMetadataLabelKey } from '../lib/swipeMetadataLabel';
 import { getRecommendedPack, type RecommendedPack, type SwipeSignal } from '../services/namePackRecommendationService';
 import { AnalyticsService } from '../services/AnalyticsService';
+import { DEV_PREVIEW } from '../config/devPreview';
 import type { BabyName, RootStackParamList } from '../types';
 import { colors, COLORS, FONTS, RADIUS, SHADOWS, SPACING } from '../theme';
 
@@ -140,15 +141,18 @@ export default function SwipeScreen() {
   // Completion-bias: show 'N swipes to curated picks' tied to real 15-swipe recommendation cadence
   const RECOMMENDATION_CADENCE = 15;
 
+  const usePreviewScreenshotDeck =
+    __DEV__ && (DEV_PREVIEW.forceScreenshotNames || useDevScreenshotDeck);
+  const forcePremiumUnlocked = __DEV__ && DEV_PREVIEW.forcePaywallState === 'owned';
   const freeSwipesLeft = profile?.free_swipes_remaining ?? 0;
-  const hasUnlockedPacks = effectiveUnlockedPacks.length > 0;
+  const hasUnlockedPacks = forcePremiumUnlocked || effectiveUnlockedPacks.length > 0;
   const hasPartner = !!(room?.user2_id);
-  const screenshotNames = __DEV__ && useDevScreenshotDeck ? DEV_SCREENSHOT_NAMES : namesToSwipe;
+  const screenshotNames = usePreviewScreenshotDeck ? DEV_SCREENSHOT_NAMES : namesToSwipe;
   const visibleNames = screenshotNames.slice(0, VISIBLE_CARDS);
   const nextName = visibleNames[1];
   const totalRemaining = screenshotNames.length;
   const isLocked =
-    !useDevScreenshotDeck &&
+    !usePreviewScreenshotDeck &&
     profile !== null &&
     freeSwipesLeft <= 0 &&
     !hasUnlockedPacks;
@@ -194,14 +198,14 @@ export default function SwipeScreen() {
     if (
       isFocused &&
       !hasUnlockedPacks &&
-      !useDevScreenshotDeck &&
+      !usePreviewScreenshotDeck &&
       freeSwipesLeft === 1 &&
       !didShowFinalSwipePreviewRef.current
     ) {
       didShowFinalSwipePreviewRef.current = true;
       setShowFinalSwipePaywallPreview(true);
     }
-  }, [freeSwipesLeft, hasUnlockedPacks, isFocused, useDevScreenshotDeck]);
+  }, [freeSwipesLeft, hasUnlockedPacks, isFocused, usePreviewScreenshotDeck]);
 
   useEffect(() => {
     if (
@@ -217,7 +221,7 @@ export default function SwipeScreen() {
   }, [isFocused, isLoadingNames, namesToSwipe.length, effectiveUnlockedPacks, loadMoreNames]);
 
   const handleSwipe = async (name: BabyName, direction: 'left' | 'right') => {
-    if (__DEV__ && useDevScreenshotDeck) return;
+    if (usePreviewScreenshotDeck) return;
     if (isLocked) {
       if (!__DEV__) {
         navigation.navigate('Paywall');
@@ -291,7 +295,7 @@ export default function SwipeScreen() {
     }
   };
 
-  if (isLoadingNames) {
+  if (isLoadingNames && !usePreviewScreenshotDeck) {
     return (
       <SafeAreaView style={styles.container}>
         <LinearGradient colors={['#FFF0F5', '#FFF9F5']} style={StyleSheet.absoluteFill} />
@@ -567,7 +571,7 @@ export default function SwipeScreen() {
             {suggestedPack ? (
               <>
                 <LinearGradient
-                  colors={['#FFF6FC', '#F6F0FF']}
+                  colors={[colors.neutral.white, colors.onboarding.accent]}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
                   style={styles.offerHighlightCard}
@@ -668,7 +672,7 @@ export default function SwipeScreen() {
               }}
             >
               <Text style={styles.devMenuText}>
-                {useDevScreenshotDeck ? 'Use live deck' : 'Use screenshot deck'}
+                {usePreviewScreenshotDeck ? 'Screenshot deck active' : 'Use screenshot deck'}
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -921,7 +925,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: SPACING.md,
     borderWidth: 1,
-    borderColor: '#F1E4FF',
+    borderColor: colors.neutral.border,
     gap: 4,
   },
   offerHighlightEyebrow: {
