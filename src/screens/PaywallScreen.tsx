@@ -138,6 +138,8 @@ export default function PaywallScreen({ navigation }: Props) {
           <Text style={styles.primaryButtonText}>{t('paywall.couple.primaryCta')}</Text>
         </TouchableOpacity>
 
+        <Text style={styles.urgencyText}>{t('paywall.couple.urgencyCopy')}</Text>
+
         <Text style={styles.trustText}>{t('paywall.couple.trustCopy')}</Text>
 
         <TouchableOpacity
@@ -263,6 +265,13 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '900',
     letterSpacing: 0.2,
+  },
+  urgencyText: {
+    fontSize: 12,
+    textAlign: 'center',
+    color: colors.neutral.darkGray,
+    fontWeight: '700',
+    marginBottom: 6,
   },
   trustText: {
     fontSize: 13,

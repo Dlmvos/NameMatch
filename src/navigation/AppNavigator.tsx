@@ -184,6 +184,7 @@ function AuthenticatedRootNavigator() {
             <Stack.Screen name="Preferences" component={PreferencesScreen} />
             <Stack.Screen name="Country" component={CountryScreen} />
             <Stack.Screen name="Region" component={RegionScreen} />
+            <Stack.Screen name="Paywall" component={PaywallScreen} options={{ headerShown: false }} />
             <Stack.Screen name="PartnerConnect" component={PartnerConnectScreen} />
             <Stack.Screen name="RoomManagement" component={RoomManagementScreen} />
           </>

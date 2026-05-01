@@ -114,6 +114,27 @@ export default function RegionScreen({ navigation }: Props) {
           </Text>
         </View>
 
+        <View style={[styles.premiumPreview, SHADOWS.card]}>
+          <Text style={styles.premiumPreviewTitle}>
+            Unlock more names, deeper meanings, and smarter matches
+          </Text>
+          <View style={styles.lockedNameRow}>
+            {['Aurelia', 'Mateo', 'Noor'].map((name) => (
+              <View key={name} style={styles.lockedNameCard}>
+                <Text style={styles.lockIcon}>🔒</Text>
+                <Text style={styles.lockedNameText}>{name}</Text>
+              </View>
+            ))}
+          </View>
+          <TouchableOpacity
+            style={styles.premiumPreviewCta}
+            onPress={() => navigation.navigate('Paywall')}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.premiumPreviewCtaText}>See Premium</Text>
+          </TouchableOpacity>
+        </View>
+
         <TouchableOpacity
           style={[styles.continueBtn, !selected && styles.continueBtnDisabled, SHADOWS.button]}
           onPress={handleContinue}
@@ -265,6 +286,61 @@ const styles = StyleSheet.create({
     color: colors.onboarding.text,
     textAlign: 'center',
     fontWeight: '600',
+  },
+  premiumPreview: {
+    width: '100%',
+    backgroundColor: colors.onboarding.background,
+    borderRadius: RADIUS.lg,
+    borderWidth: 1,
+    borderColor: colors.neutral.border,
+    padding: SPACING.md,
+    marginBottom: SPACING.xl,
+    gap: SPACING.sm,
+  },
+  premiumPreviewTitle: {
+    fontSize: FONTS.sizes.md,
+    fontWeight: '800',
+    color: colors.onboarding.text,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  lockedNameRow: {
+    flexDirection: 'row',
+    gap: SPACING.xs,
+  },
+  lockedNameCard: {
+    flex: 1,
+    minHeight: 58,
+    borderRadius: RADIUS.md,
+    backgroundColor: colors.neutral.white,
+    borderWidth: 1,
+    borderColor: colors.neutral.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    opacity: 0.72,
+  },
+  lockIcon: {
+    fontSize: 13,
+    marginBottom: 2,
+  },
+  lockedNameText: {
+    fontSize: FONTS.sizes.sm,
+    fontWeight: '800',
+    color: colors.onboarding.text,
+  },
+  premiumPreviewCta: {
+    alignSelf: 'center',
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.xs,
+    borderRadius: RADIUS.full,
+    backgroundColor: colors.neutral.white,
+    borderWidth: 1,
+    borderColor: colors.neutral.border,
+  },
+  premiumPreviewCtaText: {
+    fontSize: FONTS.sizes.sm,
+    fontWeight: '800',
+    color: colors.onboarding.primary,
   },
   continueBtn: {
     width: '100%',

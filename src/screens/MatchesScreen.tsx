@@ -16,6 +16,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useNavigation } from '@react-navigation/native';
+import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { useMatchState } from '../context/RoomContext';
 import { useRoom } from '../context/RoomContext';
 import { useAuth } from '../context/AuthContext';
@@ -25,7 +27,7 @@ import { CustomNameService } from '../services/CustomNameService';
 import { SwipeService, LikedName } from '../services/SwipeService';
 import NameDetailModal from '../components/NameDetailModal';
 import { ensureNameNestStorageMigration } from '../lib/storageBrandMigration';
-import { Match, BabyName, Gender, Region } from '../types';
+import { Match, BabyName, Gender, Region, MainTabParamList } from '../types';
 import { colors, COLORS, FONTS, RADIUS, SPACING, SHADOWS } from '../theme';
 import { DEV_PREVIEW } from '../config/devPreview';
 
@@ -33,20 +35,12 @@ type ScreenTab = 'matches' | 'likes';
 
 async function shareSingleMatch(
   match: Match,
-  t: (key: string, vars?: Record<string, string | number>) => string,
-  language: string,
 ): Promise<void> {
   const name = match.baby_names;
   if (!name) return;
-  const localizedMeaning = getLocalizedNameMeaning(name, language);
   try {
     await Share.share({
-      message: t('match.share.message', {
-        name: name.name,
-        origin: name.origin ?? '',
-        meaning: localizedMeaning,
-      }),
-      title: t('match.share.title', { name: name.name }),
+      message: `We matched on ${name.name} ❤️ Try Babinom`,
     });
   } catch (_) {}
 }
@@ -417,7 +411,7 @@ export default function MatchesScreen() {
                 rank={index + 1}
                 note={notes[item.id]}
                 onNotePress={() => openNote(item.id)}
-                onShareMatch={() => shareSingleMatch(item, t, language)}
+                onShareMatch={() => shareSingleMatch(item)}
               />
             )}
             ListFooterComponent={
@@ -645,6 +639,7 @@ function LikedNameCard({
 
 function EmptyState({ onLoadDevSamples }: { onLoadDevSamples?: () => void }) {
   const { t } = useTranslation();
+  const navigation = useNavigation<BottomTabNavigationProp<MainTabParamList, 'Matches'>>();
   return (
     <View style={styles.emptyState}>
       <View style={styles.emptyIconCircle}>
@@ -654,6 +649,14 @@ function EmptyState({ onLoadDevSamples }: { onLoadDevSamples?: () => void }) {
       <Text style={styles.emptySubtitle}>
         {t('matches.empty.subtitle')}
       </Text>
+      <TouchableOpacity
+        style={styles.emptyCta}
+        onPress={() => navigation.navigate('Swipe')}
+        activeOpacity={0.88}
+      >
+        <Text style={styles.emptyCtaText}>{t('matches.empty.cta')}</Text>
+      </TouchableOpacity>
+      <Text style={styles.emptyHint}>{t('matches.empty.premiumHint')}</Text>
       <View style={styles.tipBox}>
         <Text style={styles.tipTitle}>{t('matches.howItWorks')}</Text>
         <View style={styles.tipRow}>
@@ -890,6 +893,24 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     textAlign: 'center',
     lineHeight: 22,
+  },
+  emptyCta: {
+    backgroundColor: colors.onboarding.primary,
+    borderRadius: RADIUS.full,
+    paddingHorizontal: SPACING.xl,
+    paddingVertical: SPACING.sm,
+    ...SHADOWS.button,
+  },
+  emptyCtaText: {
+    fontSize: FONTS.sizes.md,
+    fontWeight: '800',
+    color: colors.neutral.white,
+  },
+  emptyHint: {
+    fontSize: FONTS.sizes.xs,
+    color: COLORS.textMuted,
+    textAlign: 'center',
+    marginTop: -SPACING.xs,
   },
   tipBox: {
     backgroundColor: colors.neutral.white + 'B8',

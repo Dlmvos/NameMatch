@@ -57,12 +57,7 @@ export default function MatchCelebration({ name, onDismiss, onViewMatches }: Mat
   const handleShare = async () => {
     try {
       await Share.share({
-        message: t('match.share.message', {
-          name: name.name,
-          origin: cleanOriginForDisplay(name.origin),
-          meaning: localizedMeaning,
-        }),
-        title: t('match.share.title', { name: name.name }),
+        message: `We matched on ${name.name} ❤️ Try Babinom`,
       });
     } catch (_) {}
   };
