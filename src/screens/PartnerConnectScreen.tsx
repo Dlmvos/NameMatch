@@ -13,21 +13,41 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import QRCode from 'react-native-qrcode-svg';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useApp } from '../context/AppContext';
+import { useIsFocused } from '@react-navigation/native';
+import { useRoomActions, useRoomState } from '../context/RoomContext';
+import { useAuth } from '../context/AuthContext';
+import { useTranslation } from '../i18n/I18nProvider';
+import { createRoomJoinPayload } from '../lib/roomJoinPayload';
 import { RootStackParamList } from '../types';
 import { COLORS, FONTS, RADIUS, SPACING, SHADOWS } from '../theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'PartnerConnect'>;
 
 type Tab = 'create' | 'join';
+const DEV_SCREENSHOT_ROOM_CODE = 'NEST24';
 
 export default function PartnerConnectScreen({ navigation }: Props) {
-  const { createRoom, joinRoom } = useApp();
+  const { t } = useTranslation();
+  const { user } = useAuth();
+  const { room } = useRoomState();
+  const { createRoom, joinRoom } = useRoomActions();
+  const isFocused = useIsFocused();
   const [activeTab, setActiveTab] = useState<Tab>('create');
   const [roomCode, setRoomCode] = useState('');
   const [joinCode, setJoinCode] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [showDevConnectedState, setShowDevConnectedState] = useState(false);
+  // Derive effective code: prefer room context (survives unmount/remount), fall back to local state.
+  const effectiveCode = room?.code ?? roomCode;
+  const isConnected = !!(room?.user1_id && room?.user2_id) || (__DEV__ && showDevConnectedState);
+  const normalizedJoinCode = joinCode.trim().toUpperCase();
+  const isJoinCodeComplete = normalizedJoinCode.length === 6;
+
+  const joinPayload = effectiveCode
+    ? createRoomJoinPayload(effectiveCode)
+    : '';
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.9)).current;
@@ -39,8 +59,16 @@ export default function PartnerConnectScreen({ navigation }: Props) {
     ]).start();
   }, []);
 
+  useEffect(() => {
+    // Only reset local state when the screen is focused and there's no room.
+    // If room exists, the code is derived from room.code — no reset needed.
+    if (!isFocused || room) return;
+    setRoomCode('');
+    setIsLoading(false);
+  }, [isFocused, room]);
+
   const handleCreateRoom = async () => {
-    if (roomCode) {
+    if (effectiveCode) {
       // Already created — share it
       handleShare();
       return;
@@ -50,7 +78,7 @@ export default function PartnerConnectScreen({ navigation }: Props) {
       const code = await createRoom();
       setRoomCode(code);
     } catch (err: any) {
-      Alert.alert('Error', err.message ?? 'Could not create room.');
+      Alert.alert(t('common.error'), err.message ?? t('partner.error.createRoom'));
     } finally {
       setIsLoading(false);
     }
@@ -59,74 +87,130 @@ export default function PartnerConnectScreen({ navigation }: Props) {
   const handleShare = async () => {
     try {
       await Share.share({
-        message: `Join me on NameMatch! 👶 Enter code: ${roomCode}\n\nDownload the app and let's find our baby's perfect name together! 💕`,
-        title: 'Join my NameMatch room!',
+        message: t('partner.share.message', { code: effectiveCode }),
+        title: t('partner.share.title'),
       });
     } catch (_) {}
   };
 
   const handleJoinRoom = async () => {
-    if (!joinCode.trim() || joinCode.length < 4) {
-      Alert.alert('Oops!', 'Please enter a valid room code.');
+    const raw = normalizedJoinCode;
+    if (__DEV__) {
+      console.log('[PartnerConnectScreen] join pressed', {
+        rawJoinCode: joinCode,
+        normalizedCode: raw,
+        codeLength: raw.length,
+        userId: user?.id ?? null,
+        isJoining: isLoading,
+      });
+    }
+    // Room codes are generated from: [A-HJ-NP-Z2-9] (no I/O; digits 2-9) and are always 6 chars.
+    if (!raw || raw.length !== 6 || !/^[A-HJ-NP-Z2-9]{6}$/.test(raw)) {
+      Alert.alert(t('partner.error.invalidCodeTitle'), t('partner.error.invalidCodeBody'));
       return;
     }
     setIsLoading(true);
     try {
-      await joinRoom(joinCode.toUpperCase().trim());
+      await joinRoom(raw);
       // Navigation handled by AppNavigator
     } catch (err: any) {
-      Alert.alert('Could not join room', err.message ?? 'Check the code and try again.');
+      Alert.alert(t('partner.error.joinTitle'), err.message ?? t('partner.error.joinBody'));
     } finally {
       setIsLoading(false);
     }
   };
 
+  const handleSkip = () => {
+    setJoinCode('');
+    setRoomCode('');
+    setIsLoading(false);
+    setActiveTab('create');
+    navigateToMainTabs();
+  };
+
+  const navigateToMainTabs = () => {
+    const routeNames = navigation.getState().routeNames as Array<keyof RootStackParamList>;
+    if (routeNames.includes('MainTabs')) {
+      navigation.navigate('MainTabs', { screen: 'Swipe' });
+      return;
+    }
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+    }
+  };
+
+  const handleStartSwiping = () => {
+    navigation.navigate('MainTabs', { screen: 'Swipe' });
+  };
+
   return (
     <LinearGradient colors={[colors.onboarding.background, colors.neutral.white]} style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scroll}>
-        {/* Progress dots */}
-        <View style={styles.progress}>
-          <View style={styles.dot} />
-          <View style={styles.dot} />
-          <View style={[styles.dot, styles.dotActive]} />
-        </View>
-
+      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         <Animated.View style={{ opacity: fadeAnim, transform: [{ scale: scaleAnim }] }}>
           <Text style={styles.emoji}>💑</Text>
-          <Text style={styles.title}>Connect with{'\n'}your partner</Text>
+          <Text style={styles.title}>{t('partner.title')}</Text>
           <Text style={styles.subtitle}>
-            Create a room and share the code, or enter your partner's code to join.
+            {t('partner.subtitle')}
           </Text>
         </Animated.View>
 
-        {/* Tabs */}
-        <View style={styles.tabs}>
-          <TouchableOpacity
-            style={[styles.tab, activeTab === 'create' && styles.tabActive]}
-            onPress={() => setActiveTab('create')}
-          >
-            <Text style={[styles.tabText, activeTab === 'create' && styles.tabTextActive]}>
-              Create Room
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.tab, activeTab === 'join' && styles.tabActive]}
-            onPress={() => setActiveTab('join')}
-          >
-            <Text style={[styles.tabText, activeTab === 'join' && styles.tabTextActive]}>
-              Join Room
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Create Room Panel */}
-        {activeTab === 'create' && (
+        {isConnected ? (
           <View style={styles.panel}>
-            {!roomCode ? (
+            <View style={[styles.connectedCard, SHADOWS.card]}>
+              <Text style={styles.connectedEmoji}>🎉</Text>
+              <Text style={styles.connectedTitle}>{t('partner.connected.title')}</Text>
+              <Text style={styles.connectedText}>
+                {t('partner.connected.text.primary')}
+              </Text>
+              <Text style={styles.connectedText}>
+                {t('partner.connected.text.secondary')}
+              </Text>
+              <TouchableOpacity
+                style={[styles.primaryBtn, SHADOWS.button]}
+                onPress={handleStartSwiping}
+                activeOpacity={0.85}
+              >
+                <LinearGradient
+                  colors={[colors.onboarding.primary, colors.onboarding.secondary]}
+                  style={styles.primaryBtnGradient}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                >
+                  <Text style={styles.primaryBtnText}>{t('partner.connected.cta')}</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
+          </View>
+        ) : (
+          <>
+            {/* Tabs */}
+            <View style={styles.tabs}>
+              <TouchableOpacity
+                style={[styles.tab, activeTab === 'create' && styles.tabActive]}
+                onPress={() => setActiveTab('create')}
+              >
+                <Text style={[styles.tabText, activeTab === 'create' && styles.tabTextActive]}>
+                  {t('partner.tab.create')}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.tab, activeTab === 'join' && styles.tabActive]}
+                onPress={() => setActiveTab('join')}
+              >
+                <Text style={[styles.tabText, activeTab === 'join' && styles.tabTextActive]}>
+                  {t('partner.tab.join')}
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Create Room Panel */}
+            {activeTab === 'create' && (
+              <View style={styles.panel}>
+            {!effectiveCode ? (
               <>
                 <View style={styles.infoBox}>
                   <Text style={styles.infoText}>
-                    Generate a unique 6-letter code and share it with your partner. You'll both swipe independently!
+                    {t('partner.info.create')}
                   </Text>
                 </View>
 
@@ -144,20 +228,43 @@ export default function PartnerConnectScreen({ navigation }: Props) {
                   >
                     <Ionicons name="add-circle-outline" size={22} color={colors.neutral.white} style={{ marginRight: 8 }} />
                     <Text style={styles.primaryBtnText}>
-                      {isLoading ? 'Creating...' : 'Create My Room'}
+                      {isLoading ? t('partner.create.loading') : t('partner.create.cta')}
                     </Text>
                   </LinearGradient>
                 </TouchableOpacity>
+                {__DEV__ ? (
+                  <View style={styles.devDemoRow}>
+                    <TouchableOpacity
+                      style={styles.devDemoCodeBtn}
+                      onPress={() => setRoomCode(DEV_SCREENSHOT_ROOM_CODE)}
+                      activeOpacity={0.85}
+                    >
+                      <Text style={styles.devDemoCodeText}>Demo invite code</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.devDemoCodeBtn}
+                      onPress={() => setShowDevConnectedState(true)}
+                      activeOpacity={0.85}
+                    >
+                      <Text style={styles.devDemoCodeText}>Connected state</Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : null}
               </>
             ) : (
               <>
-                <Text style={styles.codeLabel}>Your room code</Text>
+                <Text style={styles.codeLabel}>{t('partner.code.label')}</Text>
                 <View style={[styles.codeDisplay, SHADOWS.card]}>
-                  <Text style={styles.codeText}>{roomCode}</Text>
+                  <Text style={styles.codeText}>{effectiveCode}</Text>
                 </View>
                 <Text style={styles.codeHint}>
-                  Share this with your partner — they'll use "Join Room" to enter it.
+                  {t('partner.code.hint')}
                 </Text>
+
+                <View style={[styles.qrCard, SHADOWS.card]}>
+                  <QRCode value={joinPayload} size={170} />
+                  <Text style={styles.qrHint}>{t('partner.qr.hint')}</Text>
+                </View>
 
                 <TouchableOpacity
                   style={[styles.shareBtn, SHADOWS.button]}
@@ -171,40 +278,42 @@ export default function PartnerConnectScreen({ navigation }: Props) {
                     end={{ x: 1, y: 0 }}
                   >
                     <Ionicons name="share-outline" size={22} color={colors.neutral.white} style={{ marginRight: 8 }} />
-                    <Text style={styles.primaryBtnText}>Share Code</Text>
+                    <Text style={styles.primaryBtnText}>{t('partner.share')}</Text>
                   </LinearGradient>
                 </TouchableOpacity>
 
                 <TouchableOpacity
                   style={styles.skipBtn}
-                  onPress={() => navigation.navigate('MainTabs')}
+                  onPress={handleSkip}
                 >
-                  <Text style={styles.skipText}>Start swiping solo for now →</Text>
+                  <Text style={styles.skipText}>{t('partner.solo')}</Text>
                 </TouchableOpacity>
               </>
             )}
           </View>
-        )}
+            )}
 
-        {/* Join Room Panel */}
-        {activeTab === 'join' && (
-          <View style={styles.panel}>
+            {/* Join Room Panel */}
+            {activeTab === 'join' && (
+              <View style={styles.panel}>
             <View style={styles.infoBox}>
               <Text style={styles.infoText}>
-                Ask your partner for their room code and enter it below to join their room.
+                {t('partner.info.join')}
               </Text>
             </View>
 
             <View style={styles.codeInputWrapper}>
               <TextInput
                 style={styles.codeInput}
-                placeholder="Enter 6-letter code"
+                placeholder={t('partner.join.placeholder')}
                 placeholderTextColor={COLORS.textMuted}
                 value={joinCode}
                 onChangeText={(t) => setJoinCode(t.toUpperCase())}
                 maxLength={6}
                 autoCapitalize="characters"
                 autoCorrect={false}
+                returnKeyType="join"
+                onSubmitEditing={handleJoinRoom}
               />
             </View>
 
@@ -215,7 +324,7 @@ export default function PartnerConnectScreen({ navigation }: Props) {
                   key={i}
                   style={[
                     styles.codeDot,
-                    i < joinCode.length && styles.codeDotFilled,
+                    i < normalizedJoinCode.length && styles.codeDotFilled,
                   ]}
                 />
               ))}
@@ -225,10 +334,10 @@ export default function PartnerConnectScreen({ navigation }: Props) {
               style={[
                 styles.primaryBtn,
                 SHADOWS.button,
-                joinCode.length < 6 && { opacity: 0.6 },
+                !isJoinCodeComplete && { opacity: 0.6 },
               ]}
               onPress={handleJoinRoom}
-              disabled={isLoading || joinCode.length < 6}
+              disabled={isLoading || !isJoinCodeComplete}
               activeOpacity={0.85}
             >
               <LinearGradient
@@ -239,21 +348,23 @@ export default function PartnerConnectScreen({ navigation }: Props) {
               >
                 <Ionicons name="enter-outline" size={22} color={colors.neutral.white} style={{ marginRight: 8 }} />
                 <Text style={styles.primaryBtnText}>
-                  {isLoading ? 'Joining...' : 'Join Room'}
+                  {isLoading ? t('partner.join.loading') : t('partner.join.cta')}
                 </Text>
               </LinearGradient>
             </TouchableOpacity>
           </View>
-        )}
+            )}
 
-        {/* Skip for now */}
-        {activeTab === 'create' && !roomCode && (
-          <TouchableOpacity
-            style={styles.skipBtn}
-            onPress={() => navigation.navigate('MainTabs')}
-          >
-            <Text style={styles.skipText}>Skip for now, I'll connect later</Text>
-          </TouchableOpacity>
+            {/* Skip for now */}
+            {activeTab === 'create' && !effectiveCode && (
+              <TouchableOpacity
+                style={styles.skipBtn}
+                onPress={handleSkip}
+              >
+                <Text style={styles.skipText}>{t('partner.skip')}</Text>
+              </TouchableOpacity>
+            )}
+          </>
         )}
       </ScrollView>
     </LinearGradient>
@@ -338,6 +449,29 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: SPACING.md,
   },
+  connectedCard: {
+    width: '100%',
+    backgroundColor: colors.neutral.white,
+    borderRadius: RADIUS.xl,
+    padding: SPACING.xl,
+    alignItems: 'center',
+    gap: SPACING.md,
+  },
+  connectedEmoji: {
+    fontSize: 56,
+  },
+  connectedTitle: {
+    fontSize: FONTS.sizes.xxl,
+    fontWeight: '800',
+    color: colors.onboarding.text,
+    textAlign: 'center',
+  },
+  connectedText: {
+    fontSize: FONTS.sizes.md,
+    color: colors.onboarding.text,
+    textAlign: 'center',
+    lineHeight: 22,
+  },
   infoBox: {
     backgroundColor: colors.onboarding.background,
     borderRadius: RADIUS.md,
@@ -397,6 +531,37 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.lg,
     overflow: 'hidden',
   },
+  devDemoRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: SPACING.xs,
+  },
+  devDemoCodeBtn: {
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.md,
+    borderRadius: RADIUS.full,
+    backgroundColor: colors.neutral.bgSoft,
+    borderWidth: 1,
+    borderColor: colors.neutral.border,
+  },
+  devDemoCodeText: {
+    fontSize: FONTS.sizes.xs,
+    fontWeight: '700',
+    color: colors.onboarding.text,
+  },
+  qrCard: {
+    backgroundColor: colors.neutral.white,
+    borderRadius: RADIUS.lg,
+    padding: SPACING.md,
+    alignItems: 'center',
+    gap: SPACING.sm,
+  },
+  qrHint: {
+    fontSize: FONTS.sizes.xs,
+    color: colors.onboarding.text,
+    textAlign: 'center',
+  },
   codeInputWrapper: {
     width: '100%',
     backgroundColor: colors.onboarding.background,
@@ -408,11 +573,11 @@ const styles = StyleSheet.create({
   codeInput: {
     paddingVertical: SPACING.md,
     paddingHorizontal: SPACING.lg,
-    fontSize: 32,
+    fontSize: 20,
     fontWeight: '800',
     color: colors.onboarding.text,
     textAlign: 'center',
-    letterSpacing: 6,
+    letterSpacing: 1,
   },
   codeDots: {
     flexDirection: 'row',

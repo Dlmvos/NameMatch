@@ -277,6 +277,36 @@ export default function SwipeScreen() {
     );
   }
 
+  if (isLocked) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <LinearGradient colors={['#FFF0F5', '#FFF9F5']} style={StyleSheet.absoluteFill} />
+        <View style={styles.centerState}>
+          <View style={styles.lockedIcon}>
+            <Ionicons name="lock-closed-outline" size={30} color={colors.onboarding.primary} />
+          </View>
+          <Text
+            style={styles.emptyTitle}
+            onLongPress={__DEV__ ? () => setShowDevScreenshotMenu(true) : undefined}
+          >
+            {t('swipe.locked.title')}
+          </Text>
+          <Text style={styles.emptySubtitle}>
+            {t('swipe.locked.subtitle')}
+          </Text>
+          <TouchableOpacity
+            style={[styles.lockedCta, SHADOWS.button]}
+            onPress={() => navigation.navigate('Paywall')}
+            activeOpacity={0.9}
+          >
+            <Text style={styles.lockedCtaText}>{t('swipe.locked.cta')}</Text>
+          </TouchableOpacity>
+        </View>
+        {__DEV__ ? renderDevScreenshotMenu() : null}
+      </SafeAreaView>
+    );
+  }
+
   if (totalRemaining === 0) {
     return (
       <SafeAreaView style={styles.container}>
@@ -730,6 +760,28 @@ const styles = StyleSheet.create({
   emptyEmoji: { fontSize: 64 },
   emptyTitle: { fontSize: 24, fontWeight: '800', color: COLORS.text, textAlign: 'center' },
   emptySubtitle: { fontSize: 15, color: COLORS.textSecondary, textAlign: 'center' },
+  lockedIcon: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.onboarding.accent,
+    borderWidth: 1,
+    borderColor: colors.onboarding.secondary,
+  },
+  lockedCta: {
+    marginTop: SPACING.sm,
+    borderRadius: RADIUS.lg,
+    backgroundColor: colors.onboarding.primary,
+    paddingHorizontal: SPACING.xl,
+    paddingVertical: SPACING.md,
+  },
+  lockedCtaText: {
+    color: colors.neutral.white,
+    fontSize: FONTS.sizes.md,
+    fontWeight: '800',
+  },
   loadingText: { marginTop: SPACING.md, fontSize: 15, color: COLORS.textSecondary },
   warningBanner: {
     marginHorizontal: SPACING.xl,

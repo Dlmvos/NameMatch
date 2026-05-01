@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -27,6 +27,7 @@ import NameDetailModal from '../components/NameDetailModal';
 import { ensureNameNestStorageMigration } from '../lib/storageBrandMigration';
 import { Match, BabyName, Gender, Region } from '../types';
 import { colors, COLORS, FONTS, RADIUS, SPACING, SHADOWS } from '../theme';
+import { DEV_PREVIEW } from '../config/devPreview';
 
 type ScreenTab = 'matches' | 'likes';
 
@@ -53,88 +54,32 @@ async function shareSingleMatch(
 const NOTES_STORAGE_KEY = 'namenest:match_notes';
 // Replaced by shared cleanOriginForDisplay from nameMeaningDisplay
 
-const DEV_SAMPLE_MATCHES: Match[] = [
-  {
-    id: 'dev-match-1',
-    room_id: 'dev-room',
-    name_id: 'dev-name-1',
-    created_at: new Date().toISOString(),
-    baby_names: {
-      id: 'dev-name-1',
-      name: 'Mila',
-      meaning: 'Gracious; dear',
-      meaningTranslations: {
-        nl: 'Genadig; dierbaar',
-        de: 'Anmutig; lieb',
+const DEV_SAMPLE_MATCHES: Match[] = __DEV__
+  ? ([
+      { name: 'Noah', gender: 'boy', origin: 'Hebrew' },
+      { name: 'Emma', gender: 'girl', origin: 'German' },
+      { name: 'Liam', gender: 'boy', origin: 'Irish' },
+      { name: 'Olivia', gender: 'girl', origin: 'Latin' },
+      { name: 'Lucas', gender: 'boy', origin: 'Latin' },
+    ] as const).map((name, index) => ({
+      id: `dev-match-${index + 1}`,
+      room_id: 'dev-room',
+      name_id: `dev-name-${index + 1}`,
+      created_at: new Date(Date.now() - index * 86400000).toISOString(),
+      baby_names: {
+        id: `dev-name-${index + 1}`,
+        name: name.name,
+        meaning: index === 0 ? 'Rest; comfort' : 'A meaningful favorite for your family',
+        origin: name.origin,
+        gender: name.gender,
+        country: 'Worldwide',
+        region: 'WORLDWIDE',
+        is_worldwide: true,
+        popularity_rank: index + 1,
+        trend: index < 2 ? 'rising' : 'stable',
       },
-      origin: 'Slavic',
-      gender: 'girl',
-      country: 'Netherlands',
-      region: 'EU',
-      is_worldwide: true,
-      popularity_rank: 12,
-      trend: 'rising',
-    },
-  },
-  {
-    id: 'dev-match-2',
-    room_id: 'dev-room',
-    name_id: 'dev-name-2',
-    created_at: new Date(Date.now() - 86400000).toISOString(),
-    baby_names: {
-      id: 'dev-name-2',
-      name: 'Adam',
-      meaning: 'Earth; man',
-      meaningTranslations: {
-        fr: 'Terre; homme',
-        es: 'Tierra; hombre',
-      },
-      origin: 'Hebrew',
-      gender: 'boy',
-      country: 'Belgium',
-      region: 'EU',
-      is_worldwide: true,
-      popularity_rank: 33,
-      trend: 'classic',
-    },
-  },
-  {
-    id: 'dev-match-3',
-    room_id: 'dev-room',
-    name_id: 'dev-name-3',
-    created_at: new Date(Date.now() - 172800000).toISOString(),
-    baby_names: {
-      id: 'dev-name-3',
-      name: 'Noah',
-      meaning: 'Rest; comfort',
-      origin: 'Hebrew',
-      gender: 'boy',
-      country: 'Germany',
-      region: 'EU',
-      is_worldwide: true,
-      popularity_rank: 5,
-      trend: 'stable',
-    },
-  },
-  {
-    id: 'dev-match-4',
-    room_id: 'dev-room',
-    name_id: 'dev-name-4',
-    created_at: new Date(Date.now() - 259200000).toISOString(),
-    baby_names: {
-      id: 'dev-name-4',
-      name: 'Luna',
-      meaning: 'Moon',
-      origin: 'Latin',
-      gender: 'girl',
-      country: 'France',
-      region: 'EU',
-      is_worldwide: true,
-      popularity_rank: 18,
-      trend: 'rising',
-    },
-  },
-];
+    }))
+  : [];
 
 export default function MatchesScreen() {
   const { t, language } = useTranslation();
@@ -145,8 +90,17 @@ export default function MatchesScreen() {
   const [editingMatchId, setEditingMatchId] = useState<string | null>(null);
   const [draftNote, setDraftNote] = useState('');
   const [showDevSampleMatches, setShowDevSampleMatches] = useState(false);
-  const displayedMatches =
-    __DEV__ && matches.length === 0 && showDevSampleMatches ? DEV_SAMPLE_MATCHES : matches;
+  const rawDisplayedMatches =
+    __DEV__ && (DEV_PREVIEW.forceMatches || (matches.length === 0 && showDevSampleMatches))
+      ? DEV_SAMPLE_MATCHES
+      : matches;
+  const displayedMatches = useMemo(
+    () =>
+      [...rawDisplayedMatches].sort(
+        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+      ),
+    [rawDisplayedMatches],
+  );
 
   // ── Custom name modal state ──
   const [showCustomNameModal, setShowCustomNameModal] = useState(false);
@@ -445,7 +399,7 @@ export default function MatchesScreen() {
         displayedMatches.length === 0 ? (
           <EmptyState
             onLoadDevSamples={
-              __DEV__ && matches.length === 0
+              __DEV__ && !DEV_PREVIEW.forceMatches && matches.length === 0
                 ? () => setShowDevSampleMatches(true)
                 : undefined
             }
@@ -538,6 +492,11 @@ function MatchCard({
 
   const genderEmoji =
     name.gender === 'boy' ? '💙' : name.gender === 'girl' ? '💗' : '💜';
+  const genderLabel =
+    name.gender === 'boy' ? 'Boy' : name.gender === 'girl' ? 'Girl' : 'Neutral';
+  const origin = cleanOriginForDisplay(name.origin);
+  const localizedMeaning = getLocalizedNameMeaning(name, language);
+  const preview = [genderLabel, origin].filter(Boolean).join(' • ');
 
   const date = new Date(match.created_at);
   const dateStr = date.toLocaleDateString(language, {
@@ -564,20 +523,28 @@ function MatchCard({
             {name.name}
           </Text>
           <Text style={styles.genderEmoji}>{genderEmoji}</Text>
+          <Ionicons name="heart" size={14} color={colors.match.primary} style={styles.heartIcon} />
+        </View>
+        <View style={styles.matchedTogetherBadge}>
+          <Text style={styles.matchedTogetherText}>You both liked this</Text>
         </View>
         <View style={styles.originRow}>
-          <Text style={styles.matchOrigin} numberOfLines={1}>
-            {cleanOriginForDisplay(name.origin)}
-          </Text>
+          {preview ? (
+            <Text style={styles.matchOrigin} numberOfLines={1}>
+              {preview}
+            </Text>
+          ) : null}
           {(name.source === 'custom' || name.origin === 'Custom') ? (
             <View style={styles.customBadge}>
               <Text style={styles.customBadgeText}>{t('matches.customName.badge')}</Text>
             </View>
           ) : null}
         </View>
-        <Text style={styles.matchMeaning} numberOfLines={2}>
-          {getLocalizedNameMeaning(name, language)}
-        </Text>
+        {localizedMeaning ? (
+          <Text style={styles.matchMeaning} numberOfLines={2}>
+            {localizedMeaning}
+          </Text>
+        ) : null}
         {!note ? (
           <TouchableOpacity onPress={onNotePress} hitSlop={{ top: 4, bottom: 4, left: 0, right: 0 }} style={styles.addNoteLinkWrap}>
             <Text style={styles.addNoteLink}>{t('matches.addNote')}</Text>
@@ -680,7 +647,9 @@ function EmptyState({ onLoadDevSamples }: { onLoadDevSamples?: () => void }) {
   const { t } = useTranslation();
   return (
     <View style={styles.emptyState}>
-      <Text style={styles.emptyEmoji}>⭐</Text>
+      <View style={styles.emptyIconCircle}>
+        <Ionicons name="heart-outline" size={28} color={colors.match.primary} />
+      </View>
       <Text style={styles.emptyTitle}>{t('matches.empty.title')}</Text>
       <Text style={styles.emptySubtitle}>
         {t('matches.empty.subtitle')}
@@ -804,6 +773,20 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     includeFontPadding: false,
   },
+  matchedTogetherBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: colors.match.secondary + '55',
+    borderRadius: RADIUS.full,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 3,
+    marginTop: 2,
+    marginBottom: 2,
+  },
+  matchedTogetherText: {
+    fontSize: FONTS.sizes.xs,
+    fontWeight: '700',
+    color: colors.match.primary,
+  },
   originRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -851,7 +834,9 @@ const styles = StyleSheet.create({
     fontSize: FONTS.sizes.xs,
     color: COLORS.textMuted,
   },
-  heartIcon: {},
+  heartIcon: {
+    marginLeft: 2,
+  },
   noteBtn: {},
   notePreview: {
     width: '100%',
@@ -884,8 +869,18 @@ const styles = StyleSheet.create({
   emptyEmoji: {
     fontSize: 64,
   },
+  emptyIconCircle: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.match.secondary + '55',
+    borderWidth: 1,
+    borderColor: colors.match.secondary,
+  },
   emptyTitle: {
-    fontSize: FONTS.sizes.xxl,
+    fontSize: FONTS.sizes.xl,
     fontWeight: '800',
     color: COLORS.text,
     textAlign: 'center',
@@ -897,13 +892,14 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   tipBox: {
-    backgroundColor: COLORS.surface,
+    backgroundColor: colors.neutral.white + 'B8',
     borderRadius: RADIUS.lg,
+    borderWidth: 1,
+    borderColor: colors.neutral.border,
     padding: SPACING.md,
     width: '100%',
     gap: SPACING.sm,
     marginTop: SPACING.sm,
-    ...SHADOWS.card,
   },
   tipTitle: {
     fontSize: FONTS.sizes.md,
