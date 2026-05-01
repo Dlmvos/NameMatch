@@ -35,3 +35,6 @@ agent-notes.md
 scripts/data/raw/
 scripts/data/batches/
 scripts/data/meaning-enrichment/
+
+.DS_Store
+**/.DS_Store
