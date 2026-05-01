@@ -31,6 +31,7 @@ import { RootStackParamList, MainTabParamList } from '../types';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator<MainTabParamList>();
+const DEBUG_STARTUP_GATE = false;
 
 function AppI18nBridge({ children }: { children: React.ReactNode }) {
   const { effectiveLanguage } = useApp();
@@ -127,7 +128,7 @@ function AuthenticatedRootNavigator() {
       : 'main';
 
   useEffect(() => {
-    if (!__DEV__) return;
+    if (!__DEV__ || !DEBUG_STARTUP_GATE) return;
     console.log('[StartupGate] ready state', {
       isStartupReady,
       hasCompletedOnboarding,
@@ -219,7 +220,7 @@ export default function AppNavigator() {
   const isAuthenticated = !!session;
 
   useEffect(() => {
-    if (!__DEV__) return;
+    if (!__DEV__ || !DEBUG_STARTUP_GATE) return;
     console.log('[AppNavigator] auth snapshot', {
       isLoading,
       isAuthenticated,
@@ -229,7 +230,7 @@ export default function AppNavigator() {
   }, [isLoading, isAuthenticated, session, profile]);
 
   if (isLoading) {
-    if (__DEV__) {
+    if (__DEV__ && DEBUG_STARTUP_GATE) {
       console.log('[AppNavigator] branch: loading spinner (isLoading=true)');
     }
     return (

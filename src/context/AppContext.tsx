@@ -5,6 +5,7 @@ import React, {
   useEffect,
   useCallback,
   useMemo,
+  useRef,
 } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from './AuthContext';
@@ -27,6 +28,7 @@ interface AppContextValue {
   effectiveLanguage: string;
   effectiveUnlockedPacks: string[];
   refreshUnlockedPacks: () => Promise<void>;
+  clearDevUnlockedPacks: () => Promise<void>;
   isCountryPrefHydrated: boolean;
   isUnlockedPacksHydrated: boolean;
 }
@@ -43,6 +45,7 @@ const COUNTRY_PREF_KEY = (uid: string) => `namenest:country_pref:${uid}`;
 const RESIDENCE_COUNTRY_KEY = (uid: string) => `namenest:residence_country:${uid}`;
 const LANGUAGE_PREF_KEY = (uid: string) => `namenest:language_pref:${uid}`;
 const DEV_UNLOCKED_PACKS_KEY = 'NAMEMATCH_DEV_UNLOCKED_PACKS';
+const DEBUG_PREMIUM = false;
 
 // ─────────────────────────────────────────────────────────────
 // Provider
@@ -52,7 +55,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const { room } = useRoomState();
 
   useEffect(() => {
-    if (!__DEV__) return;
+    if (!__DEV__ || !DEBUG_PREMIUM) return;
     console.log('[AppProvider] mounted (session present — onboarding or main)');
   }, []);
 
@@ -62,6 +65,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [devUnlockedPacks, setDevUnlockedPacks] = useState<string[]>([]);
   const [isCountryPrefHydrated, setIsCountryPrefHydrated] = useState(false);
   const [isUnlockedPacksHydrated, setIsUnlockedPacksHydrated] = useState(false);
+  const devUnlockedPacksRequestRef = useRef(0);
 
   const getDevUnlockedPacks = useCallback(async (): Promise<string[]> => {
     if (!__DEV__) return [];
@@ -76,16 +80,33 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const refreshUnlockedPacks = useCallback(async () => {
+    const requestId = ++devUnlockedPacksRequestRef.current;
     setIsUnlockedPacksHydrated(false);
     if (!user?.id || !__DEV__) {
-      setDevUnlockedPacks([]);
+      if (requestId === devUnlockedPacksRequestRef.current) {
+        setDevUnlockedPacks([]);
+      }
       setIsUnlockedPacksHydrated(true);
       return;
     }
     const localPacks = await getDevUnlockedPacks();
-    setDevUnlockedPacks(localPacks);
-    setIsUnlockedPacksHydrated(true);
+    if (requestId === devUnlockedPacksRequestRef.current) {
+      setDevUnlockedPacks(localPacks);
+      setIsUnlockedPacksHydrated(true);
+    }
   }, [user?.id, getDevUnlockedPacks]);
+
+  const clearDevUnlockedPacks = useCallback(async () => {
+    const requestId = ++devUnlockedPacksRequestRef.current;
+    setIsUnlockedPacksHydrated(false);
+    if (__DEV__) {
+      await AsyncStorage.removeItem(DEV_UNLOCKED_PACKS_KEY).catch(() => {});
+    }
+    if (requestId === devUnlockedPacksRequestRef.current) {
+      setDevUnlockedPacks([]);
+      setIsUnlockedPacksHydrated(true);
+    }
+  }, []);
 
   // ── Hydrate country/residence preferences (Supabase primary) ───────────────────────
   useEffect(() => {
@@ -252,6 +273,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     [profile?.purchased_packs, room?.premium_packs, devUnlockedPacks],
   );
 
+  useEffect(() => {
+    if (!__DEV__ || !DEBUG_PREMIUM) return;
+    console.log('[PremiumDebug] profile:', profile?.purchased_packs ?? []);
+    console.log('[PremiumDebug] room:', room?.premium_packs ?? []);
+    console.log('[PremiumDebug] dev:', devUnlockedPacks);
+    console.log('[PremiumDebug] effective:', effectiveUnlockedPacks);
+  }, [profile?.purchased_packs, room?.premium_packs, devUnlockedPacks, effectiveUnlockedPacks]);
+
   return (
     <AppContext.Provider
       value={{
@@ -264,6 +293,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         effectiveLanguage,
         effectiveUnlockedPacks,
         refreshUnlockedPacks,
+        clearDevUnlockedPacks,
         isCountryPrefHydrated,
         isUnlockedPacksHydrated,
       }}

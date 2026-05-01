@@ -13,7 +13,7 @@ import type { BabyName } from '../types';
 import { useTranslation } from '../i18n/I18nProvider';
 import { getLocalizedNameMeaning, cleanOriginForDisplay } from '../i18n/nameMeaningDisplay';
 import { enrichName, getTrendLabel } from '../services/nameEnrichment';
-import { colors, FONTS, SPACING } from '../theme';
+import { colors, COLORS, FONTS, SPACING } from '../theme';
 
 // ── Character tags derived from name properties ──
 
@@ -67,17 +67,17 @@ function popularityTier(rank?: number): { label: string; level: number } {
 // ── Palette ──
 
 const IVORY = '#FFF9F5';
-const IVORY_CARD = '#FFFFFF';
-const TEXT_PRIMARY = '#23303A';
-const TEXT_SECONDARY = '#7A8B97';
-const TEXT_MUTED = '#A8B4BD';
-const ACCENT_SOFT = '#F0E8F5';
-const ACCENT_FG = '#7B5EA7';
-const DIVIDER = '#F0EAEF';
-const TAG_BG = '#F5F0F8';
-const TAG_FG = '#7B5EA7';
-const BAR_TRACK = '#ECE6F0';
-const BAR_FILL = '#9A7FA5';
+const IVORY_CARD = colors.neutral.white;
+const TEXT_PRIMARY = colors.onboarding.text;
+const TEXT_SECONDARY = colors.neutral.darkGray;
+const TEXT_MUTED = colors.neutral.gray;
+const ACCENT_SOFT = colors.onboarding.primary + '18';
+const ACCENT_FG = colors.onboarding.primary;
+const DIVIDER = colors.neutral.border;
+const TAG_BG = colors.onboarding.primary + '12';
+const TAG_FG = colors.onboarding.primary;
+const BAR_TRACK = colors.neutral.border;
+const BAR_FILL = colors.onboarding.primary;
 
 // ── Component ──
 
@@ -119,10 +119,10 @@ export default function NameDetailModal({ name, visible, onClose }: NameDetailMo
     name.gender === 'boy' ? '♂' : name.gender === 'girl' ? '♀' : '⚬';
   const genderColor =
     name.gender === 'boy'
-      ? '#6BA3B4'
+      ? COLORS.boy
       : name.gender === 'girl'
-        ? '#C88BA0'
-        : '#8A88B8';
+        ? COLORS.girl
+        : COLORS.neutral;
 
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose} statusBarTranslucent>
@@ -323,12 +323,12 @@ const s = StyleSheet.create({
     paddingHorizontal: SPACING.md,
     paddingVertical: 6,
     borderRadius: 16,
-    backgroundColor: '#FFF8E1',
+    backgroundColor: colors.match.primary + '20',
   },
   trendPillText: {
     fontSize: FONTS.sizes.sm,
     fontWeight: '600',
-    color: '#C97D00',
+    color: colors.match.text,
   },
   // ── Sections ──
   divider: {

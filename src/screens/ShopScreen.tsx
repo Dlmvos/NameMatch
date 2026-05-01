@@ -25,6 +25,7 @@ import { NamePack, PREMIUM_COUPLE_PACK_KEY } from '../types';
 import { COUNTRY_OPTIONS } from '../data/countries';
 import { COLORS, FONTS, RADIUS, SPACING, SHADOWS } from '../theme';
 import { PurchaseService } from '../services/purchaseService';
+import { DEV_PREVIEW } from '../config/devPreview';
 
 const AI_PACK_UNLOCKS_KEY = 'AI_PACK_UNLOCKS';
 const DEV_UNLOCKED_PACKS_KEY = 'NAMEMATCH_DEV_UNLOCKED_PACKS';
@@ -43,7 +44,12 @@ type AIUnlockPack = {
 export default function ShopScreen() {
   const { t, language } = useTranslation();
   const { profile, refreshProfile, restorePurchases } = useAuth();
-  const { effectiveUnlockedPacks, refreshUnlockedPacks, residenceCountry } = useApp();
+  const {
+    effectiveUnlockedPacks,
+    refreshUnlockedPacks,
+    clearDevUnlockedPacks,
+    residenceCountry,
+  } = useApp();
   const { loadMoreNames } = useSwipeDeckActions();
   const isFocused = useIsFocused();
   const [showCountryBrowser, setShowCountryBrowser] = useState(false);
@@ -51,6 +57,13 @@ export default function ShopScreen() {
   const [aiUnlocks, setAiUnlocks] = useState<Record<string, AIUnlockPack>>({});
   const [nowMs, setNowMs] = useState(Date.now());
   const [premiumPrice, setPremiumPrice] = useState('...');
+  const realPremiumState = effectiveUnlockedPacks.length > 0;
+  const isPremium =
+    __DEV__ && DEV_PREVIEW.forcePaywallState === 'owned'
+      ? true
+      : __DEV__ && DEV_PREVIEW.forcePaywallState === 'locked'
+        ? false
+        : realPremiumState;
 
   const addDevUnlockedPack = async (packKey: string): Promise<void> => {
     const raw = await AsyncStorage.getItem(DEV_UNLOCKED_PACKS_KEY).catch(() => null);
@@ -67,7 +80,7 @@ export default function ShopScreen() {
     await AsyncStorage.setItem(DEV_UNLOCKED_PACKS_KEY, JSON.stringify([...existing, packKey])).catch(() => {});
   };
 
-  const isPurchased = (_key: string) => effectiveUnlockedPacks.length > 0;
+  const isPurchased = (_key: string) => isPremium;
 
   const getLocalizedCountryLabel = (countryName: string): string =>
     translateCountryName(t, countryName, countryName);
@@ -271,8 +284,17 @@ export default function ShopScreen() {
     }
   };
 
+  const handleResetDevPremium = async () => {
+    if (!__DEV__) return;
+    await clearDevUnlockedPacks();
+    await AsyncStorage.removeItem(AI_PACK_UNLOCKS_KEY).catch(() => {});
+    setAiUnlocks({});
+    loadMoreNames();
+    Alert.alert('Dev premium reset');
+  };
+
   const freeSwipesLeft = profile?.free_swipes_remaining ?? 0;
-  const hasUnlockedPacks = effectiveUnlockedPacks.length > 0;
+  const hasUnlockedPacks = isPremium;
   const formatRemaining = (pack: AIUnlockPack) => {
     const remaining = Math.max(0, AI_PACK_DURATION_MS - (nowMs - pack.unlockedAt));
     const hours = Math.floor(remaining / (60 * 60 * 1000));
@@ -369,6 +391,15 @@ export default function ShopScreen() {
             >
               <Text style={styles.restoreBtnText}>{t('shop.restorePurchases')}</Text>
             </TouchableOpacity>
+            {__DEV__ ? (
+              <TouchableOpacity
+                style={styles.devResetBtn}
+                onPress={handleResetDevPremium}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.devResetBtnText}>Reset Dev Premium</Text>
+              </TouchableOpacity>
+            ) : null}
           </View>
         </View>
 
@@ -667,6 +698,15 @@ const styles = StyleSheet.create({
     fontSize: FONTS.sizes.sm,
     fontWeight: '700',
     color: colors.onboarding.primary,
+  },
+  devResetBtn: {
+    alignItems: 'center',
+    paddingVertical: SPACING.xs,
+  },
+  devResetBtnText: {
+    fontSize: FONTS.sizes.xs,
+    fontWeight: '700',
+    color: COLORS.textMuted,
   },
   aiPackCard: {
     width: '100%',

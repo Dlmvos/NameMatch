@@ -5,6 +5,7 @@ import { SwipeService } from '../services/SwipeService';
 import {
   BabyName,
   NameFilters,
+  NameStyleTag,
   DEFAULT_FILTERS,
   Region,
   SwipeDirection,
@@ -19,9 +20,50 @@ function nameGenderDedupeKey(n: BabyName): string {
   return `${n.name.trim().toLowerCase()}|${n.gender}`;
 }
 
+function sanitizeFreeFilters(filters: NameFilters): NameFilters {
+  if (filters.lengths.length > 0) {
+    return { ...DEFAULT_FILTERS, lengths: [filters.lengths[0]] };
+  }
+  if (filters.trends.length > 0) {
+    return { ...DEFAULT_FILTERS, trends: [filters.trends[0]] };
+  }
+  return DEFAULT_FILTERS;
+}
+
 /** Merges deck slices in order: bundled core → public DB supplement → remote premium; drops later duplicates by (name, gender). */
 /** Bulk-import / Supabase `baby_names.id` uses UUID; bundled core uses short numeric ids. */
 const UUID_LIKE_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const DEBUG_SWIPE_DECK = false;
+
+const normalizeFilterText = (value?: string): string => value?.trim().toLowerCase() ?? '';
+
+function matchesStyleTag(name: BabyName, tag: NameStyleTag): boolean {
+  const nameText = normalizeFilterText(name.name);
+  const origin = normalizeFilterText(name.origin);
+  const country = normalizeFilterText(name.country);
+  const region = normalizeFilterText(name.region);
+  const combined = `${nameText} ${origin} ${country} ${region}`;
+
+  switch (tag) {
+    case 'unique':
+      return name.rarity?.tier === 'uncommon' ||
+        name.rarity?.tier === 'rare' ||
+        name.rarity?.tier === 'very_rare' ||
+        (name.popularity_rank ?? 0) >= 30;
+    case 'international':
+      return name.is_worldwide || region === 'worldwide' || country === 'worldwide';
+    case 'spanish':
+      return /\b(spanish|spain|hispanic|latin america|latam|mexico|argentina|chile|colombia)\b/.test(combined);
+    case 'dutch':
+      return /\b(dutch|netherlands|nederland|flemish|belgium)\b/.test(combined);
+    case 'soft':
+      return /[aeiy]$/.test(nameText) || /(ia|ella|elle|ina|ana|ora|lia|mila|luna)/.test(nameText);
+    case 'strong':
+      return /[bdgkrtxz]$/.test(nameText) || /(max|rex|leo|ax|kai|bram|thijs|mav|rock|wolf)/.test(nameText);
+    default:
+      return false;
+  }
+}
 
 function mergeDeckSourcesByNameGender(
   core: BabyName[],
@@ -203,7 +245,16 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
     (filters.lengths.length > 0 ? 1 : 0) +
     (filters.startingLetter ? 1 : 0) +
     (filters.trends.length > 0 ? 1 : 0) +
-    (filters.originsContain ? 1 : 0);
+    (filters.originsContain ? 1 : 0) +
+    (filters.styleTags.length > 0 ? 1 : 0);
+
+  useEffect(() => {
+    if (effectiveUnlockedPacks.length > 0) return;
+    const sanitized = sanitizeFreeFilters(filters);
+    if (JSON.stringify(sanitized) !== JSON.stringify(filters)) {
+      setFiltersState(sanitized);
+    }
+  }, [effectiveUnlockedPacks.length, filters]);
 
   const purchasedPacksKey = useMemo(
     () => effectiveUnlockedPacks.join(','),
@@ -236,7 +287,7 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
     isPremiumDeckHydrated;
 
   useEffect(() => {
-    if (!__DEV__ || isDeckReadyToBuild) return;
+    if (!__DEV__ || !DEBUG_SWIPE_DECK || isDeckReadyToBuild) return;
     console.log('[SwipeDeck] initial render gated', {
       hasProfile: !!profile,
       isCountryPrefHydrated,
@@ -359,7 +410,7 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
   }, [user?.id, effectiveUnlockedPacks.length, purchasedPacksKey, effectiveLanguage, expectedPremiumDeckHydrationKey]);
 
   useEffect(() => {
-    if (!__DEV__) return;
+    if (!__DEV__ || !DEBUG_SWIPE_DECK) return;
     const mergeInputCount =
       baselineDeckNames.length + publicDeckSupplement.length + (remotePremiumList?.length ?? 0);
     const mergeDuplicatesSuppressedByNameGender = Math.max(0, mergeInputCount - deckNames.length);
@@ -452,7 +503,7 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
   ]);
 
   useEffect(() => {
-    if (!__DEV__) return;
+    if (!__DEV__ || !DEBUG_SWIPE_DECK) return;
     const dbBackedInVisibleQueue = namesToSwipe.filter((n) => UUID_LIKE_ID.test(n.id)).length;
     const spainInVisibleQueue = namesToSwipe.filter((n) => n.country === 'Spain').length;
     const portugalInVisibleQueue = namesToSwipe.filter((n) => n.country === 'Portugal').length;
@@ -560,6 +611,9 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
       const q = filters.originsContain.toLowerCase();
       pool = pool.filter((n) => n.origin.toLowerCase().includes(q));
     }
+    if (filters.styleTags.length > 0) {
+      pool = pool.filter((n) => filters.styleTags.some((tag) => matchesStyleTag(n, tag)));
+    }
     if (filters.trends.length > 0) {
       pool = pool.filter((n) => {
         const trend = getCachedTrend(n);
@@ -568,7 +622,7 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
     }
 
     pool = applySharedRoomOrderingWithinPriorityGroups(pool, sharedRoomId, countryPreference, region);
-    if (__DEV__ && sharedRoomId) {
+    if (__DEV__ && DEBUG_SWIPE_DECK && sharedRoomId) {
       console.log('[SwipeDeck] shared-room ordering applied', {
         roomId: sharedRoomId,
         seedApplied: true,
@@ -599,13 +653,13 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
       }
       if (priority.length > 0) {
         pool = [...priority, ...rest];
-        if (__DEV__) {
+        if (__DEV__ && DEBUG_SWIPE_DECK) {
           console.log(`[SwipeDeck] boosted ${priority.length} partner custom name(s) to front`);
         }
       }
     }
 
-    if (__DEV__) {
+    if (__DEV__ && DEBUG_SWIPE_DECK) {
       const top10 = pool.slice(0, 10);
       const top10CountryCounts = top10.reduce<Record<string, number>>((acc, n) => {
         const key = (n.country ?? '').trim() || '(no country)';
@@ -637,7 +691,7 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
   // Explicitly react to country/region preference changes so deck composition updates without app refresh.
   useEffect(() => {
     if (!isDeckReadyToBuild) return;
-    if (__DEV__) {
+    if (__DEV__ && DEBUG_SWIPE_DECK) {
       console.log('[SwipeDeck] preference-triggered rebuild', {
         regionPref: profile.region_preference ?? null,
         countryPref: countryPreference ?? null,
@@ -693,7 +747,7 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
       }
 
       const swipedName = namesToSwipeRef.current.find((n) => n.id === nameId);
-      if (__DEV__) {
+      if (__DEV__ && DEBUG_SWIPE_DECK) {
         console.log('[SwipeDeck] recordSwipe', nameId);
       }
       setNamesToSwipe((prev) => prev.filter((n) => n.id !== nameId));
@@ -730,7 +784,7 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
             roomId,
             nameId,
           });
-          if (__DEV__) {
+          if (__DEV__ && DEBUG_SWIPE_DECK) {
             console.log('[SwipeDeck] match RPC result after right swipe', {
               userId,
               roomId,
@@ -741,7 +795,7 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
             });
           }
           if (isMatch && swipedName) {
-            if (__DEV__) {
+            if (__DEV__ && DEBUG_SWIPE_DECK) {
               console.log('[SwipeDeck] match true received', {
                 userId,
                 roomId,
@@ -782,8 +836,13 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
 
   const setFilters = useCallback((f: NameFilters) => {
     swipedIdsRef.current = new Set();
-    setFiltersState(f);
-  }, []);
+    const nextFilters = {
+      ...DEFAULT_FILTERS,
+      ...f,
+      styleTags: f.styleTags ?? [],
+    };
+    setFiltersState(effectiveUnlockedPacks.length > 0 ? nextFilters : sanitizeFreeFilters(nextFilters));
+  }, [effectiveUnlockedPacks.length]);
 
   const stateValue = useMemo(
     () => ({

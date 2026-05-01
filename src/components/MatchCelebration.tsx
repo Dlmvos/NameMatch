@@ -46,6 +46,7 @@ export default function MatchCelebration({ name, onDismiss, onViewMatches }: Mat
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const glowPulse = useRef(new Animated.Value(0.15)).current;
   const nameReveal = useRef(new Animated.Value(0)).current;
+  const nameScale = useRef(new Animated.Value(0.96)).current;
   const ringScale1 = useRef(new Animated.Value(0.6)).current;
   const ringScale2 = useRef(new Animated.Value(0.5)).current;
   const ringScale3 = useRef(new Animated.Value(0.4)).current;
@@ -125,14 +126,31 @@ export default function MatchCelebration({ name, onDismiss, onViewMatches }: Mat
       useNativeDriver: true,
     }).start();
 
-    // Name reveal: delayed fade for sequenced drama
-    Animated.timing(nameReveal, {
-      toValue: 1,
-      duration: 600,
-      delay: 300,
-      easing: Easing.out(Easing.ease),
-      useNativeDriver: true,
-    }).start();
+    // Name reveal: delayed fade plus a small settling scale for emotional emphasis.
+    Animated.parallel([
+      Animated.timing(nameReveal, {
+        toValue: 1,
+        duration: 720,
+        delay: 260,
+        easing: Easing.out(Easing.ease),
+        useNativeDriver: true,
+      }),
+      Animated.sequence([
+        Animated.delay(260),
+        Animated.timing(nameScale, {
+          toValue: 1.035,
+          duration: 420,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
+        Animated.spring(nameScale, {
+          toValue: 1,
+          tension: 55,
+          friction: 8,
+          useNativeDriver: true,
+        }),
+      ]),
+    ]).start();
 
     // Concentric rings expand
     Animated.parallel([
@@ -194,7 +212,7 @@ export default function MatchCelebration({ name, onDismiss, onViewMatches }: Mat
         ]),
       ).start();
     });
-  }, [fadeAnim, glowPulse, nameReveal, ringScale1, ringScale2, ringScale3, scaleAnim, sparkles]);
+  }, [fadeAnim, glowPulse, nameReveal, nameScale, ringScale1, ringScale2, ringScale3, scaleAnim, sparkles]);
 
   return (
     <Modal transparent animationType="none" visible statusBarTranslucent>
@@ -262,8 +280,17 @@ export default function MatchCelebration({ name, onDismiss, onViewMatches }: Mat
           {t('match.subtitle')}
         </Text>
 
+        <View style={styles.partnerAvatars} accessibilityLabel="You and your partner both liked this name">
+          <View style={[styles.partnerAvatar, { borderColor: theme.accent }]}>
+            <Text style={styles.partnerAvatarText}>You</Text>
+          </View>
+          <View style={[styles.partnerAvatar, styles.partnerAvatarOverlap, { borderColor: theme.accent }]}>
+            <Text style={styles.partnerAvatarText}>♥</Text>
+          </View>
+        </View>
+
         {/* The name — hero, centered, large */}
-        <Animated.View style={[styles.nameArea, { opacity: nameReveal }]}>
+        <Animated.View style={[styles.nameArea, { opacity: nameReveal, transform: [{ scale: nameScale }] }]}>
           <Text
             style={styles.nameText}
             numberOfLines={2}
@@ -271,6 +298,9 @@ export default function MatchCelebration({ name, onDismiss, onViewMatches }: Mat
             minimumFontScale={0.5}
           >
             {name.name}
+          </Text>
+          <Text style={[styles.oneText, { color: theme.accent }]}>
+            This could be the one
           </Text>
 
           {/* Origin + meaning below name */}
@@ -404,6 +434,29 @@ const styles = StyleSheet.create({
     opacity: 0.78,
     marginBottom: SPACING.xl,
   },
+  partnerAvatars: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: SPACING.md,
+  },
+  partnerAvatar: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    borderWidth: 1.5,
+    backgroundColor: 'rgba(255,255,255,0.72)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  partnerAvatarOverlap: {
+    marginLeft: -8,
+  },
+  partnerAvatarText: {
+    fontSize: FONTS.sizes.xs,
+    fontWeight: '800',
+    color: TEXT_PRIMARY,
+  },
   // ── Name hero ──
   nameArea: {
     alignItems: 'center',
@@ -416,6 +469,13 @@ const styles = StyleSheet.create({
     color: TEXT_PRIMARY,
     textAlign: 'center',
     letterSpacing: 1.5,
+  },
+  oneText: {
+    fontSize: FONTS.sizes.md,
+    fontWeight: '700',
+    textAlign: 'center',
+    marginTop: SPACING.sm,
+    letterSpacing: 0.2,
   },
   originText: {
     fontSize: FONTS.sizes.sm,

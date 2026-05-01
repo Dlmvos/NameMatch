@@ -33,6 +33,7 @@ import { colors, COLORS, FONTS, RADIUS, SHADOWS, SPACING } from '../theme';
 const VISIBLE_CARDS = 4;
 const AI_PACK_UNLOCKS_KEY = 'AI_PACK_UNLOCKS';
 const DEV_PAYWALL_INTERVAL = 10;
+const DEBUG_SWIPE_SCREEN = false;
 const DEV_PREVIEW_MATCH: BabyName = {
   id: 'dev-match-preview',
   name: 'Noah',
@@ -130,6 +131,8 @@ export default function SwipeScreen() {
   const [devDetailName, setDevDetailName] = useState<BabyName | null>(null);
   const [showDevScreenshotMenu, setShowDevScreenshotMenu] = useState(false);
   const [useDevScreenshotDeck, setUseDevScreenshotDeck] = useState(false);
+  const [showFinalSwipePaywallPreview, setShowFinalSwipePaywallPreview] = useState(false);
+  const didShowFinalSwipePreviewRef = useRef(false);
   const didRefillAttemptRef = useRef(false);
   const lockedAttemptRef = useRef(0);
 
@@ -170,12 +173,34 @@ export default function SwipeScreen() {
     swipeCountRef.current > 0 &&
     swipesToCurated > 0 &&
     swipesToCurated <= 3;
+  const paywallNudgeLevel =
+    !hasUnlockedPacks && freeSwipesLeft > 1 && freeSwipesLeft <= 10
+      ? freeSwipesLeft <= 5
+        ? 'strong'
+        : 'soft'
+      : null;
 
   useEffect(() => {
     if (!isFocused) {
       didRefillAttemptRef.current = false;
     }
   }, [isFocused]);
+
+  useEffect(() => {
+    if (freeSwipesLeft > 1 || hasUnlockedPacks) {
+      didShowFinalSwipePreviewRef.current = false;
+    }
+    if (
+      isFocused &&
+      !hasUnlockedPacks &&
+      !useDevScreenshotDeck &&
+      freeSwipesLeft === 1 &&
+      !didShowFinalSwipePreviewRef.current
+    ) {
+      didShowFinalSwipePreviewRef.current = true;
+      setShowFinalSwipePaywallPreview(true);
+    }
+  }, [freeSwipesLeft, hasUnlockedPacks, isFocused, useDevScreenshotDeck]);
 
   useEffect(() => {
     if (
@@ -204,7 +229,7 @@ export default function SwipeScreen() {
       return;
     }
     if (isSwipingRef.current) return;
-    if (__DEV__) {
+    if (__DEV__ && DEBUG_SWIPE_SCREEN) {
       console.log('[SwipeScreen] handleSwipe', name.id, direction);
     }
     isSwipingRef.current = true;
@@ -330,10 +355,6 @@ export default function SwipeScreen() {
     );
   }
 
-  if (__DEV__) {
-    console.log('[SwipeScreen] top ids (render)', namesToSwipe.slice(0, 3).map((n) => n.id));
-  }
-
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <LinearGradient colors={['#FFF0F5', '#FFF9F5']} style={StyleSheet.absoluteFill} />
@@ -430,13 +451,22 @@ export default function SwipeScreen() {
         })}
       </View>
 
-      {!hasUnlockedPacks && freeSwipesLeft <= 10 && freeSwipesLeft > 0 && (
-        <View style={styles.warningBanner}>
+      {paywallNudgeLevel ? (
+        <TouchableOpacity
+          style={[
+            styles.warningBanner,
+            paywallNudgeLevel === 'strong' && styles.warningBannerStrong,
+          ]}
+          onPress={() => navigation.navigate('Paywall')}
+          activeOpacity={0.88}
+        >
           <Text style={styles.warningText}>
-            {t('swipe.warning', { count: freeSwipesLeft })}
+            {paywallNudgeLevel === 'strong'
+              ? t('swipe.warning.strong', { count: freeSwipesLeft })
+              : t('swipe.warning.soft', { count: freeSwipesLeft })}
           </Text>
-        </View>
-      )}
+        </TouchableOpacity>
+      ) : null}
 
       {latestMatch && (
         <MatchCelebration name={latestMatch} onDismiss={dismissLatestMatch} />
@@ -453,6 +483,8 @@ export default function SwipeScreen() {
         currentFilters={filters}
         onApply={setFilters}
         onClose={() => setShowFilters(false)}
+        isPremium={hasUnlockedPacks}
+        onPremiumFilterPress={() => navigation.navigate('Paywall')}
       />
       {__DEV__ ? (
         <NameDetailModal
@@ -462,6 +494,42 @@ export default function SwipeScreen() {
         />
       ) : null}
       {__DEV__ ? renderDevScreenshotMenu() : null}
+
+      <Modal
+        visible={showFinalSwipePaywallPreview}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowFinalSwipePaywallPreview(false)}
+      >
+        <View style={styles.offerBackdrop}>
+          <View style={styles.offerCard}>
+            <View style={styles.offerBadge}>
+              <Text style={styles.offerBadgeText}>{t('swipe.finalPaywall.badge')}</Text>
+            </View>
+            <Text style={styles.offerTitle}>{t('swipe.finalPaywall.title')}</Text>
+            <Text style={styles.offerSubtitle}>{t('swipe.finalPaywall.subtitle')}</Text>
+            <View style={styles.offerActions}>
+              <TouchableOpacity
+                style={[styles.offerBtn, styles.offerBtnPrimary]}
+                activeOpacity={0.9}
+                onPress={() => {
+                  setShowFinalSwipePaywallPreview(false);
+                  navigation.navigate('Paywall');
+                }}
+              >
+                <Text style={styles.offerBtnPrimaryText}>{t('swipe.locked.cta')}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.offerBtn, styles.offerBtnSecondary]}
+                activeOpacity={0.85}
+                onPress={() => setShowFinalSwipePaywallPreview(false)}
+              >
+                <Text style={styles.offerBtnSecondaryText}>{t('swipe.finalPaywall.keepSwiping')}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       <Modal
         visible={showPackModal}
@@ -786,10 +854,16 @@ const styles = StyleSheet.create({
   warningBanner: {
     marginHorizontal: SPACING.xl,
     marginBottom: SPACING.md,
-    backgroundColor: COLORS.accentLight,
+    backgroundColor: colors.match.primary + '24',
+    borderWidth: 1,
+    borderColor: colors.match.primary + '55',
     borderRadius: 12,
     padding: SPACING.sm,
     alignItems: 'center',
+  },
+  warningBannerStrong: {
+    backgroundColor: colors.onboarding.secondary + '20',
+    borderColor: colors.onboarding.secondary + '66',
   },
   warningText: { fontSize: 13, color: COLORS.text, fontWeight: '600' },
   offerBackdrop: {
