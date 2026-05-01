@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useRef, useState } from 'r
 import { RoomService } from '../services/RoomService';
 import { BabyName, Match, Room } from '../types';
 import { useAuth } from './AuthContext';
+import { AnalyticsService } from '../services/AnalyticsService';
 
 interface RoomStateContextValue {
   room: Room | null;
@@ -211,6 +212,11 @@ export function RoomProvider({ children }: { children: React.ReactNode }) {
 
   const handleConfirmedMatch = async (name: BabyName) => {
     const roomId = room?.id ?? profile?.room_id ?? null;
+    AnalyticsService.track('match_created', {
+      roomId,
+      nameId: name.id,
+      name: name.name,
+    });
     if (__DEV__) {
       console.log('[RoomContext] confirmed match received from swipe RPC', {
         roomId,

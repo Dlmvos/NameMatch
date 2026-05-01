@@ -26,6 +26,7 @@ import NameDetailModal from '../components/NameDetailModal';
 import { formatLocalizedPrice, resolveCurrencyCode } from '../lib/currency';
 import { getSwipeMetadataLabelKey } from '../lib/swipeMetadataLabel';
 import { getRecommendedPack, type RecommendedPack, type SwipeSignal } from '../services/namePackRecommendationService';
+import { AnalyticsService } from '../services/AnalyticsService';
 import type { BabyName, RootStackParamList } from '../types';
 import { colors, COLORS, FONTS, RADIUS, SHADOWS, SPACING } from '../theme';
 
@@ -321,7 +322,10 @@ export default function SwipeScreen() {
           </Text>
           <TouchableOpacity
             style={[styles.lockedCta, SHADOWS.button]}
-            onPress={() => navigation.navigate('Paywall')}
+            onPress={() => {
+              AnalyticsService.track('paywall_cta_tap', { source: 'locked_deck' });
+              navigation.navigate('Paywall');
+            }}
             activeOpacity={0.9}
           >
             <Text style={styles.lockedCtaText}>{t('swipe.locked.cta')}</Text>
@@ -457,7 +461,10 @@ export default function SwipeScreen() {
             styles.warningBanner,
             paywallNudgeLevel === 'strong' && styles.warningBannerStrong,
           ]}
-          onPress={() => navigation.navigate('Paywall')}
+          onPress={() => {
+            AnalyticsService.track('low_swipes_banner_tap', { freeSwipesLeft });
+            navigation.navigate('Paywall');
+          }}
           activeOpacity={0.88}
         >
           <Text style={styles.warningText}>
@@ -484,7 +491,10 @@ export default function SwipeScreen() {
         onApply={setFilters}
         onClose={() => setShowFilters(false)}
         isPremium={hasUnlockedPacks}
-        onPremiumFilterPress={() => navigation.navigate('Paywall')}
+        onPremiumFilterPress={() => {
+          AnalyticsService.track('premium_filter_tap');
+          navigation.navigate('Paywall');
+        }}
       />
       {__DEV__ ? (
         <NameDetailModal
@@ -513,6 +523,7 @@ export default function SwipeScreen() {
                 style={[styles.offerBtn, styles.offerBtnPrimary]}
                 activeOpacity={0.9}
                 onPress={() => {
+                  AnalyticsService.track('paywall_cta_tap', { source: 'final_swipe_preview' });
                   setShowFinalSwipePaywallPreview(false);
                   navigation.navigate('Paywall');
                 }}

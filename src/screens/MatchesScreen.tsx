@@ -30,6 +30,7 @@ import { ensureNameNestStorageMigration } from '../lib/storageBrandMigration';
 import { Match, BabyName, Gender, Region, MainTabParamList } from '../types';
 import { colors, COLORS, FONTS, RADIUS, SPACING, SHADOWS } from '../theme';
 import { DEV_PREVIEW } from '../config/devPreview';
+import { AnalyticsService } from '../services/AnalyticsService';
 
 type ScreenTab = 'matches' | 'likes';
 
@@ -39,6 +40,7 @@ async function shareSingleMatch(
   const name = match.baby_names;
   if (!name) return;
   try {
+    AnalyticsService.track('match_shared', { name: name.name });
     await Share.share({
       message: `We matched on ${name.name} ❤️ Try Babinom`,
     });

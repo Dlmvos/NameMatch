@@ -9,6 +9,7 @@ import { RootStackParamList } from '../types';
 import { colors } from '../theme/colors';
 import { useAuth } from '../context/AuthContext';
 import { PurchaseService } from '../services/purchaseService';
+import { AnalyticsService } from '../services/AnalyticsService';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Paywall'>;
 
@@ -27,6 +28,7 @@ export default function PaywallScreen({ navigation }: Props) {
   ];
 
   useEffect(() => {
+    AnalyticsService.track('paywall_impression');
     let mounted = true;
     PurchaseService.getLocalizedPrice()
       .then((price) => {
@@ -51,18 +53,26 @@ export default function PaywallScreen({ navigation }: Props) {
 
   const handlePurchase = async () => {
     if (isBusy) return;
+    AnalyticsService.track('paywall_cta_tap');
+    AnalyticsService.track('purchase_started');
     setIsBusy(true);
     try {
       const result = await PurchaseService.purchasePremium();
-      if (!result.success) return;
+      if (!result.success) {
+        AnalyticsService.track('purchase_failed', { reason: 'purchase_not_successful' });
+        return;
+      }
       if (!PurchaseService.hasPremiumEntitlement(result.customerInfo)) {
+        AnalyticsService.track('purchase_failed', { reason: 'missing_entitlement' });
         Alert.alert(t('common.error'), t('shop.purchaseError'));
         return;
       }
       await PurchaseService.syncRevenueCatEntitlement();
       await refreshProfile();
+      AnalyticsService.track('purchase_completed');
       navigateAfterPremiumVerified();
     } catch (err: any) {
+      AnalyticsService.track('purchase_failed', { reason: err?.message ?? 'unknown' });
       Alert.alert(t('common.error'), err?.message ?? t('shop.purchaseError'));
     } finally {
       setIsBusy(false);
