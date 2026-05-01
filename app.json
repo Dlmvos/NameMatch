@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "NameMatch",
+    "name": "Babinom",
     "slug": "namematch",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -16,14 +16,17 @@
     ],
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.namematch.app"
+      "bundleIdentifier": "com.daanvos.namenest",
+      "infoPlist": {
+        "CFBundleDisplayName": "Babinom"
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#FFF0F5"
       },
-      "package": "com.namematch.app"
+      "package": "com.daanvos.namenest"
     },
     "web": {
       "favicon": "./assets/favicon.png"

@@ -17,6 +17,7 @@
 // ============================================================
 
 import type { BabyName, GenderPreference, Region } from '../types';
+import { findCountry } from '../data/countries';
 
 // ─────────────────────────────────────────────────────────────
 // Adjacent region map (for the 15% pool)
@@ -36,8 +37,57 @@ const LEARNING_THRESHOLD = 30;
 
 // Target deck size before swiped-name exclusion
 const DECK_SIZE = 250;
+const FREE_DECK_SIZE = 120;
 
 export class CountryWeightingService {
+  getFreeTierCountryFirstPool(
+    allNames: BabyName[],
+    region: Region,
+    country: string | undefined,
+    genderPref: GenderPreference,
+  ): BabyName[] {
+    const base = this._filterGender(allNames, genderPref);
+    const countryOption = country ? findCountry(country) : undefined;
+    const tightlyRelatedRegions =
+      countryOption?.adjacentRegions ?? this._adjacentRegions(region, []);
+    const { countrySpecific, regionGeneral, worldwide, adjacent } =
+      this._partitionPools(base, region, country, tightlyRelatedRegions);
+
+    if (!country) {
+      // Legacy/no-country fallback: deterministic region-first, no broad discovery.
+      return this._dedupeById([...regionGeneral, ...worldwide]).slice(0, FREE_DECK_SIZE);
+    }
+
+    const countryTarget = Math.round(FREE_DECK_SIZE * 0.9); // 90%
+    const tightlyRelatedTarget = Math.round(FREE_DECK_SIZE * 0.08); // 8%
+    const regionTarget = FREE_DECK_SIZE - countryTarget - tightlyRelatedTarget; // 2%
+
+    const selectedCountry = countrySpecific.slice(0, countryTarget);
+    const countryIds = new Set(selectedCountry.map((n) => n.id));
+    const tightlyRelatedFallback = adjacent
+      .filter((n) => !countryIds.has(n.id))
+      .slice(0, tightlyRelatedTarget);
+    const relatedIds = new Set(tightlyRelatedFallback.map((n) => n.id));
+    const regionFallback = regionGeneral
+      .filter((n) => !countryIds.has(n.id) && !relatedIds.has(n.id))
+      .slice(0, Math.max(regionTarget, countryTarget - selectedCountry.length));
+
+    const ordered = this._dedupeById([
+      ...selectedCountry,
+      ...tightlyRelatedFallback,
+      ...regionFallback,
+    ]);
+
+    if (ordered.length >= FREE_DECK_SIZE) {
+      return ordered.slice(0, FREE_DECK_SIZE);
+    }
+
+    // Limited final fallback only when supply is thin.
+    const usedIds = new Set(ordered.map((n) => n.id));
+    const worldwideFallback = worldwide.filter((n) => !usedIds.has(n.id));
+    return [...ordered, ...worldwideFallback].slice(0, FREE_DECK_SIZE);
+  }
+
   // ──────────────────────────────────────────────────────────
   // getWeightedPool
   // ──────────────────────────────────────────────────────────
@@ -45,7 +95,7 @@ export class CountryWeightingService {
   /**
    * Build a country-weighted name pool.
    *
-   * @param allNames      Full static name dataset (ALL_NAMES)
+   * @param allNames      Bundled core name dataset (+ remote premium merged by caller when entitled)
    * @param region        User's region preference (from profile)
    * @param country       User's specific country (e.g. 'Netherlands'), optional
    * @param genderPref    'boy' | 'girl' | 'both'
@@ -66,27 +116,9 @@ export class CountryWeightingService {
     // 2. Compute adjacency
     const adjacentRegions = this._adjacentRegions(region, purchasedPacks);
 
-    // 3. Partition into three pools
-    const primarySet = new Set<string>();
-    const adjacentSet = new Set<string>();
-    const discoverySet = new Set<string>();
-
-    const primary: BabyName[] = [];
-    const adjacent: BabyName[] = [];
-    const discovery: BabyName[] = [];
-
-    for (const name of base) {
-      if (this._isPrimary(name, region, country)) {
-        primarySet.add(name.id);
-        primary.push(name);
-      } else if (adjacentRegions.includes(name.region as Region)) {
-        adjacentSet.add(name.id);
-        adjacent.push(name);
-      } else {
-        discoverySet.add(name.id);
-        discovery.push(name);
-      }
-    }
+    // 3. Split primary into country-specific, region-general and worldwide
+    const { countrySpecific, regionGeneral, worldwide, adjacent, discovery } =
+      this._partitionPools(base, region, country, adjacentRegions);
 
     // 4. Calculate target sizes (blend shifts after LEARNING_THRESHOLD swipes)
     const progress = Math.min(swipeCount / LEARNING_THRESHOLD, 1);
@@ -98,8 +130,22 @@ export class CountryWeightingService {
     const adjacentTarget = Math.round(DECK_SIZE * adjacentPct);
     const discoveryTarget = Math.round(DECK_SIZE * discoveryPct);
 
-    // 5. Sample — country-specific names get priority within primary pool
-    const sampledPrimary  = this._prioritizeThenSample(primary, country, primaryTarget);
+    // 5. Sample — country-specific names get a dedicated budget inside primary
+    const countryPrimaryTarget = country ? Math.round(primaryTarget * 0.7) : 0;
+    const regionPrimaryTarget = Math.round(primaryTarget * 0.2);
+    const worldwidePrimaryTarget = primaryTarget - countryPrimaryTarget - regionPrimaryTarget;
+
+    const sampledCountryPrimary = this._shuffle([...countrySpecific]).slice(0, countryPrimaryTarget);
+    const sampledRegionPrimary = this._shuffle([...regionGeneral]).slice(
+      0,
+      regionPrimaryTarget + Math.max(0, countryPrimaryTarget - sampledCountryPrimary.length),
+    );
+    const sampledWorldwidePrimary = this._shuffle([...worldwide]).slice(0, worldwidePrimaryTarget);
+    const sampledPrimary = this._dedupeById([
+      ...sampledCountryPrimary,
+      ...sampledRegionPrimary,
+      ...sampledWorldwidePrimary,
+    ]).slice(0, primaryTarget);
     const sampledAdjacent = this._shuffle([...adjacent]).slice(0, adjacentTarget);
     const sampledDiscovery = this._shuffle([...discovery]).slice(0, discoveryTarget);
 
@@ -110,17 +156,39 @@ export class CountryWeightingService {
   // Helpers
   // ──────────────────────────────────────────────────────────
 
-  /**
-   * A name is in the primary pool if:
-   *   - It's the exact country match, OR
-   *   - It belongs to the user's region (and has no specific country), OR
-   *   - It's marked worldwide (relevant everywhere)
-   */
-  private _isPrimary(name: BabyName, region: Region, country?: string): boolean {
-    if (name.is_worldwide) return true;
-    if (name.region === region) return true;
-    if (country && name.country === country) return true;
-    return false;
+  private _partitionPools(
+    names: BabyName[],
+    region: Region,
+    country: string | undefined,
+    adjacentRegions: Region[] = [],
+  ): {
+    countrySpecific: BabyName[];
+    regionGeneral: BabyName[];
+    worldwide: BabyName[];
+    adjacent: BabyName[];
+    discovery: BabyName[];
+  } {
+    const countrySpecific: BabyName[] = [];
+    const regionGeneral: BabyName[] = [];
+    const worldwide: BabyName[] = [];
+    const adjacent: BabyName[] = [];
+    const discovery: BabyName[] = [];
+
+    for (const name of names) {
+      if (country && name.country === country) {
+        countrySpecific.push(name);
+      } else if (name.region === region) {
+        regionGeneral.push(name);
+      } else if (name.is_worldwide) {
+        worldwide.push(name);
+      } else if (adjacentRegions.includes(name.region as Region)) {
+        adjacent.push(name);
+      } else {
+        discovery.push(name);
+      }
+    }
+
+    return { countrySpecific, regionGeneral, worldwide, adjacent, discovery };
   }
 
   private _adjacentRegions(region: Region, purchasedPacks: string[]): Region[] {
@@ -130,26 +198,6 @@ export class CountryWeightingService {
       .filter((p): p is Region => p in ADJACENT_REGIONS && !base.includes(p as Region) && p !== region)
       .map((p) => p as Region);
     return [...base, ...extras];
-  }
-
-  /**
-   * Within the primary pool, country-specific names appear first,
-   * followed by shuffled region names.
-   */
-  private _prioritizeThenSample(
-    names: BabyName[],
-    country: string | undefined,
-    limit: number,
-  ): BabyName[] {
-    if (!country) return this._shuffle([...names]).slice(0, limit);
-
-    const countrySpecific = names.filter((n) => n.country === country);
-    const rest = names.filter((n) => n.country !== country);
-
-    return [
-      ...this._shuffle(countrySpecific),
-      ...this._shuffle(rest),
-    ].slice(0, limit);
   }
 
   private _filterGender(names: BabyName[], pref: GenderPreference): BabyName[] {
@@ -162,6 +210,18 @@ export class CountryWeightingService {
     for (let i = result.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [result[i], result[j]] = [result[j], result[i]];
+    }
+    return result;
+  }
+
+  private _dedupeById(names: BabyName[]): BabyName[] {
+    const seen = new Set<string>();
+    const result: BabyName[] = [];
+    for (const name of names) {
+      if (!seen.has(name.id)) {
+        seen.add(name.id);
+        result.push(name);
+      }
     }
     return result;
   }

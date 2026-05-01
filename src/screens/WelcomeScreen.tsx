@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useTranslation } from '../i18n/I18nProvider';
 import { RootStackParamList } from '../types';
 import { COLORS, FONTS, RADIUS, SPACING, SHADOWS } from '../theme';
 
@@ -19,6 +20,7 @@ const { width, height } = Dimensions.get('window');
 type Props = NativeStackScreenProps<RootStackParamList, 'Welcome'>;
 
 export default function WelcomeScreen({ navigation }: Props) {
+  const { t } = useTranslation();
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(40)).current;
   const heartScale = useRef(new Animated.Value(0.8)).current;
@@ -82,14 +84,14 @@ export default function WelcomeScreen({ navigation }: Props) {
         </Animated.View>
 
         {/* Title */}
-        <Text style={styles.title}>NameMatch</Text>
-        <Text style={styles.tagline}>Find your baby's perfect name,{'\n'}together.</Text>
+        <Text style={styles.title}>{t('welcome.title')}</Text>
+        <Text style={styles.tagline}>{t('welcome.tagline')}</Text>
 
         {/* Feature pills */}
         <View style={styles.pills}>
-          <FeaturePill emoji="💌" text="Swipe together" />
-          <FeaturePill emoji="✨" text="Instant matches" />
-          <FeaturePill emoji="🌍" text="Global names" />
+          <FeaturePill emoji="💌" text={t('welcome.pill.swipe')} />
+          <FeaturePill emoji="✨" text={t('welcome.pill.instant')} />
+          <FeaturePill emoji="🌍" text={t('welcome.pill.global')} />
         </View>
 
         {/* CTA Buttons */}
@@ -105,7 +107,7 @@ export default function WelcomeScreen({ navigation }: Props) {
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
             >
-              <Text style={styles.primaryBtnText}>Get Started ✨</Text>
+              <Text style={styles.primaryBtnText}>{t('welcome.cta.start')}</Text>
             </LinearGradient>
           </TouchableOpacity>
 
@@ -114,13 +116,13 @@ export default function WelcomeScreen({ navigation }: Props) {
             onPress={() => navigation.navigate('Auth', { mode: 'login' })}
             activeOpacity={0.75}
           >
-            <Text style={styles.secondaryBtnText}>I already have an account</Text>
+            <Text style={styles.secondaryBtnText}>{t('welcome.cta.login')}</Text>
           </TouchableOpacity>
         </View>
       </Animated.View>
 
       {/* Footer */}
-      <Text style={styles.footer}>Made with 💕 for expecting parents</Text>
+      <Text style={styles.footer}>{t('welcome.footer')}</Text>
     </LinearGradient>
   );
 }

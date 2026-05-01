@@ -11,19 +11,34 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useAuth } from '../context/AuthContext';
+import { useTranslation } from '../i18n/I18nProvider';
 import { RootStackParamList, Region, REGION_OPTIONS } from '../types';
 import { COLORS, FONTS, RADIUS, SPACING, SHADOWS } from '../theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Region'>;
 
+function regionLabelKey(key: Region): string {
+  return key === 'LATIN_AMERICA' ? 'region.latinAmerica' : `region.${key.toLowerCase()}`;
+}
+
+function regionDescKey(key: Region): string {
+  return key === 'LATIN_AMERICA' ? 'region.desc.latinAmerica' : `region.desc.${key.toLowerCase()}`;
+}
+
 export default function RegionScreen({ navigation }: Props) {
+  const { t } = useTranslation();
   const { updateProfile } = useAuth();
   const [selected, setSelected] = useState<Region | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
+  const getTranslated = (translationKey: string, fallback: string): string => {
+    const translated = t(translationKey);
+    return translated === translationKey ? fallback : translated;
+  };
+
   const handleContinue = async () => {
     if (!selected) {
-      Alert.alert('Almost there!', 'Please select a region to continue.');
+      Alert.alert(t('region.alert.selectTitle'), t('region.alert.selectBody'));
       return;
     }
     setIsLoading(true);
@@ -31,7 +46,7 @@ export default function RegionScreen({ navigation }: Props) {
       await updateProfile({ region_preference: selected });
       navigation.navigate('PartnerConnect');
     } catch (err: any) {
-      Alert.alert('Error', err.message ?? 'Something went wrong.');
+      Alert.alert(t('common.error'), err.message ?? t('region.alert.errorGeneric'));
     } finally {
       setIsLoading(false);
     }
@@ -40,6 +55,12 @@ export default function RegionScreen({ navigation }: Props) {
   return (
     <LinearGradient colors={[colors.onboarding.background, colors.neutral.white]} style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll}>
+        <View style={styles.topRow}>
+          <TouchableOpacity style={styles.cancelBtn} onPress={() => navigation.goBack()}>
+            <Text style={styles.cancelBtnText}>{t('region.cancel')}</Text>
+          </TouchableOpacity>
+        </View>
+
         {/* Progress dots */}
         <View style={styles.progress}>
           <View style={styles.dot} />
@@ -48,14 +69,16 @@ export default function RegionScreen({ navigation }: Props) {
         </View>
 
         <Text style={styles.emoji}>🌍</Text>
-        <Text style={styles.title}>Where's your{'\n'}heart from?</Text>
+        <Text style={styles.title}>{t('region.title')}</Text>
         <Text style={styles.subtitle}>
-          Pick the region of names that speaks to you.{'\n'}You can unlock more in the Shop.
+          {t('region.subtitle')}
         </Text>
 
         <View style={styles.grid}>
           {REGION_OPTIONS.map((opt) => {
             const isSelected = selected === opt.key;
+            const label = getTranslated(regionLabelKey(opt.key), opt.label);
+            const description = getTranslated(regionDescKey(opt.key), opt.description);
             return (
               <TouchableOpacity
                 key={opt.key}
@@ -69,10 +92,10 @@ export default function RegionScreen({ navigation }: Props) {
               >
                 <Text style={styles.regionEmoji}>{opt.emoji}</Text>
                 <Text style={[styles.regionLabel, isSelected && styles.regionLabelSelected]}>
-                  {opt.label}
+                  {label}
                 </Text>
                 <Text style={styles.regionDesc} numberOfLines={2}>
-                  {opt.description}
+                  {description}
                 </Text>
                 {isSelected && (
                   <View style={styles.selectedBadge}>
@@ -87,7 +110,7 @@ export default function RegionScreen({ navigation }: Props) {
         {/* Free tier note */}
         <View style={styles.freeNote}>
           <Text style={styles.freeNoteText}>
-            🎁 Start with 100 free swipes from your chosen region
+            {t('region.freeNote')}
           </Text>
         </View>
 
@@ -104,7 +127,7 @@ export default function RegionScreen({ navigation }: Props) {
             end={{ x: 1, y: 0 }}
           >
             <Text style={styles.continueBtnText}>
-              {isLoading ? 'Saving...' : 'Continue →'}
+              {isLoading ? t('region.saving') : t('region.continue')}
             </Text>
           </LinearGradient>
         </TouchableOpacity>
@@ -121,6 +144,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.lg,
     paddingTop: 64,
     paddingBottom: SPACING.xxl,
+  },
+  topRow: {
+    width: '100%',
+    alignItems: 'flex-start',
+    marginBottom: SPACING.sm,
+  },
+  cancelBtn: {
+    paddingVertical: 4,
+    paddingHorizontal: 2,
+  },
+  cancelBtnText: {
+    fontSize: FONTS.sizes.sm,
+    color: COLORS.textSecondary,
+    fontWeight: '600',
   },
   progress: {
     flexDirection: 'row',

@@ -1,5 +1,6 @@
 import type { NavigatorScreenParams } from '@react-navigation/native';
 import { colors } from '../theme';
+import type { SupportedLanguageCode } from '../services/languageService';
 // ============================================================
 // NameMatch – Core TypeScript Types
 // ============================================================
@@ -16,8 +17,18 @@ export type Region =
   | 'WORLDWIDE';
 
 export type SwipeDirection = 'left' | 'right';
+export type AppLanguage = SupportedLanguageCode;
 
 export type PackageType = 'country' | 'regional' | 'worldwide';
+
+/** Discrete bucket from `NameRarity.score` (0 = most common … 100 = rarest). */
+export type RarityTier = 'unknown' | 'very_common' | 'common' | 'uncommon' | 'rare' | 'very_rare';
+
+/** Derived from `popularity_rank` via `rarityFromPopularityRank` in `src/lib/rarityFromPopularityRank.ts`. */
+export interface NameRarity {
+  score: number | null;
+  tier: RarityTier;
+}
 
 // ──────────────────────────────────────────────────────────
 // Baby Name
@@ -26,6 +37,8 @@ export interface BabyName {
   id: string;
   name: string;
   meaning: string;
+  // Content translations for per-name meaning text (not runtime UI-label translations).
+  meaningTranslations?: Partial<Record<AppLanguage, string>>;
   origin: string;
   gender: Gender;
   country?: string;
@@ -33,10 +46,15 @@ export interface BabyName {
   is_worldwide: boolean;
   created_at?: string;
   // Enrichment (optional — populated by nameEnrichment service)
+  /** Lower = more common when sourced from datasets; use `rarityFromPopularityRank` for a stable rarity view. */
   popularity_rank?: number;
+  /** Optional cached rarity; callers may set with `rarityFromPopularityRank(popularity_rank)`. */
+  rarity?: NameRarity;
   trend?: 'rising' | 'stable' | 'classic';
   pronunciation?: string;
   similar_names?: string[];
+  /** Where this name originated: catalog (default) or user-created. */
+  source?: 'catalog' | 'custom';
 }
 
 // ──────────────────────────────────────────────────────────
@@ -44,12 +62,20 @@ export interface BabyName {
 // ──────────────────────────────────────────────────────────
 export type NameLength = 'short' | 'medium' | 'long';
 export type NameTrend = 'rising' | 'stable' | 'classic';
+export type NameStyleTag =
+  | 'unique'
+  | 'international'
+  | 'spanish'
+  | 'dutch'
+  | 'soft'
+  | 'strong';
 
 export interface NameFilters {
   lengths: NameLength[];           // short ≤4, medium 5-7, long ≥8
   startingLetter: string;          // '' = any
   trends: NameTrend[];             // [] = any
   originsContain: string;          // '' = any — partial match on origin field
+  styleTags: NameStyleTag[];        // [] = any — quick-pick tags derived from name metadata
 }
 
 export const DEFAULT_FILTERS: NameFilters = {
@@ -57,6 +83,7 @@ export const DEFAULT_FILTERS: NameFilters = {
   startingLetter: '',
   trends: [],
   originsContain: '',
+  styleTags: [],
 };
 
 // ──────────────────────────────────────────────────────────
@@ -102,6 +129,10 @@ export interface Profile {
   display_name: string | null;
   gender_preference: GenderPreference;
   region_preference: Region;
+  // User-selected country + language inputs (primarily persisted in Supabase).
+  country_preference: string | null;
+  residence_country: string | null;
+  language_preference: string | null;
   room_id: string | null;
   free_swipes_remaining: number;
   purchased_packs: string[];
@@ -117,6 +148,7 @@ export interface Room {
   code: string;
   user1_id: string;
   user2_id: string | null;
+  premium_packs: string[];
   is_active: boolean;
   created_at: string;
 }
@@ -167,6 +199,9 @@ export interface NamePack {
   key: string;
   label: string;
   description: string;
+  titleKey?: string;
+  labelKey?: string;
+  descriptionKey?: string;
   type: PackageType;
   price: number; // in dollars
   priceCents: number;
@@ -174,6 +209,8 @@ export interface NamePack {
   emoji: string;
   gradient: [string, string];
 }
+
+export const PREMIUM_COUPLE_PACK_KEY = 'PREMIUM_COUPLE';
 
 // ──────────────────────────────────────────────────────────
 // Navigation param types
@@ -183,8 +220,9 @@ export type RootStackParamList = {
   Auth: { mode: 'login' | 'signup' };
   Preferences: undefined;
   Region: undefined;
-  Country: undefined;
+  Country: { source?: 'onboarding' | 'settings' | 'settingsResidence' } | undefined;
   PartnerConnect: undefined;
+  RoomManagement: undefined;
   MainTabs: NavigatorScreenParams<MainTabParamList> | undefined;
   Paywall: undefined;
 };
@@ -256,9 +294,12 @@ export const NAME_PACKS: NamePack[] = [
     key: 'WORLDWIDE',
     label: 'Worldwide Pack',
     description: 'Unlock 500+ names from every corner of the world',
+    titleKey: 'pack.worldwide.label',
+    labelKey: 'pack.worldwide.label',
+    descriptionKey: 'pack.worldwide.description',
     type: 'worldwide',
-    price: 4.99,
-    priceCents: 499,
+    price: 12.99,
+    priceCents: 1299,
     nameCount: 500,
     emoji: '🌍',
     gradient: [colors.swipe.secondary, colors.shortlist.primary],
@@ -267,9 +308,12 @@ export const NAME_PACKS: NamePack[] = [
     key: 'EU',
     label: 'Europe Pack',
     description: 'French, German, Italian, Scandinavian & British names',
+    titleKey: 'pack.eu.label',
+    labelKey: 'pack.eu.label',
+    descriptionKey: 'pack.eu.description',
     type: 'regional',
-    price: 2.99,
-    priceCents: 299,
+    price: 5.99,
+    priceCents: 599,
     nameCount: 200,
     emoji: '🇪🇺',
     gradient: [colors.match.secondary, colors.onboarding.secondary],
@@ -278,9 +322,12 @@ export const NAME_PACKS: NamePack[] = [
     key: 'US',
     label: 'USA Pack',
     description: 'Classic & trending American names',
+    titleKey: 'pack.usa.label',
+    labelKey: 'pack.usa.label',
+    descriptionKey: 'pack.usa.description',
     type: 'regional',
-    price: 2.99,
-    priceCents: 299,
+    price: 5.99,
+    priceCents: 599,
     nameCount: 200,
     emoji: '🇺🇸',
     gradient: [colors.shortlist.secondary, colors.match.accent],
@@ -289,9 +336,12 @@ export const NAME_PACKS: NamePack[] = [
     key: 'ARABIA',
     label: 'Arabia Pack',
     description: 'Beautiful traditional Arabic & Islamic names',
+    titleKey: 'pack.arabia.label',
+    labelKey: 'pack.arabia.label',
+    descriptionKey: 'pack.arabia.description',
     type: 'regional',
-    price: 2.99,
-    priceCents: 299,
+    price: 5.99,
+    priceCents: 599,
     nameCount: 200,
     emoji: '🌙',
     gradient: [colors.swipe.like, colors.match.accent],
@@ -300,9 +350,12 @@ export const NAME_PACKS: NamePack[] = [
     key: 'MENA',
     label: 'MENA Pack',
     description: 'Names from across the Middle East & North Africa',
+    titleKey: 'pack.mena.label',
+    labelKey: 'pack.mena.label',
+    descriptionKey: 'pack.mena.description',
     type: 'regional',
-    price: 2.99,
-    priceCents: 299,
+    price: 5.99,
+    priceCents: 599,
     nameCount: 200,
     emoji: '☀️',
     gradient: [colors.match.secondary, colors.match.primary],
@@ -311,9 +364,12 @@ export const NAME_PACKS: NamePack[] = [
     key: 'ASIA',
     label: 'Asia Pack',
     description: 'Eastern gems from China, Japan, Korea, India & beyond',
+    titleKey: 'pack.asia.label',
+    labelKey: 'pack.asia.label',
+    descriptionKey: 'pack.asia.description',
     type: 'regional',
-    price: 2.99,
-    priceCents: 299,
+    price: 5.99,
+    priceCents: 599,
     nameCount: 200,
     emoji: '🌸',
     gradient: [colors.swipe.secondary, colors.onboarding.accent],
@@ -322,9 +378,12 @@ export const NAME_PACKS: NamePack[] = [
     key: 'LATIN_AMERICA',
     label: 'Latin America Pack',
     description: 'Vibrant Spanish & Portuguese names full of soul',
+    titleKey: 'pack.latinAmerica.label',
+    labelKey: 'pack.latinAmerica.label',
+    descriptionKey: 'pack.latinAmerica.description',
     type: 'regional',
-    price: 2.99,
-    priceCents: 299,
+    price: 5.99,
+    priceCents: 599,
     nameCount: 200,
     emoji: '🌺',
     gradient: [colors.match.primary, colors.onboarding.secondary],

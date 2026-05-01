@@ -129,7 +129,7 @@ export default function AuthScreen({ navigation, route }: Props) {
         </Text>
         <Text style={styles.subtitle}>
           {mode === 'signup'
-            ? 'Join NameMatch and start your journey'
+            ? 'Join Babinom and start your journey'
             : 'Ready to find more matches?'}
         </Text>
 

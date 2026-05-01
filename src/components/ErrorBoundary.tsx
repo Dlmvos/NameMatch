@@ -36,7 +36,7 @@ export default class ErrorBoundary extends React.Component<Props, State> {
           <Text style={styles.emoji}>🌸</Text>
           <Text style={styles.title}>Something went wrong</Text>
           <Text style={styles.body}>
-            NameNest hit a small hiccup. Try again to return to your names.
+            Babinom hit a small hiccup. Try again to return to your names.
           </Text>
           <TouchableOpacity style={[styles.button, SHADOWS.button]} onPress={this.handleRetry} activeOpacity={0.85}>
             <Text style={styles.buttonText}>Try again</Text>

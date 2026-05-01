@@ -3,7 +3,11 @@
 // 50+ names per region for placeholder / free tier use
 // ============================================================
 
+import { rarityFromPopularityRank } from '../lib/rarityFromPopularityRank';
+import { enrichName } from '../services/nameEnrichment';
 import { BabyName } from '../types';
+// Per-name meaning locales for core/free only; premium meanings are remote (`premium_meaning_translations`).
+import externalMeaningTranslations from './coreMeaningTranslations.json';
 
 let _idCounter = 1;
 const id = () => String(_idCounter++).padStart(8, '0');
@@ -12,8 +16,24 @@ const id = () => String(_idCounter++).padStart(8, '0');
 // WORLDWIDE (50)
 // ──────────────────────────────────────────────────────────
 export const WORLDWIDE_NAMES: BabyName[] = [
-  { id: id(), name: 'Aria', meaning: 'Air; song or melody', origin: 'Italian / Hebrew', gender: 'girl', region: 'WORLDWIDE', is_worldwide: true },
-  { id: id(), name: 'Leo', meaning: 'Lion', origin: 'Latin', gender: 'boy', region: 'WORLDWIDE', is_worldwide: true },
+  {
+    id: id(),
+    name: 'Aria',
+    meaning: 'Air; song or melody',
+    origin: 'Italian / Hebrew',
+    gender: 'girl',
+    region: 'WORLDWIDE',
+    is_worldwide: true,
+  },
+  {
+    id: id(),
+    name: 'Leo',
+    meaning: 'Lion',
+    origin: 'Latin',
+    gender: 'boy',
+    region: 'WORLDWIDE',
+    is_worldwide: true,
+  },
   { id: id(), name: 'Mia', meaning: 'Mine; beloved', origin: 'Scandinavian / Italian', gender: 'girl', region: 'WORLDWIDE', is_worldwide: true },
   { id: id(), name: 'Luca', meaning: 'Bringer of light', origin: 'Italian / Latin', gender: 'boy', region: 'WORLDWIDE', is_worldwide: true },
   { id: id(), name: 'Emma', meaning: 'Whole; universal', origin: 'Germanic', gender: 'girl', region: 'WORLDWIDE', is_worldwide: true },
@@ -400,10 +420,36 @@ export const LATIN_AMERICA_NAMES: BabyName[] = [
   { id: id(), name: 'Carmen', meaning: 'Garden; song; crimson', origin: 'Spanish / Latin', gender: 'girl', country: 'Colombia', region: 'LATIN_AMERICA', is_worldwide: false },
 ];
 
+// Premium starter / country-coverage names live in scripts/premiumBundledLegacy.names.ts (not bundled in the app).
+
+type ExternalMeaningTranslationMap = Record<string, Partial<Record<string, string>>>;
+const MEANING_TRANSLATION_MAP = externalMeaningTranslations as ExternalMeaningTranslationMap;
+
+const attachExternalMeaningTranslations = (name: BabyName): BabyName => {
+  const external = MEANING_TRANSLATION_MAP[name.id];
+  if (!external) return name;
+  return {
+    ...name,
+    meaningTranslations: {
+      ...(name.meaningTranslations ?? {}),
+      ...external,
+    },
+  };
+};
+
+const attachRarityForBundledName = (name: BabyName): BabyName => {
+  const resolvedPopularityRank = name.popularity_rank ?? enrichName(name.name).popularity_rank;
+  return {
+    ...name,
+    popularity_rank: resolvedPopularityRank ?? name.popularity_rank,
+    rarity: rarityFromPopularityRank(resolvedPopularityRank),
+  };
+};
+
 // ──────────────────────────────────────────────────────────
-// Master list & helpers
+// Master list & helpers (runtime bundle = core/free only; premium is remote)
 // ──────────────────────────────────────────────────────────
-export const ALL_NAMES: BabyName[] = [
+const CORE_BUNDLED_RAW: BabyName[] = [
   ...WORLDWIDE_NAMES,
   ...EU_NAMES,
   ...US_NAMES,
@@ -412,6 +458,22 @@ export const ALL_NAMES: BabyName[] = [
   ...ASIA_NAMES,
   ...LATIN_AMERICA_NAMES,
 ];
+
+export const CORE_BUNDLED_NAMES: BabyName[] =
+  CORE_BUNDLED_RAW
+    .map(attachExternalMeaningTranslations)
+    .map(attachRarityForBundledName);
+
+/** Full name list in the app bundle (core/free only). */
+export const ALL_NAMES: BabyName[] = CORE_BUNDLED_NAMES;
+
+/**
+ * Local bundled names for deck/recommendation. `includePremium` is ignored — premium comes from
+ * PremiumContentService remote fetch when entitled; there is no bundled premium fallback.
+ */
+export function getBundledNames(_opts?: { includePremium?: boolean }): BabyName[] {
+  return CORE_BUNDLED_NAMES;
+}
 
 export function getNamesByRegion(region: string): BabyName[] {
   if (region === 'WORLDWIDE') return ALL_NAMES;

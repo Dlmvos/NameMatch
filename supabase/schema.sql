@@ -16,6 +16,11 @@ create table public.profiles (
     check (gender_preference in ('boy', 'girl', 'both')),
   region_preference text not null default 'WORLDWIDE'
     check (region_preference in ('EU', 'US', 'ARABIA', 'MENA', 'ASIA', 'LATIN_AMERICA', 'WORLDWIDE')),
+  -- Preference inputs used by the mobile app (pricing language/currency + name deck selection).
+  -- Kept nullable for backward compatibility; RLS update policy already gates entitlement mutation only.
+  country_preference text,
+  residence_country text,
+  language_preference text,
   room_id uuid,
   free_swipes_remaining integer not null default 100,
   purchased_packs text[] not null default '{}',
@@ -25,12 +30,26 @@ create table public.profiles (
 
 -- RLS
 alter table public.profiles enable row level security;
+alter table public.profiles force row level security;
 
 create policy "Users can view own profile"
   on public.profiles for select using (auth.uid() = id);
 
 create policy "Users can update own profile"
-  on public.profiles for update using (auth.uid() = id);
+  on public.profiles for update
+  using (auth.uid() = id)
+  with check (
+    auth.uid() = id
+    -- Entitlement fields must not be arbitrarily rewritten by clients.
+    AND purchased_packs = (
+      select p.purchased_packs from public.profiles p where p.id = id
+    )
+    -- Only allow free_swipes_remaining to decrease (never increase).
+    AND free_swipes_remaining >= 0
+    AND free_swipes_remaining <= (
+      select p.free_swipes_remaining from public.profiles p where p.id = id
+    )
+  );
 
 create policy "Users can insert own profile"
   on public.profiles for insert with check (auth.uid() = id);
@@ -54,15 +73,18 @@ create trigger on_auth_user_created
 -- ============================================================
 create table public.rooms (
   id uuid primary key default uuid_generate_v4(),
-  code text not null unique,
+  code text not null unique
+    check (code ~ '^[A-HJ-NP-Z2-9]{6}$'),
   user1_id uuid not null references public.profiles(id) on delete cascade,
   user2_id uuid references public.profiles(id) on delete set null,
+  premium_packs text[] not null default '{}',
   is_active boolean not null default true,
   created_at timestamptz not null default now()
 );
 
 -- RLS
 alter table public.rooms enable row level security;
+alter table public.rooms force row level security;
 
 create policy "Room members can view their room"
   on public.rooms for select
@@ -72,9 +94,26 @@ create policy "Authenticated users can create rooms"
   on public.rooms for insert
   with check (auth.uid() = user1_id);
 
-create policy "Room owner or joiner can update room"
+-- Members can update while they remain members.
+drop policy if exists "Room owner or joiner can update room" on public.rooms;
+create policy "Room members can update room"
   on public.rooms for update
-  using (auth.uid() = user1_id or auth.uid() = user2_id);
+  using (auth.uid() = user1_id or auth.uid() = user2_id)
+  with check (auth.uid() = user1_id or auth.uid() = user2_id);
+
+-- Joiner can claim empty user2 slot, but must not change other fields.
+create policy "Joiner can claim empty user2 slot"
+  on public.rooms for update
+  using (
+    user2_id is null
+    AND auth.uid() <> user1_id
+  )
+  with check (
+    user2_id = auth.uid()
+    AND user1_id = (select r.user1_id from public.rooms r where r.id = id)
+    AND code = (select r.code from public.rooms r where r.id = id)
+    AND is_active = (select r.is_active from public.rooms r where r.id = id)
+  );
 
 -- Function to generate a unique 6-char room code
 create or replace function generate_room_code()
@@ -107,10 +146,8 @@ create table public.baby_names (
   created_at timestamptz not null default now()
 );
 
--- Names are publicly readable
 alter table public.baby_names enable row level security;
-create policy "Anyone can read baby names"
-  on public.baby_names for select using (true);
+-- SELECT policy is defined after `is_premium` exists (see staged migration section below).
 
 -- ============================================================
 -- SWIPES
@@ -127,6 +164,7 @@ create table public.swipes (
 
 -- RLS
 alter table public.swipes enable row level security;
+alter table public.swipes force row level security;
 
 create policy "Users can view swipes in their room"
   on public.swipes for select
@@ -142,6 +180,11 @@ create policy "Users can insert their own swipes"
   on public.swipes for insert
   with check (auth.uid() = user_id);
 
+create policy "Users can update their own swipes"
+  on public.swipes for update
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
 -- ============================================================
 -- MATCHES
 -- ============================================================
@@ -155,6 +198,7 @@ create table public.matches (
 
 -- RLS
 alter table public.matches enable row level security;
+alter table public.matches force row level security;
 
 create policy "Room members can view their matches"
   on public.matches for select
@@ -204,6 +248,32 @@ create policy "Users can insert own purchases"
   on public.purchases for insert with check (auth.uid() = user_id);
 
 -- ============================================================
+-- RPC: Consume free swipe entitlement (server-trusted decrement)
+-- ============================================================
+create or replace function public.consume_free_swipe(
+  p_amount integer default 1
+)
+returns integer as $$
+declare
+  v_remaining integer;
+  v_amount integer := greatest(1, coalesce(p_amount, 1));
+begin
+  if auth.uid() is null then
+    return null;
+  end if;
+
+  update public.profiles
+  set free_swipes_remaining = greatest(0, free_swipes_remaining - v_amount),
+      updated_at = now()
+  where id = auth.uid()
+    and free_swipes_remaining > 0
+  returning free_swipes_remaining into v_remaining;
+
+  return v_remaining;
+end;
+$$ language plpgsql;
+
+-- ============================================================
 -- FUNCTION: Check & create match after a right-swipe
 -- Called from the app after recording a swipe
 -- ============================================================
@@ -215,21 +285,49 @@ create or replace function public.check_and_create_match(
 returns boolean as $$
 declare
   v_room public.rooms;
+  v_user_id uuid;
   v_other_user_id uuid;
+  v_user_swiped_right boolean;
   v_other_swiped_right boolean;
 begin
   -- Get the room
   select * into v_room from public.rooms where id = p_room_id;
 
+  if v_room.id is null then
+    return false;
+  end if;
+
+  -- Never trust the client-supplied p_user_id; derive identity from auth.uid().
+  v_user_id := auth.uid();
+  if v_user_id is null then
+    return false;
+  end if;
+
   -- Find the other user
-  if v_room.user1_id = p_user_id then
+  if v_room.user1_id = v_user_id then
     v_other_user_id := v_room.user2_id;
-  else
+  elsif v_room.user2_id = v_user_id then
     v_other_user_id := v_room.user1_id;
+  else
+    return false; -- Invoker isn't a member of this room
   end if;
 
   if v_other_user_id is null then
     return false; -- Partner hasn't joined yet
+  end if;
+
+  -- Hardening: only allow match creation if the caller already swiped right
+  -- for this room/name. This reduces reliance on client orchestration/timing.
+  select exists(
+    select 1 from public.swipes
+    where user_id = v_user_id
+      and room_id = p_room_id
+      and name_id = p_name_id
+      and direction = 'right'
+  ) into v_user_swiped_right;
+
+  if not v_user_swiped_right then
+    return false;
   end if;
 
   -- Check if the other user also swiped right on this name
@@ -265,6 +363,223 @@ alter publication supabase_realtime add table public.rooms;
 create index idx_swipes_room_name on public.swipes(room_id, name_id);
 create index idx_swipes_user_room on public.swipes(user_id, room_id);
 create index idx_matches_room on public.matches(room_id);
+create index if not exists idx_matches_name_id on public.matches(name_id);
 create index idx_baby_names_region on public.baby_names(region);
 create index idx_baby_names_gender on public.baby_names(gender);
 create index idx_rooms_code on public.rooms(code);
+
+-- ============================================================
+-- Staged migration: premium content (schema prep — not yet app-wired)
+-- ============================================================
+-- Marks rows that should not be readable without entitlement once RLS tightens.
+alter table public.baby_names
+  add column if not exists is_premium boolean not null default false;
+
+-- Optional per-dataset popularity ordering (JSONL bulk import).
+alter table public.baby_names
+  add column if not exists popularity_rank integer;
+
+-- Custom names are user-authored public names. Clients may only insert non-premium
+-- rows marked `origin = 'Custom'`; catalog/premium imports still use service-role scripts.
+drop policy if exists "Authenticated users can insert custom baby names" on public.baby_names;
+create policy "Authenticated users can insert custom baby names"
+  on public.baby_names for insert
+  with check (
+    auth.uid() is not null
+    and origin = 'Custom'
+    and not coalesce(is_premium, false)
+    and not coalesce(is_worldwide, false)
+  );
+
+-- Premium rows: readable only when the caller is authenticated and has at least one pack
+-- on their profile (`purchased_packs` non-empty). Non-premium rows stay world-readable.
+-- Note: local dev "unlocks" that are not mirrored into `profiles.purchased_packs` will not
+-- pass this check; the app falls back to bundled premium (existing client behavior).
+drop policy if exists "Anyone can read baby names" on public.baby_names;
+drop policy if exists "baby_names selective read by entitlement" on public.baby_names;
+
+create policy "baby_names selective read by entitlement"
+  on public.baby_names for select
+  using (
+    not coalesce(is_premium, false)
+    or (
+      auth.uid() is not null
+      and (
+      exists (
+        select 1 from public.profiles p
+        where p.id = auth.uid()
+        and cardinality(coalesce(p.purchased_packs, '{}'::text[])) > 0
+      )
+      or exists (
+        select 1 from public.rooms r
+        where (r.user1_id = auth.uid() or r.user2_id = auth.uid())
+        and cardinality(coalesce(r.premium_packs, '{}'::text[])) > 0
+      )
+      )
+    )
+  );
+
+-- Narrow exception: premium catalog remains gated above, but room members may read a premium
+-- name row when it is already referenced by a match in their room (partner may lack packs).
+drop policy if exists "baby_names read for matched names in user rooms" on public.baby_names;
+
+create policy "baby_names read for matched names in user rooms"
+  on public.baby_names for select
+  using (
+    auth.uid() is not null
+    and coalesce(is_premium, false)
+    and exists (
+      select 1
+      from public.matches m
+      inner join public.rooms r on r.id = m.room_id
+      where m.name_id = baby_names.id
+        and (r.user1_id = auth.uid() or r.user2_id = auth.uid())
+    )
+  );
+
+create index if not exists idx_baby_names_is_premium_true
+  on public.baby_names (is_premium)
+  where is_premium = true;
+
+-- Localized premium meanings only (fetch by locale; keyed by stable content id).
+-- Align `name_content_id` with client `BabyName.id` until UUIDs are unified server-side.
+create table if not exists public.premium_meaning_translations (
+  name_content_id text not null,
+  locale text not null,
+  meaning text not null,
+  primary key (name_content_id, locale)
+);
+
+alter table public.premium_meaning_translations enable row level security;
+
+-- Same entitlement bar as premium `baby_names`: authenticated user with at least one purchased pack.
+drop policy if exists "premium_meaning_translations read by entitlement" on public.premium_meaning_translations;
+create policy "premium_meaning_translations read by entitlement"
+  on public.premium_meaning_translations for select
+  using (
+    auth.uid() is not null
+    and (
+    exists (
+      select 1 from public.profiles p
+      where p.id = auth.uid()
+      and cardinality(coalesce(p.purchased_packs, '{}'::text[])) > 0
+    )
+    or exists (
+      select 1 from public.rooms r
+      where (r.user1_id = auth.uid() or r.user2_id = auth.uid())
+      and cardinality(coalesce(r.premium_packs, '{}'::text[])) > 0
+    )
+    )
+  );
+
+-- ============================================================
+-- Canonical name identity layer
+-- ============================================================
+create extension if not exists unaccent with schema extensions;
+
+create or replace function public.normalize_name_key(input text)
+returns text
+language sql
+stable
+as $$
+  select nullif(
+    regexp_replace(
+      regexp_replace(
+        lower(extensions.unaccent(btrim(coalesce(input, '')))),
+        '[’'']',
+        '',
+        'g'
+      ),
+      '\s+',
+      ' ',
+      'g'
+    ),
+    ''
+  );
+$$;
+
+create table if not exists public.canonical_names (
+  id uuid primary key default uuid_generate_v4(),
+  normalized_key text not null unique check (btrim(normalized_key) <> ''),
+  display_name text not null check (btrim(display_name) <> ''),
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.canonical_name_meanings (
+  id uuid primary key default uuid_generate_v4(),
+  canonical_name_id uuid not null references public.canonical_names(id) on delete cascade,
+  meaning text not null check (btrim(meaning) <> ''),
+  origin text,
+  gender_scope text not null default 'any' check (gender_scope in ('any', 'boy', 'girl', 'neutral')),
+  meaning_language text not null default 'en',
+  meaning_source text not null,
+  meaning_confidence numeric,
+  meaning_verified boolean not null default false,
+  created_at timestamptz not null default now()
+);
+
+alter table public.baby_names
+  add column if not exists canonical_name_id uuid references public.canonical_names(id) on delete set null;
+
+create index if not exists idx_baby_names_canonical_name_id
+  on public.baby_names(canonical_name_id);
+
+create index if not exists idx_canonical_name_meanings_lookup
+  on public.canonical_name_meanings(canonical_name_id, meaning_language, gender_scope, meaning_verified, meaning_confidence);
+
+create unique index if not exists idx_canonical_name_meanings_source_unique
+  on public.canonical_name_meanings(canonical_name_id, meaning_language, gender_scope, meaning, meaning_source);
+
+alter table public.canonical_names enable row level security;
+alter table public.canonical_name_meanings enable row level security;
+
+drop policy if exists "canonical_names readable" on public.canonical_names;
+create policy "canonical_names readable"
+  on public.canonical_names for select
+  using (true);
+
+drop policy if exists "canonical_name_meanings readable" on public.canonical_name_meanings;
+create policy "canonical_name_meanings readable"
+  on public.canonical_name_meanings for select
+  using (true);
+
+create or replace view public.baby_names_with_meaning
+with (security_invoker = true)
+as
+select
+  bn.id,
+  bn.name,
+  coalesce(nullif(btrim(bn.meaning), ''), best_meaning.meaning) as meaning,
+  coalesce(nullif(btrim(bn.origin), ''), best_meaning.origin) as origin,
+  bn.gender,
+  bn.country,
+  bn.region,
+  bn.is_worldwide,
+  bn.created_at,
+  bn.is_premium,
+  bn.popularity_rank,
+  bn.canonical_name_id,
+  coalesce(nullif(btrim(bn.meaning_source), ''), best_meaning.meaning_source) as meaning_source,
+  coalesce(bn.meaning_confidence, best_meaning.meaning_confidence) as meaning_confidence,
+  coalesce(bn.meaning_verified, best_meaning.meaning_verified, false) as meaning_verified,
+  coalesce(nullif(btrim(bn.meaning_language), ''), best_meaning.meaning_language) as meaning_language
+from public.baby_names bn
+left join lateral (
+  select
+    cnm.meaning,
+    cnm.origin,
+    cnm.meaning_source,
+    cnm.meaning_confidence,
+    cnm.meaning_verified,
+    cnm.meaning_language
+  from public.canonical_name_meanings cnm
+  where cnm.canonical_name_id = bn.canonical_name_id
+    and cnm.meaning_language = coalesce(nullif(btrim(bn.meaning_language), ''), 'en')
+    and cnm.gender_scope in (bn.gender, 'any')
+  order by
+    case when cnm.gender_scope = bn.gender then 0 else 1 end,
+    cnm.meaning_verified desc,
+    cnm.meaning_confidence desc nulls last,
+    cnm.created_at asc
+  limit 1
+) best_meaning on true;

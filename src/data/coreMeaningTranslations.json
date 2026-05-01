@@ -1,0 +1,2452 @@
+{
+  "00000001": {
+    "nl": "Lucht; lied of melodie",
+    "de": "Luft; Lied oder Melodie",
+    "fr": "Air; chant ou melodie",
+    "es": "Aire; canto o melodia",
+    "ko": "공기; 노래 또는 멜로디"
+  },
+  "00000002": {
+    "nl": "Leeuw",
+    "de": "Lowe",
+    "fr": "Lion",
+    "es": "Leon",
+    "ko": "사자"
+  },
+  "00000003": {
+    "nl": "Van mij; geliefd",
+    "de": "Mein; geliebt",
+    "fr": "A moi; aimee",
+    "es": "Mia; amada",
+    "ko": "내 것; 사랑받는"
+  },
+  "00000004": {
+    "nl": "Brenger van licht",
+    "de": "Bringer des Lichts",
+    "fr": "Porteur de lumiere",
+    "es": "Portador de luz",
+    "ko": "빛을 가져오는 사람"
+  },
+  "00000005": {
+    "nl": "Geheel; universeel",
+    "de": "Ganz; universell",
+    "fr": "Entier; universel",
+    "es": "Completa; universal",
+    "ko": "전체; 보편적인"
+  },
+  "00000006": {
+    "nl": "Rust; troost",
+    "de": "Ruhe; Trost",
+    "fr": "Repos; reconfort",
+    "es": "Descanso; consuelo",
+    "ko": "휴식; 위로"
+  },
+  "00000007": {
+    "nl": "Wijsheid",
+    "de": "Weisheit",
+    "fr": "Sagesse",
+    "es": "Sabiduria",
+    "ko": "지혜"
+  },
+  "00000008": {
+    "nl": "Olijfboom; vrede",
+    "de": "Olivenbaum; Frieden",
+    "fr": "Olivier; paix",
+    "es": "Olivo; paz",
+    "ko": "올리브 나무; 평화"
+  },
+  "00000009": {
+    "nl": "Maan",
+    "de": "Mond",
+    "fr": "Lune",
+    "es": "Luna",
+    "ko": "달"
+  },
+  "00000010": {
+    "nl": "Mijn God is de Heer",
+    "de": "Mein Gott ist der Herr",
+    "fr": "Mon Dieu est le Seigneur",
+    "es": "Mi Dios es el Senor",
+    "ko": "나의 하나님은 주님이시다"
+  },
+  "00000011": {
+    "nl": "Eiland",
+    "de": "Insel",
+    "fr": "Ile",
+    "es": "Isla",
+    "ko": "섬"
+  },
+  "00000012": {
+    "nl": "Sterk; standvastig",
+    "de": "Stark; fest",
+    "fr": "Fort; ferme",
+    "es": "Fuerte; firme",
+    "ko": "강한; 단단한"
+  },
+  "00000013": {
+    "nl": "Bloesem; bloem",
+    "de": "Blute; Blume",
+    "fr": "Fleur; floraison",
+    "es": "Flor; florecimiento",
+    "ko": "꽃; 개화"
+  },
+  "00000014": {
+    "nl": "Jeugdig; donzig",
+    "de": "Jugendlich; weich",
+    "fr": "Jeune; duveteux",
+    "es": "Juvenil; suave",
+    "ko": "젊은; 부드러운"
+  },
+  "00000015": {
+    "nl": "Eer; licht",
+    "de": "Ehre; Licht",
+    "fr": "Honneur; lumiere",
+    "es": "Honor; luz",
+    "ko": "명예; 빛"
+  },
+  "00000016": {
+    "nl": "Greatest",
+    "de": "Greatest",
+    "fr": "Greatest",
+    "es": "Greatest",
+    "ko": "Greatest"
+  },
+  "00000017": {
+    "nl": "Life; living one",
+    "de": "Life; living one",
+    "fr": "Life; living one",
+    "es": "Life; living one",
+    "ko": "Life; living one"
+  },
+  "00000018": {
+    "nl": "God has heard",
+    "de": "God has heard",
+    "fr": "God has heard",
+    "es": "God has heard",
+    "ko": "God has heard"
+  },
+  "00000019": {
+    "nl": "Rainbow",
+    "de": "Rainbow",
+    "fr": "Rainbow",
+    "es": "Rainbow",
+    "ko": "Rainbow"
+  },
+  "00000020": {
+    "nl": "God is my judge",
+    "de": "God is my judge",
+    "fr": "God is my judge",
+    "es": "God is my judge",
+    "ko": "God is my judge"
+  },
+  "00000021": {
+    "nl": "Illusion; mother",
+    "de": "Illusion; mother",
+    "fr": "Illusion; mother",
+    "es": "Illusion; mother",
+    "ko": "Illusion; mother"
+  },
+  "00000022": {
+    "nl": "Earth; man",
+    "de": "Earth; man",
+    "fr": "Earth; man",
+    "es": "Earth; man",
+    "ko": "Earth; man"
+  },
+  "00000023": {
+    "nl": "Night; dark beauty",
+    "de": "Night; dark beauty",
+    "fr": "Night; dark beauty",
+    "es": "Night; dark beauty",
+    "ko": "Night; dark beauty"
+  },
+  "00000024": {
+    "nl": "Son of the right hand",
+    "de": "Son of the right hand",
+    "fr": "Son of the right hand",
+    "es": "Son of the right hand",
+    "ko": "Son of the right hand"
+  },
+  "00000025": {
+    "nl": "Life; bird-like",
+    "de": "Life; bird-like",
+    "fr": "Life; bird-like",
+    "es": "Life; bird-like",
+    "ko": "Life; bird-like"
+  },
+  "00000026": {
+    "nl": "High; ascended",
+    "de": "High; ascended",
+    "fr": "High; ascended",
+    "es": "High; ascended",
+    "ko": "High; ascended"
+  },
+  "00000027": {
+    "nl": "Star",
+    "de": "Star",
+    "fr": "Star",
+    "es": "Star",
+    "ko": "Star"
+  },
+  "00000028": {
+    "nl": "He gave",
+    "de": "He gave",
+    "fr": "He gave",
+    "es": "He gave",
+    "ko": "He gave"
+  },
+  "00000029": {
+    "nl": "Clear; bright; famous",
+    "de": "Clear; bright; famous",
+    "fr": "Clear; bright; famous",
+    "es": "Clear; bright; famous",
+    "ko": "Clear; bright; famous"
+  },
+  "00000030": {
+    "nl": "God is my strength",
+    "de": "God is my strength",
+    "fr": "God is my strength",
+    "es": "God is my strength",
+    "ko": "God is my strength"
+  },
+  "00000031": {
+    "nl": "Pure; passion",
+    "de": "Pure; passion",
+    "fr": "Pure; passion",
+    "es": "Pure; passion",
+    "ko": "Pure; passion"
+  },
+  "00000032": {
+    "nl": "God has healed",
+    "de": "God has healed",
+    "fr": "God has healed",
+    "es": "God has healed",
+    "ko": "God has healed"
+  },
+  "00000033": {
+    "nl": "Faith; truth",
+    "de": "Faith; truth",
+    "fr": "Faith; truth",
+    "es": "Faith; truth",
+    "ko": "Faith; truth"
+  },
+  "00000034": {
+    "nl": "Happy; fortunate",
+    "de": "Happy; fortunate",
+    "fr": "Happy; fortunate",
+    "es": "Happy; fortunate",
+    "ko": "Happy; fortunate"
+  },
+  "00000035": {
+    "nl": "Grace; dreamer",
+    "de": "Grace; dreamer",
+    "fr": "Grace; dreamer",
+    "es": "Grace; dreamer",
+    "ko": "Grace; dreamer"
+  },
+  "00000036": {
+    "nl": "Of Mars; warlike",
+    "de": "Of Mars; warlike",
+    "fr": "Of Mars; warlike",
+    "es": "Of Mars; warlike",
+    "ko": "Of Mars; warlike"
+  },
+  "00000037": {
+    "nl": "Rose; flower",
+    "de": "Rose; flower",
+    "fr": "Rose; flower",
+    "es": "Rose; flower",
+    "ko": "Rose; flower"
+  },
+  "00000038": {
+    "nl": "Venerable; revered",
+    "de": "Venerable; revered",
+    "fr": "Venerable; revered",
+    "es": "Venerable; revered",
+    "ko": "Venerable; revered"
+  },
+  "00000039": {
+    "nl": "Bright; shining one",
+    "de": "Bright; shining one",
+    "fr": "Bright; shining one",
+    "es": "Bright; shining one",
+    "ko": "Bright; shining one"
+  },
+  "00000040": {
+    "nl": "Conqueror; winner",
+    "de": "Conqueror; winner",
+    "fr": "Conqueror; winner",
+    "es": "Conqueror; winner",
+    "ko": "Conqueror; winner"
+  },
+  "00000041": {
+    "nl": "Glory; fame",
+    "de": "Glory; fame",
+    "fr": "Glory; fame",
+    "es": "Glory; fame",
+    "ko": "Glory; fame"
+  },
+  "00000042": {
+    "nl": "Gift of God",
+    "de": "Gift of God",
+    "fr": "Gift of God",
+    "es": "Gift of God",
+    "ko": "Gift of God"
+  },
+  "00000043": {
+    "nl": "Green gemstone; purity",
+    "de": "Green gemstone; purity",
+    "fr": "Green gemstone; purity",
+    "es": "Green gemstone; purity",
+    "ko": "Green gemstone; purity"
+  },
+  "00000044": {
+    "nl": "Defender of men",
+    "de": "Defender of men",
+    "fr": "Defender of men",
+    "es": "Defender of men",
+    "ko": "Defender of men"
+  },
+  "00000045": {
+    "nl": "God is my oath",
+    "de": "God is my oath",
+    "fr": "God is my oath",
+    "es": "God is my oath",
+    "ko": "God is my oath"
+  },
+  "00000046": {
+    "nl": "Mind; heart; spirit",
+    "de": "Mind; heart; spirit",
+    "fr": "Mind; heart; spirit",
+    "es": "Mind; heart; spirit",
+    "ko": "Mind; heart; spirit"
+  },
+  "00000047": {
+    "nl": "Torch; bright one",
+    "de": "Torch; bright one",
+    "fr": "Torch; bright one",
+    "es": "Torch; bright one",
+    "ko": "Torch; bright one"
+  },
+  "00000048": {
+    "nl": "Priceless; praiseworthy",
+    "de": "Priceless; praiseworthy",
+    "fr": "Priceless; praiseworthy",
+    "es": "Priceless; praiseworthy",
+    "ko": "Priceless; praiseworthy"
+  },
+  "00000049": {
+    "nl": "Goddess of love and beauty",
+    "de": "Goddess of love and beauty",
+    "fr": "Goddess of love and beauty",
+    "es": "Goddess of love and beauty",
+    "ko": "Goddess of love and beauty"
+  },
+  "00000050": {
+    "nl": "River",
+    "de": "River",
+    "fr": "River",
+    "es": "River",
+    "ko": "River"
+  },
+  "00000051": {
+    "nl": "Hardworking; industrious",
+    "de": "Hardworking; industrious",
+    "fr": "Hardworking; industrious",
+    "es": "Hardworking; industrious",
+    "ko": "Hardworking; industrious"
+  },
+  "00000052": {
+    "nl": "Priceless one",
+    "de": "Priceless one",
+    "fr": "Priceless one",
+    "es": "Priceless one",
+    "ko": "Priceless one"
+  },
+  "00000053": {
+    "nl": "Young ceremonial attendant",
+    "de": "Young ceremonial attendant",
+    "fr": "Young ceremonial attendant",
+    "es": "Young ceremonial attendant",
+    "ko": "Young ceremonial attendant"
+  },
+  "00000054": {
+    "nl": "Gift of God",
+    "de": "Gift of God",
+    "fr": "Gift of God",
+    "es": "Gift of God",
+    "ko": "Gift of God"
+  },
+  "00000055": {
+    "nl": "Lion-hearted",
+    "de": "Lion-hearted",
+    "fr": "Lion-hearted",
+    "es": "Lion-hearted",
+    "ko": "Lion-hearted"
+  },
+  "00000056": {
+    "nl": "Flowering; in bloom",
+    "de": "Flowering; in bloom",
+    "fr": "Flowering; in bloom",
+    "es": "Flowering; in bloom",
+    "ko": "Flowering; in bloom"
+  },
+  "00000057": {
+    "nl": "Famous warrior",
+    "de": "Famous warrior",
+    "fr": "Famous warrior",
+    "es": "Famous warrior",
+    "ko": "Famous warrior"
+  },
+  "00000058": {
+    "nl": "Victory of the people",
+    "de": "Victory of the people",
+    "fr": "Victory of the people",
+    "es": "Victory of the people",
+    "ko": "Victory of the people"
+  },
+  "00000059": {
+    "nl": "Pearl",
+    "de": "Pearl",
+    "fr": "Pearl",
+    "es": "Pearl",
+    "ko": "Pearl"
+  },
+  "00000060": {
+    "nl": "Bear",
+    "de": "Bear",
+    "fr": "Bear",
+    "es": "Bear",
+    "ko": "Bear"
+  },
+  "00000061": {
+    "nl": "Beautiful victory",
+    "de": "Beautiful victory",
+    "fr": "Beautiful victory",
+    "es": "Beautiful victory",
+    "ko": "Beautiful victory"
+  },
+  "00000062": {
+    "nl": "Young man; boy",
+    "de": "Young man; boy",
+    "fr": "Young man; boy",
+    "es": "Young man; boy",
+    "ko": "Young man; boy"
+  },
+  "00000063": {
+    "nl": "Divinely beautiful; strength",
+    "de": "Divinely beautiful; strength",
+    "fr": "Divinely beautiful; strength",
+    "es": "Divinely beautiful; strength",
+    "ko": "Divinely beautiful; strength"
+  },
+  "00000064": {
+    "nl": "From Laurentum; laurel",
+    "de": "From Laurentum; laurel",
+    "fr": "From Laurentum; laurel",
+    "es": "From Laurentum; laurel",
+    "ko": "From Laurentum; laurel"
+  },
+  "00000065": {
+    "nl": "Bright; clear; famous",
+    "de": "Bright; clear; famous",
+    "fr": "Bright; clear; famous",
+    "es": "Bright; clear; famous",
+    "ko": "Bright; clear; famous"
+  },
+  "00000066": {
+    "nl": "Of Mars; warlike",
+    "de": "Of Mars; warlike",
+    "fr": "Of Mars; warlike",
+    "es": "Of Mars; warlike",
+    "ko": "Of Mars; warlike"
+  },
+  "00000067": {
+    "nl": "Strong; healthy; brave",
+    "de": "Strong; healthy; brave",
+    "fr": "Strong; healthy; brave",
+    "es": "Strong; healthy; brave",
+    "ko": "Strong; healthy; brave"
+  },
+  "00000068": {
+    "nl": "Defender of mankind",
+    "de": "Defender of mankind",
+    "fr": "Defender of mankind",
+    "es": "Defender of mankind",
+    "ko": "Defender of mankind"
+  },
+  "00000069": {
+    "nl": "Light",
+    "de": "Light",
+    "fr": "Light",
+    "es": "Light",
+    "ko": "Light"
+  },
+  "00000070": {
+    "nl": "Small; humble",
+    "de": "Small; humble",
+    "fr": "Small; humble",
+    "es": "Small; humble",
+    "ko": "Small; humble"
+  },
+  "00000071": {
+    "nl": "Gift of God",
+    "de": "Gift of God",
+    "fr": "Gift of God",
+    "es": "Gift of God",
+    "ko": "Gift of God"
+  },
+  "00000072": {
+    "nl": "God is my oath",
+    "de": "God is my oath",
+    "fr": "God is my oath",
+    "es": "God is my oath",
+    "ko": "God is my oath"
+  },
+  "00000073": {
+    "nl": "Young warrior",
+    "de": "Young warrior",
+    "fr": "Young warrior",
+    "es": "Young warrior",
+    "ko": "Young warrior"
+  },
+  "00000074": {
+    "nl": "Beautiful; radiant",
+    "de": "Beautiful; radiant",
+    "fr": "Beautiful; radiant",
+    "es": "Beautiful; radiant",
+    "ko": "Beautiful; radiant"
+  },
+  "00000075": {
+    "nl": "Little dark one",
+    "de": "Little dark one",
+    "fr": "Little dark one",
+    "es": "Little dark one",
+    "ko": "Little dark one"
+  },
+  "00000076": {
+    "nl": "Reddish-brown; city in Italy",
+    "de": "Reddish-brown; city in Italy",
+    "fr": "Reddish-brown; city in Italy",
+    "es": "Reddish-brown; city in Italy",
+    "ko": "Reddish-brown; city in Italy"
+  },
+  "00000077": {
+    "nl": "Rival; eager",
+    "de": "Rival; eager",
+    "fr": "Rival; eager",
+    "es": "Rival; eager",
+    "ko": "Rival; eager"
+  },
+  "00000078": {
+    "nl": "Beautiful; beloved",
+    "de": "Beautiful; beloved",
+    "fr": "Beautiful; beloved",
+    "es": "Beautiful; beloved",
+    "ko": "Beautiful; beloved"
+  },
+  "00000079": {
+    "nl": "Ever-ruler; eternal king",
+    "de": "Ever-ruler; eternal king",
+    "fr": "Ever-ruler; eternal king",
+    "es": "Ever-ruler; eternal king",
+    "ko": "Ever-ruler; eternal king"
+  },
+  "00000080": {
+    "nl": "Bright; shining light",
+    "de": "Bright; shining light",
+    "fr": "Bright; shining light",
+    "es": "Bright; shining light",
+    "ko": "Bright; shining light"
+  },
+  "00000081": {
+    "nl": "Who is like God",
+    "de": "Who is like God",
+    "fr": "Who is like God",
+    "es": "Who is like God",
+    "ko": "Who is like God"
+  },
+  "00000082": {
+    "nl": "Gracious; favored",
+    "de": "Gracious; favored",
+    "fr": "Gracious; favored",
+    "es": "Gracious; favored",
+    "ko": "Gracious; favored"
+  },
+  "00000083": {
+    "nl": "Rock; stone",
+    "de": "Rock; stone",
+    "fr": "Rock; stone",
+    "es": "Rock; stone",
+    "ko": "Rock; stone"
+  },
+  "00000084": {
+    "nl": "Wisdom",
+    "de": "Wisdom",
+    "fr": "Wisdom",
+    "es": "Wisdom",
+    "ko": "Wisdom"
+  },
+  "00000085": {
+    "nl": "Famous ruler",
+    "de": "Famous ruler",
+    "fr": "Famous ruler",
+    "es": "Famous ruler",
+    "ko": "Famous ruler"
+  },
+  "00000086": {
+    "nl": "Foreign woman; stranger",
+    "de": "Foreign woman; stranger",
+    "fr": "Foreign woman; stranger",
+    "es": "Foreign woman; stranger",
+    "ko": "Foreign woman; stranger"
+  },
+  "00000087": {
+    "nl": "Light; bringer of light",
+    "de": "Light; bringer of light",
+    "fr": "Light; bringer of light",
+    "es": "Light; bringer of light",
+    "ko": "Light; bringer of light"
+  },
+  "00000088": {
+    "nl": "Grace; favor",
+    "de": "Grace; favor",
+    "fr": "Grace; favor",
+    "es": "Grace; favor",
+    "ko": "Grace; favor"
+  },
+  "00000089": {
+    "nl": "Fair; white; clear",
+    "de": "Fair; white; clear",
+    "fr": "Fair; white; clear",
+    "es": "Fair; white; clear",
+    "ko": "Fair; white; clear"
+  },
+  "00000090": {
+    "nl": "Beautiful rose",
+    "de": "Beautiful rose",
+    "fr": "Beautiful rose",
+    "es": "Beautiful rose",
+    "ko": "Beautiful rose"
+  },
+  "00000091": {
+    "nl": "Gift of God",
+    "de": "Gift of God",
+    "fr": "Gift of God",
+    "es": "Gift of God",
+    "ko": "Gift of God"
+  },
+  "00000092": {
+    "nl": "Flower",
+    "de": "Flower",
+    "fr": "Flower",
+    "es": "Flower",
+    "ko": "Flower"
+  },
+  "00000093": {
+    "nl": "Devoted to Demeter",
+    "de": "Devoted to Demeter",
+    "fr": "Devoted to Demeter",
+    "es": "Devoted to Demeter",
+    "ko": "Devoted to Demeter"
+  },
+  "00000094": {
+    "nl": "Born on Christmas Day",
+    "de": "Born on Christmas Day",
+    "fr": "Born on Christmas Day",
+    "es": "Born on Christmas Day",
+    "ko": "Born on Christmas Day"
+  },
+  "00000095": {
+    "nl": "Manly; brave",
+    "de": "Manly; brave",
+    "fr": "Manly; brave",
+    "es": "Manly; brave",
+    "ko": "Manly; brave"
+  },
+  "00000096": {
+    "nl": "Pure; clear",
+    "de": "Pure; clear",
+    "fr": "Pure; clear",
+    "es": "Pure; clear",
+    "ko": "Pure; clear"
+  },
+  "00000097": {
+    "nl": "Twin",
+    "de": "Twin",
+    "fr": "Twin",
+    "es": "Twin",
+    "ko": "Twin"
+  },
+  "00000098": {
+    "nl": "God is my oath",
+    "de": "God is my oath",
+    "fr": "God is my oath",
+    "es": "God is my oath",
+    "ko": "God is my oath"
+  },
+  "00000099": {
+    "nl": "Stern; severe",
+    "de": "Stern; severe",
+    "fr": "Stern; severe",
+    "es": "Stern; severe",
+    "ko": "Stern; severe"
+  },
+  "00000100": {
+    "nl": "Pearl; mother",
+    "de": "Pearl; mother",
+    "fr": "Pearl; mother",
+    "es": "Pearl; mother",
+    "ko": "Pearl; mother"
+  },
+  "00000101": {
+    "nl": "Strong-willed warrior; protector [nl]",
+    "de": "Strong-willed warrior; protector [de]",
+    "fr": "Strong-willed warrior; protector [fr]",
+    "es": "Strong-willed warrior; protector [es]",
+    "ko": "Strong-willed warrior; protector [ko]"
+  },
+  "00000102": {
+    "nl": "Olive tree; peace [nl]",
+    "de": "Olive tree; peace [de]",
+    "fr": "Olive tree; peace [fr]",
+    "es": "Olive tree; peace [es]",
+    "ko": "Olive tree; peace [ko]"
+  },
+  "00000103": {
+    "nl": "Stone worker [nl]",
+    "de": "Stone worker [de]",
+    "fr": "Stone worker [fr]",
+    "es": "Stone worker [es]",
+    "ko": "Stone worker [ko]"
+  },
+  "00000104": {
+    "nl": "Free woman [nl]",
+    "de": "Free woman [de]",
+    "fr": "Free woman [fr]",
+    "es": "Free woman [es]",
+    "ko": "Free woman [ko]"
+  },
+  "00000105": {
+    "nl": "Little fire [nl]",
+    "de": "Little fire [de]",
+    "fr": "Little fire [fr]",
+    "es": "Little fire [es]",
+    "ko": "Little fire [ko]"
+  },
+  "00000106": {
+    "nl": "Harp player [nl]",
+    "de": "Harp player [de]",
+    "fr": "Harp player [fr]",
+    "es": "Harp player [es]",
+    "ko": "Harp player [ko]"
+  },
+  "00000107": {
+    "nl": "My God is Yahweh [nl]",
+    "de": "My God is Yahweh [de]",
+    "fr": "My God is Yahweh [fr]",
+    "es": "My God is Yahweh [es]",
+    "ko": "My God is Yahweh [ko]"
+  },
+  "00000108": {
+    "nl": "Work; industrious [nl]",
+    "de": "Work; industrious [de]",
+    "fr": "Work; industrious [fr]",
+    "es": "Work; industrious [es]",
+    "ko": "Work; industrious [ko]"
+  },
+  "00000109": {
+    "nl": "Supplanter [nl]",
+    "de": "Supplanter [de]",
+    "fr": "Supplanter [fr]",
+    "es": "Supplanter [es]",
+    "ko": "Supplanter [ko]"
+  },
+  "00000110": {
+    "nl": "Wished-for child; life [nl]",
+    "de": "Wished-for child; life [de]",
+    "fr": "Wished-for child; life [fr]",
+    "es": "Wished-for child; life [es]",
+    "ko": "Wished-for child; life [ko]"
+  },
+  "00000111": {
+    "nl": "Little hollow [nl]",
+    "de": "Little hollow [de]",
+    "fr": "Little hollow [fr]",
+    "es": "Little hollow [es]",
+    "ko": "Little hollow [ko]"
+  },
+  "00000112": {
+    "nl": "Father's joy [nl]",
+    "de": "Father's joy [de]",
+    "fr": "Father's joy [fr]",
+    "es": "Father's joy [es]",
+    "ko": "Father's joy [ko]"
+  },
+  "00000113": {
+    "nl": "Brave in war [nl]",
+    "de": "Brave in war [de]",
+    "fr": "Brave in war [fr]",
+    "es": "Brave in war [es]",
+    "ko": "Brave in war [ko]"
+  },
+  "00000114": {
+    "nl": "Red; bright [nl]",
+    "de": "Red; bright [de]",
+    "fr": "Red; bright [fr]",
+    "es": "Red; bright [es]",
+    "ko": "Red; bright [ko]"
+  },
+  "00000115": {
+    "nl": "Son of Jack [nl]",
+    "de": "Son of Jack [de]",
+    "fr": "Son of Jack [fr]",
+    "es": "Son of Jack [es]",
+    "ko": "Son of Jack [ko]"
+  },
+  "00000116": {
+    "nl": "Grace of God [nl]",
+    "de": "Grace of God [de]",
+    "fr": "Grace of God [fr]",
+    "es": "Grace of God [es]",
+    "ko": "Grace of God [ko]"
+  },
+  "00000117": {
+    "nl": "One who transports goods [nl]",
+    "de": "One who transports goods [de]",
+    "fr": "One who transports goods [fr]",
+    "es": "One who transports goods [es]",
+    "ko": "One who transports goods [ko]"
+  },
+  "00000118": {
+    "nl": "Blooming; fertility [nl]",
+    "de": "Blooming; fertility [de]",
+    "fr": "Blooming; fertility [fr]",
+    "es": "Blooming; fertility [es]",
+    "ko": "Blooming; fertility [ko]"
+  },
+  "00000119": {
+    "nl": "Young warrior; well-born [nl]",
+    "de": "Young warrior; well-born [de]",
+    "fr": "Young warrior; well-born [fr]",
+    "es": "Young warrior; well-born [es]",
+    "ko": "Young warrior; well-born [ko]"
+  },
+  "00000120": {
+    "nl": "Weaver; faithful wife [nl]",
+    "de": "Weaver; faithful wife [de]",
+    "fr": "Weaver; faithful wife [fr]",
+    "es": "Weaver; faithful wife [es]",
+    "ko": "Weaver; faithful wife [ko]"
+  },
+  "00000121": {
+    "nl": "Long hill [nl]",
+    "de": "Long hill [de]",
+    "fr": "Long hill [fr]",
+    "es": "Long hill [es]",
+    "ko": "Long hill [ko]"
+  },
+  "00000122": {
+    "nl": "Night; dark beauty [nl]",
+    "de": "Night; dark beauty [de]",
+    "fr": "Night; dark beauty [fr]",
+    "es": "Night; dark beauty [es]",
+    "ko": "Night; dark beauty [ko]"
+  },
+  "00000123": {
+    "nl": "Son of the steward [nl]",
+    "de": "Son of the steward [de]",
+    "fr": "Son of the steward [fr]",
+    "es": "Son of the steward [es]",
+    "ko": "Son of the steward [ko]"
+  },
+  "00000124": {
+    "nl": "Courageous; valiant [nl]",
+    "de": "Courageous; valiant [de]",
+    "fr": "Courageous; valiant [fr]",
+    "es": "Courageous; valiant [es]",
+    "ko": "Courageous; valiant [ko]"
+  },
+  "00000125": {
+    "nl": "Son of Hudd; heart and mind [nl]",
+    "de": "Son of Hudd; heart and mind [de]",
+    "fr": "Son of Hudd; heart and mind [fr]",
+    "es": "Son of Hudd; heart and mind [es]",
+    "ko": "Son of Hudd; heart and mind [ko]"
+  },
+  "00000126": {
+    "nl": "Life [nl]",
+    "de": "Life [de]",
+    "fr": "Life [fr]",
+    "es": "Life [es]",
+    "ko": "Life [ko]"
+  },
+  "00000127": {
+    "nl": "Lake colony; town by the pool [nl]",
+    "de": "Lake colony; town by the pool [de]",
+    "fr": "Lake colony; town by the pool [fr]",
+    "es": "Lake colony; town by the pool [es]",
+    "ko": "Lake colony; town by the pool [ko]"
+  },
+  "00000128": {
+    "nl": "Honor [nl]",
+    "de": "Honor [de]",
+    "fr": "Honor [fr]",
+    "es": "Honor [es]",
+    "ko": "Honor [ko]"
+  },
+  "00000129": {
+    "nl": "God has been gracious [nl]",
+    "de": "God has been gracious [de]",
+    "fr": "God has been gracious [fr]",
+    "es": "God has been gracious [es]",
+    "ko": "God has been gracious [ko]"
+  },
+  "00000130": {
+    "nl": "Lily flower; purity [nl]",
+    "de": "Lily flower; purity [de]",
+    "fr": "Lily flower; purity [fr]",
+    "es": "Lily flower; purity [es]",
+    "ko": "Lily flower; purity [ko]"
+  },
+  "00000131": {
+    "nl": "Happy; blessed [nl]",
+    "de": "Happy; blessed [de]",
+    "fr": "Happy; blessed [fr]",
+    "es": "Happy; blessed [es]",
+    "ko": "Happy; blessed [ko]"
+  },
+  "00000132": {
+    "nl": "Hazel tree; commander [nl]",
+    "de": "Hazel tree; commander [de]",
+    "fr": "Hazel tree; commander [fr]",
+    "es": "Hazel tree; commander [es]",
+    "ko": "Hazel tree; commander [ko]"
+  },
+  "00000133": {
+    "nl": "God is salvation [nl]",
+    "de": "God is salvation [de]",
+    "fr": "God is salvation [fr]",
+    "es": "God is salvation [es]",
+    "ko": "God is salvation [ko]"
+  },
+  "00000134": {
+    "nl": "Purple flower; modesty [nl]",
+    "de": "Purple flower; modesty [de]",
+    "fr": "Purple flower; modesty [fr]",
+    "es": "Purple flower; modesty [es]",
+    "ko": "Purple flower; modesty [ko]"
+  },
+  "00000135": {
+    "nl": "Man of prayer [nl]",
+    "de": "Man of prayer [de]",
+    "fr": "Man of prayer [fr]",
+    "es": "Man of prayer [es]",
+    "ko": "Man of prayer [ko]"
+  },
+  "00000136": {
+    "nl": "Dawn; goddess of the dawn [nl]",
+    "de": "Dawn; goddess of the dawn [de]",
+    "fr": "Dawn; goddess of the dawn [fr]",
+    "es": "Dawn; goddess of the dawn [es]",
+    "ko": "Dawn; goddess of the dawn [ko]"
+  },
+  "00000137": {
+    "nl": "Independent; nonconformist [nl]",
+    "de": "Independent; nonconformist [de]",
+    "fr": "Independent; nonconformist [fr]",
+    "es": "Independent; nonconformist [es]",
+    "ko": "Independent; nonconformist [ko]"
+  },
+  "00000138": {
+    "nl": "Open plain; from the city [nl]",
+    "de": "Open plain; from the city [de]",
+    "fr": "Open plain; from the city [fr]",
+    "es": "Open plain; from the city [es]",
+    "ko": "Open plain; from the city [ko]"
+  },
+  "00000139": {
+    "nl": "Help; helper [nl]",
+    "de": "Help; helper [de]",
+    "fr": "Help; helper [fr]",
+    "es": "Help; helper [es]",
+    "ko": "Help; helper [ko]"
+  },
+  "00000140": {
+    "nl": "Broken land; from Brooklyn [nl]",
+    "de": "Broken land; from Brooklyn [de]",
+    "fr": "Broken land; from Brooklyn [fr]",
+    "es": "Broken land; from Brooklyn [es]",
+    "ko": "Broken land; from Brooklyn [ko]"
+  },
+  "00000141": {
+    "nl": "Who is like God [nl]",
+    "de": "Who is like God [de]",
+    "fr": "Who is like God [fr]",
+    "es": "Who is like God [es]",
+    "ko": "Who is like God [ko]"
+  },
+  "00000142": {
+    "nl": "Fall season; harvesting time [nl]",
+    "de": "Fall season; harvesting time [de]",
+    "fr": "Fall season; harvesting time [fr]",
+    "es": "Fall season; harvesting time [es]",
+    "ko": "Fall season; harvesting time [ko]"
+  },
+  "00000143": {
+    "nl": "Barrel maker [nl]",
+    "de": "Barrel maker [de]",
+    "fr": "Barrel maker [fr]",
+    "es": "Barrel maker [es]",
+    "ko": "Barrel maker [ko]"
+  },
+  "00000144": {
+    "nl": "Helmeted chief [nl]",
+    "de": "Helmeted chief [de]",
+    "fr": "Helmeted chief [fr]",
+    "es": "Helmeted chief [es]",
+    "ko": "Helmeted chief [ko]"
+  },
+  "00000145": {
+    "nl": "Joined; attached [nl]",
+    "de": "Joined; attached [de]",
+    "fr": "Joined; attached [fr]",
+    "es": "Joined; attached [es]",
+    "ko": "Joined; attached [ko]"
+  },
+  "00000146": {
+    "nl": "Church; cemetery [nl]",
+    "de": "Church; cemetery [de]",
+    "fr": "Church; cemetery [fr]",
+    "es": "Church; cemetery [es]",
+    "ko": "Church; cemetery [ko]"
+  },
+  "00000147": {
+    "nl": "Coal town [nl]",
+    "de": "Coal town [de]",
+    "fr": "Coal town [fr]",
+    "es": "Coal town [es]",
+    "ko": "Coal town [ko]"
+  },
+  "00000148": {
+    "nl": "Star [nl]",
+    "de": "Star [de]",
+    "fr": "Star [fr]",
+    "es": "Star [es]",
+    "ko": "Star [ko]"
+  },
+  "00000149": {
+    "nl": "Great; magnificent [nl]",
+    "de": "Great; magnificent [de]",
+    "fr": "Great; magnificent [fr]",
+    "es": "Great; magnificent [es]",
+    "ko": "Great; magnificent [ko]"
+  },
+  "00000150": {
+    "nl": "Origin; beginning [nl]",
+    "de": "Origin; beginning [de]",
+    "fr": "Origin; beginning [fr]",
+    "es": "Origin; beginning [es]",
+    "ko": "Origin; beginning [ko]"
+  },
+  "00000151": {
+    "nl": "Praiseworthy; praised one [nl]",
+    "de": "Praiseworthy; praised one [de]",
+    "fr": "Praiseworthy; praised one [fr]",
+    "es": "Praiseworthy; praised one [es]",
+    "ko": "Praiseworthy; praised one [ko]"
+  },
+  "00000152": {
+    "nl": "One who abstains; captivating [nl]",
+    "de": "One who abstains; captivating [de]",
+    "fr": "One who abstains; captivating [fr]",
+    "es": "One who abstains; captivating [es]",
+    "ko": "One who abstains; captivating [ko]"
+  },
+  "00000153": {
+    "nl": "Highly praised [nl]",
+    "de": "Highly praised [de]",
+    "fr": "Highly praised [fr]",
+    "es": "Highly praised [es]",
+    "ko": "Highly praised [ko]"
+  },
+  "00000154": {
+    "nl": "Alive; living; prosperous [nl]",
+    "de": "Alive; living; prosperous [de]",
+    "fr": "Alive; living; prosperous [fr]",
+    "es": "Alive; living; prosperous [es]",
+    "ko": "Alive; living; prosperous [ko]"
+  },
+  "00000155": {
+    "nl": "Long-lived; flourishing [nl]",
+    "de": "Long-lived; flourishing [de]",
+    "fr": "Long-lived; flourishing [fr]",
+    "es": "Long-lived; flourishing [es]",
+    "ko": "Long-lived; flourishing [ko]"
+  },
+  "00000156": {
+    "nl": "Light; radiance [nl]",
+    "de": "Light; radiance [de]",
+    "fr": "Light; radiance [fr]",
+    "es": "Light; radiance [es]",
+    "ko": "Light; radiance [ko]"
+  },
+  "00000157": {
+    "nl": "Eternal; immortal [nl]",
+    "de": "Eternal; immortal [de]",
+    "fr": "Eternal; immortal [fr]",
+    "es": "Eternal; immortal [es]",
+    "ko": "Eternal; immortal [ko]"
+  },
+  "00000158": {
+    "nl": "Beloved; wished-for child [nl]",
+    "de": "Beloved; wished-for child [de]",
+    "fr": "Beloved; wished-for child [fr]",
+    "es": "Beloved; wished-for child [es]",
+    "ko": "Beloved; wished-for child [ko]"
+  },
+  "00000159": {
+    "nl": "God increases; Joseph [nl]",
+    "de": "God increases; Joseph [de]",
+    "fr": "God increases; Joseph [fr]",
+    "es": "God increases; Joseph [es]",
+    "ko": "God increases; Joseph [ko]"
+  },
+  "00000160": {
+    "nl": "Peaceful; safe [nl]",
+    "de": "Peaceful; safe [de]",
+    "fr": "Peaceful; safe [fr]",
+    "es": "Peaceful; safe [es]",
+    "ko": "Peaceful; safe [ko]"
+  },
+  "00000161": {
+    "nl": "Handsome; good [nl]",
+    "de": "Handsome; good [de]",
+    "fr": "Handsome; good [fr]",
+    "es": "Handsome; good [es]",
+    "ko": "Handsome; good [ko]"
+  },
+  "00000162": {
+    "nl": "Happiness; bliss [nl]",
+    "de": "Happiness; bliss [de]",
+    "fr": "Happiness; bliss [fr]",
+    "es": "Happiness; bliss [es]",
+    "ko": "Happiness; bliss [ko]"
+  },
+  "00000163": {
+    "nl": "Father of many nations [nl]",
+    "de": "Father of many nations [de]",
+    "fr": "Father of many nations [fr]",
+    "es": "Father of many nations [es]",
+    "ko": "Father of many nations [ko]"
+  },
+  "00000164": {
+    "nl": "Night; dark-haired beauty [nl]",
+    "de": "Night; dark-haired beauty [de]",
+    "fr": "Night; dark-haired beauty [fr]",
+    "es": "Night; dark-haired beauty [es]",
+    "ko": "Night; dark-haired beauty [ko]"
+  },
+  "00000165": {
+    "nl": "Servant of God [nl]",
+    "de": "Servant of God [de]",
+    "fr": "Servant of God [fr]",
+    "es": "Servant of God [es]",
+    "ko": "Servant of God [ko]"
+  },
+  "00000166": {
+    "nl": "Princess; leader [nl]",
+    "de": "Princess; leader [de]",
+    "fr": "Princess; leader [fr]",
+    "es": "Princess; leader [es]",
+    "ko": "Princess; leader [ko]"
+  },
+  "00000167": {
+    "nl": "Morning star; night visitor [nl]",
+    "de": "Morning star; night visitor [de]",
+    "fr": "Morning star; night visitor [fr]",
+    "es": "Morning star; night visitor [es]",
+    "ko": "Morning star; night visitor [ko]"
+  },
+  "00000168": {
+    "nl": "Queen; gazing [nl]",
+    "de": "Queen; gazing [de]",
+    "fr": "Queen; gazing [fr]",
+    "es": "Queen; gazing [es]",
+    "ko": "Queen; gazing [ko]"
+  },
+  "00000169": {
+    "nl": "Decisive; sword separator of right from wrong [nl]",
+    "de": "Decisive; sword separator of right from wrong [de]",
+    "fr": "Decisive; sword separator of right from wrong [fr]",
+    "es": "Decisive; sword separator of right from wrong [es]",
+    "ko": "Decisive; sword separator of right from wrong [ko]"
+  },
+  "00000170": {
+    "nl": "Jasmine flower [nl]",
+    "de": "Jasmine flower [de]",
+    "fr": "Jasmine flower [fr]",
+    "es": "Jasmine flower [es]",
+    "ko": "Jasmine flower [ko]"
+  },
+  "00000171": {
+    "nl": "Strong; steadfast [nl]",
+    "de": "Strong; steadfast [de]",
+    "fr": "Strong; steadfast [fr]",
+    "es": "Strong; steadfast [es]",
+    "ko": "Strong; steadfast [ko]"
+  },
+  "00000172": {
+    "nl": "Tender; soft; palm tree [nl]",
+    "de": "Tender; soft; palm tree [de]",
+    "fr": "Tender; soft; palm tree [fr]",
+    "es": "Tender; soft; palm tree [es]",
+    "ko": "Tender; soft; palm tree [ko]"
+  },
+  "00000173": {
+    "nl": "Entertaining companion; jovial [nl]",
+    "de": "Entertaining companion; jovial [de]",
+    "fr": "Entertaining companion; jovial [fr]",
+    "es": "Entertaining companion; jovial [es]",
+    "ko": "Entertaining companion; jovial [ko]"
+  },
+  "00000174": {
+    "nl": "Judged; righteous [nl]",
+    "de": "Judged; righteous [de]",
+    "fr": "Judged; righteous [fr]",
+    "es": "Judged; righteous [es]",
+    "ko": "Judged; righteous [ko]"
+  },
+  "00000175": {
+    "nl": "Growth; abundance [nl]",
+    "de": "Growth; abundance [de]",
+    "fr": "Growth; abundance [fr]",
+    "es": "Growth; abundance [es]",
+    "ko": "Growth; abundance [ko]"
+  },
+  "00000176": {
+    "nl": "Beautiful object; eye-catching [nl]",
+    "de": "Beautiful object; eye-catching [de]",
+    "fr": "Beautiful object; eye-catching [fr]",
+    "es": "Beautiful object; eye-catching [es]",
+    "ko": "Beautiful object; eye-catching [ko]"
+  },
+  "00000177": {
+    "nl": "Moist; refreshing; water [nl]",
+    "de": "Moist; refreshing; water [de]",
+    "fr": "Moist; refreshing; water [fr]",
+    "es": "Moist; refreshing; water [es]",
+    "ko": "Moist; refreshing; water [ko]"
+  },
+  "00000178": {
+    "nl": "Destiny; fate [nl]",
+    "de": "Destiny; fate [de]",
+    "fr": "Destiny; fate [fr]",
+    "es": "Destiny; fate [es]",
+    "ko": "Destiny; fate [ko]"
+  },
+  "00000179": {
+    "nl": "Newborn; newly born [nl]",
+    "de": "Newborn; newly born [de]",
+    "fr": "Newborn; newly born [fr]",
+    "es": "Newborn; newly born [es]",
+    "ko": "Newborn; newly born [ko]"
+  },
+  "00000180": {
+    "nl": "Achievement; attainment [nl]",
+    "de": "Achievement; attainment [de]",
+    "fr": "Achievement; attainment [fr]",
+    "es": "Achievement; attainment [es]",
+    "ko": "Achievement; attainment [ko]"
+  },
+  "00000181": {
+    "nl": "Generous; noble [nl]",
+    "de": "Generous; noble [de]",
+    "fr": "Generous; noble [fr]",
+    "es": "Generous; noble [es]",
+    "ko": "Generous; noble [ko]"
+  },
+  "00000182": {
+    "nl": "Graceful young woman [nl]",
+    "de": "Graceful young woman [de]",
+    "fr": "Graceful young woman [fr]",
+    "es": "Graceful young woman [es]",
+    "ko": "Graceful young woman [ko]"
+  },
+  "00000183": {
+    "nl": "High; elevated [nl]",
+    "de": "High; elevated [de]",
+    "fr": "High; elevated [fr]",
+    "es": "High; elevated [es]",
+    "ko": "High; elevated [ko]"
+  },
+  "00000184": {
+    "nl": "Prestigious; supreme [nl]",
+    "de": "Prestigious; supreme [de]",
+    "fr": "Prestigious; supreme [fr]",
+    "es": "Prestigious; supreme [es]",
+    "ko": "Prestigious; supreme [ko]"
+  },
+  "00000185": {
+    "nl": "Gates of paradise; watered; plentiful [nl]",
+    "de": "Gates of paradise; watered; plentiful [de]",
+    "fr": "Gates of paradise; watered; plentiful [fr]",
+    "es": "Gates of paradise; watered; plentiful [es]",
+    "ko": "Gates of paradise; watered; plentiful [ko]"
+  },
+  "00000186": {
+    "nl": "Loyalty; faithfulness [nl]",
+    "de": "Loyalty; faithfulness [de]",
+    "fr": "Loyalty; faithfulness [fr]",
+    "es": "Loyalty; faithfulness [es]",
+    "ko": "Loyalty; faithfulness [ko]"
+  },
+  "00000187": {
+    "nl": "Happy; fortunate [nl]",
+    "de": "Happy; fortunate [de]",
+    "fr": "Happy; fortunate [fr]",
+    "es": "Happy; fortunate [es]",
+    "ko": "Happy; fortunate [ko]"
+  },
+  "00000188": {
+    "nl": "Wish; desire [nl]",
+    "de": "Wish; desire [de]",
+    "fr": "Wish; desire [fr]",
+    "es": "Wish; desire [es]",
+    "ko": "Wish; desire [ko]"
+  },
+  "00000189": {
+    "nl": "Victory; helper [nl]",
+    "de": "Victory; helper [de]",
+    "fr": "Victory; helper [fr]",
+    "es": "Victory; helper [es]",
+    "ko": "Victory; helper [ko]"
+  },
+  "00000190": {
+    "nl": "Female mountain goat; swift [nl]",
+    "de": "Female mountain goat; swift [de]",
+    "fr": "Female mountain goat; swift [fr]",
+    "es": "Female mountain goat; swift [es]",
+    "ko": "Female mountain goat; swift [ko]"
+  },
+  "00000191": {
+    "nl": "Victorious; aided by God [nl]",
+    "de": "Victorious; aided by God [de]",
+    "fr": "Victorious; aided by God [fr]",
+    "es": "Victorious; aided by God [es]",
+    "ko": "Victorious; aided by God [ko]"
+  },
+  "00000192": {
+    "nl": "Group of camels; Hindu woman [nl]",
+    "de": "Group of camels; Hindu woman [de]",
+    "fr": "Group of camels; Hindu woman [fr]",
+    "es": "Group of camels; Hindu woman [es]",
+    "ko": "Group of camels; Hindu woman [ko]"
+  },
+  "00000193": {
+    "nl": "Just; fair; equal [nl]",
+    "de": "Just; fair; equal [de]",
+    "fr": "Just; fair; equal [fr]",
+    "es": "Just; fair; equal [es]",
+    "ko": "Just; fair; equal [ko]"
+  },
+  "00000194": {
+    "nl": "Radiant light [nl]",
+    "de": "Radiant light [de]",
+    "fr": "Radiant light [fr]",
+    "es": "Radiant light [es]",
+    "ko": "Radiant light [ko]"
+  },
+  "00000195": {
+    "nl": "Glorious; noble [nl]",
+    "de": "Glorious; noble [de]",
+    "fr": "Glorious; noble [fr]",
+    "es": "Glorious; noble [es]",
+    "ko": "Glorious; noble [ko]"
+  },
+  "00000196": {
+    "nl": "White antelope [nl]",
+    "de": "White antelope [de]",
+    "fr": "White antelope [fr]",
+    "es": "White antelope [es]",
+    "ko": "White antelope [ko]"
+  },
+  "00000197": {
+    "nl": "King; authority [nl]",
+    "de": "King; authority [de]",
+    "fr": "King; authority [fr]",
+    "es": "King; authority [es]",
+    "ko": "King; authority [ko]"
+  },
+  "00000198": {
+    "nl": "Fragrance; aroma [nl]",
+    "de": "Fragrance; aroma [de]",
+    "fr": "Fragrance; aroma [fr]",
+    "es": "Fragrance; aroma [es]",
+    "ko": "Fragrance; aroma [ko]"
+  },
+  "00000199": {
+    "nl": "Rightly guided; mature [nl]",
+    "de": "Rightly guided; mature [de]",
+    "fr": "Rightly guided; mature [fr]",
+    "es": "Rightly guided; mature [es]",
+    "ko": "Rightly guided; mature [ko]"
+  },
+  "00000200": {
+    "nl": "Honey; witness [nl]",
+    "de": "Honey; witness [de]",
+    "fr": "Honey; witness [fr]",
+    "es": "Honey; witness [es]",
+    "ko": "Honey; witness [ko]"
+  },
+  "00000201": {
+    "nl": "Sun; throne [nl]",
+    "de": "Sun; throne [de]",
+    "fr": "Sun; throne [fr]",
+    "es": "Sun; throne [es]",
+    "ko": "Sun; throne [ko]"
+  },
+  "00000202": {
+    "nl": "Sweet; pleasant [nl]",
+    "de": "Sweet; pleasant [de]",
+    "fr": "Sweet; pleasant [fr]",
+    "es": "Sweet; pleasant [es]",
+    "ko": "Sweet; pleasant [ko]"
+  },
+  "00000203": {
+    "nl": "Rich; kingly [nl]",
+    "de": "Rich; kingly [de]",
+    "fr": "Rich; kingly [fr]",
+    "es": "Rich; kingly [es]",
+    "ko": "Rich; kingly [ko]"
+  },
+  "00000204": {
+    "nl": "Like a fairy; angel-faced [nl]",
+    "de": "Like a fairy; angel-faced [de]",
+    "fr": "Like a fairy; angel-faced [fr]",
+    "es": "Like a fairy; angel-faced [es]",
+    "ko": "Like a fairy; angel-faced [ko]"
+  },
+  "00000205": {
+    "nl": "Contentment; satisfaction [nl]",
+    "de": "Contentment; satisfaction [de]",
+    "fr": "Contentment; satisfaction [fr]",
+    "es": "Contentment; satisfaction [es]",
+    "ko": "Contentment; satisfaction [ko]"
+  },
+  "00000206": {
+    "nl": "Wild rose; eglantine [nl]",
+    "de": "Wild rose; eglantine [de]",
+    "fr": "Wild rose; eglantine [fr]",
+    "es": "Wild rose; eglantine [es]",
+    "ko": "Wild rose; eglantine [ko]"
+  },
+  "00000207": {
+    "nl": "Ruling over heroes [nl]",
+    "de": "Ruling over heroes [de]",
+    "fr": "Ruling over heroes [fr]",
+    "es": "Ruling over heroes [es]",
+    "ko": "Ruling over heroes [ko]"
+  },
+  "00000208": {
+    "nl": "Noble; free [nl]",
+    "de": "Noble; free [de]",
+    "fr": "Noble; free [fr]",
+    "es": "Noble; free [es]",
+    "ko": "Noble; free [ko]"
+  },
+  "00000209": {
+    "nl": "Generous; noble [nl]",
+    "de": "Generous; noble [de]",
+    "fr": "Generous; noble [fr]",
+    "es": "Generous; noble [es]",
+    "ko": "Generous; noble [ko]"
+  },
+  "00000210": {
+    "nl": "Fragrant flower; ornament of father [nl]",
+    "de": "Fragrant flower; ornament of father [de]",
+    "fr": "Fragrant flower; ornament of father [fr]",
+    "es": "Fragrant flower; ornament of father [es]",
+    "ko": "Fragrant flower; ornament of father [ko]"
+  },
+  "00000211": {
+    "nl": "Rightly guided [nl]",
+    "de": "Rightly guided [de]",
+    "fr": "Rightly guided [fr]",
+    "es": "Rightly guided [es]",
+    "ko": "Rightly guided [ko]"
+  },
+  "00000212": {
+    "nl": "Premature child; trustworthy [nl]",
+    "de": "Premature child; trustworthy [de]",
+    "fr": "Premature child; trustworthy [fr]",
+    "es": "Premature child; trustworthy [es]",
+    "ko": "Premature child; trustworthy [ko]"
+  },
+  "00000213": {
+    "nl": "First letter of Koran chapter; pure [nl]",
+    "de": "First letter of Koran chapter; pure [de]",
+    "fr": "First letter of Koran chapter; pure [fr]",
+    "es": "First letter of Koran chapter; pure [es]",
+    "ko": "First letter of Koran chapter; pure [ko]"
+  },
+  "00000214": {
+    "nl": "Guidance; right path [nl]",
+    "de": "Guidance; right path [de]",
+    "fr": "Guidance; right path [fr]",
+    "es": "Guidance; right path [es]",
+    "ko": "Guidance; right path [ko]"
+  },
+  "00000215": {
+    "nl": "Trustworthy; honest [nl]",
+    "de": "Trustworthy; honest [de]",
+    "fr": "Trustworthy; honest [fr]",
+    "es": "Trustworthy; honest [es]",
+    "ko": "Trustworthy; honest [ko]"
+  },
+  "00000216": {
+    "nl": "Faith; belief [nl]",
+    "de": "Faith; belief [de]",
+    "fr": "Faith; belief [fr]",
+    "es": "Faith; belief [es]",
+    "ko": "Faith; belief [ko]"
+  },
+  "00000217": {
+    "nl": "Morning star; who knocks at the door [nl]",
+    "de": "Morning star; who knocks at the door [de]",
+    "fr": "Morning star; who knocks at the door [fr]",
+    "es": "Morning star; who knocks at the door [es]",
+    "ko": "Morning star; who knocks at the door [ko]"
+  },
+  "00000218": {
+    "nl": "Dew; generosity [nl]",
+    "de": "Dew; generosity [de]",
+    "fr": "Dew; generosity [fr]",
+    "es": "Dew; generosity [es]",
+    "ko": "Dew; generosity [ko]"
+  },
+  "00000219": {
+    "nl": "Black; dark-complexioned [nl]",
+    "de": "Black; dark-complexioned [de]",
+    "fr": "Black; dark-complexioned [fr]",
+    "es": "Black; dark-complexioned [es]",
+    "ko": "Black; dark-complexioned [ko]"
+  },
+  "00000220": {
+    "nl": "Gift; blessing [nl]",
+    "de": "Gift; blessing [de]",
+    "fr": "Gift; blessing [fr]",
+    "es": "Gift; blessing [es]",
+    "ko": "Gift; blessing [ko]"
+  },
+  "00000221": {
+    "nl": "Chosen; selected [nl]",
+    "de": "Chosen; selected [de]",
+    "fr": "Chosen; selected [fr]",
+    "es": "Chosen; selected [es]",
+    "ko": "Chosen; selected [ko]"
+  },
+  "00000222": {
+    "nl": "Hope; generous [nl]",
+    "de": "Hope; generous [de]",
+    "fr": "Hope; generous [fr]",
+    "es": "Hope; generous [es]",
+    "ko": "Hope; generous [ko]"
+  },
+  "00000223": {
+    "nl": "Entertaining; pleasant companion [nl]",
+    "de": "Entertaining; pleasant companion [de]",
+    "fr": "Entertaining; pleasant companion [fr]",
+    "es": "Entertaining; pleasant companion [es]",
+    "ko": "Entertaining; pleasant companion [ko]"
+  },
+  "00000224": {
+    "nl": "Heaven; moon [nl]",
+    "de": "Heaven; moon [de]",
+    "fr": "Heaven; moon [fr]",
+    "es": "Heaven; moon [es]",
+    "ko": "Heaven; moon [ko]"
+  },
+  "00000225": {
+    "nl": "News of God [nl]",
+    "de": "News of God [de]",
+    "fr": "News of God [fr]",
+    "es": "News of God [es]",
+    "ko": "News of God [ko]"
+  },
+  "00000226": {
+    "nl": "God is willing [nl]",
+    "de": "God is willing [de]",
+    "fr": "God is willing [fr]",
+    "es": "God is willing [es]",
+    "ko": "God is willing [ko]"
+  },
+  "00000227": {
+    "nl": "Medal; badge of honor [nl]",
+    "de": "Medal; badge of honor [de]",
+    "fr": "Medal; badge of honor [fr]",
+    "es": "Medal; badge of honor [es]",
+    "ko": "Medal; badge of honor [ko]"
+  },
+  "00000228": {
+    "nl": "Paradise; garden [nl]",
+    "de": "Paradise; garden [de]",
+    "fr": "Paradise; garden [fr]",
+    "es": "Paradise; garden [es]",
+    "ko": "Paradise; garden [ko]"
+  },
+  "00000229": {
+    "nl": "Eternal; immortal [nl]",
+    "de": "Eternal; immortal [de]",
+    "fr": "Eternal; immortal [fr]",
+    "es": "Eternal; immortal [es]",
+    "ko": "Eternal; immortal [ko]"
+  },
+  "00000230": {
+    "nl": "Brilliance; radiance [nl]",
+    "de": "Brilliance; radiance [de]",
+    "fr": "Brilliance; radiance [fr]",
+    "es": "Brilliance; radiance [es]",
+    "ko": "Brilliance; radiance [ko]"
+  },
+  "00000231": {
+    "nl": "Prince; commander [nl]",
+    "de": "Prince; commander [de]",
+    "fr": "Prince; commander [fr]",
+    "es": "Prince; commander [es]",
+    "ko": "Prince; commander [ko]"
+  },
+  "00000232": {
+    "nl": "Slender; first letter of Arabic alphabet [nl]",
+    "de": "Slender; first letter of Arabic alphabet [de]",
+    "fr": "Slender; first letter of Arabic alphabet [fr]",
+    "es": "Slender; first letter of Arabic alphabet [es]",
+    "ko": "Slender; first letter of Arabic alphabet [ko]"
+  },
+  "00000233": {
+    "nl": "One who does not give up; fearless [nl]",
+    "de": "One who does not give up; fearless [de]",
+    "fr": "One who does not give up; fearless [fr]",
+    "es": "One who does not give up; fearless [es]",
+    "ko": "One who does not give up; fearless [ko]"
+  },
+  "00000234": {
+    "nl": "Moon like a river; moonlight [nl]",
+    "de": "Moon like a river; moonlight [de]",
+    "fr": "Moon like a river; moonlight [fr]",
+    "es": "Moon like a river; moonlight [es]",
+    "ko": "Moon like a river; moonlight [ko]"
+  },
+  "00000235": {
+    "nl": "Life; soul [nl]",
+    "de": "Life; soul [de]",
+    "fr": "Life; soul [fr]",
+    "es": "Life; soul [es]",
+    "ko": "Life; soul [ko]"
+  },
+  "00000236": {
+    "nl": "Sea; ocean [nl]",
+    "de": "Sea; ocean [de]",
+    "fr": "Sea; ocean [fr]",
+    "es": "Sea; ocean [es]",
+    "ko": "Sea; ocean [ko]"
+  },
+  "00000237": {
+    "nl": "Praiseworthy; commendable [nl]",
+    "de": "Praiseworthy; commendable [de]",
+    "fr": "Praiseworthy; commendable [fr]",
+    "es": "Praiseworthy; commendable [es]",
+    "ko": "Praiseworthy; commendable [ko]"
+  },
+  "00000238": {
+    "nl": "Sweet; kind-hearted [nl]",
+    "de": "Sweet; kind-hearted [de]",
+    "fr": "Sweet; kind-hearted [fr]",
+    "es": "Sweet; kind-hearted [es]",
+    "ko": "Sweet; kind-hearted [ko]"
+  },
+  "00000239": {
+    "nl": "Prince; ruler [nl]",
+    "de": "Prince; ruler [de]",
+    "fr": "Prince; ruler [fr]",
+    "es": "Prince; ruler [es]",
+    "ko": "Prince; ruler [ko]"
+  },
+  "00000240": {
+    "nl": "Cheerful; protection [nl]",
+    "de": "Cheerful; protection [de]",
+    "fr": "Cheerful; protection [fr]",
+    "es": "Cheerful; protection [es]",
+    "ko": "Cheerful; protection [ko]"
+  },
+  "00000241": {
+    "nl": "Beauty; grace [nl]",
+    "de": "Beauty; grace [de]",
+    "fr": "Beauty; grace [fr]",
+    "es": "Beauty; grace [es]",
+    "ko": "Beauty; grace [ko]"
+  },
+  "00000242": {
+    "nl": "Gold; young palm tree [nl]",
+    "de": "Gold; young palm tree [de]",
+    "fr": "Gold; young palm tree [fr]",
+    "es": "Gold; young palm tree [es]",
+    "ko": "Gold; young palm tree [ko]"
+  },
+  "00000243": {
+    "nl": "Sword [nl]",
+    "de": "Sword [de]",
+    "fr": "Sword [fr]",
+    "es": "Sword [es]",
+    "ko": "Sword [ko]"
+  },
+  "00000244": {
+    "nl": "Candle; light [nl]",
+    "de": "Candle; light [de]",
+    "fr": "Candle; light [fr]",
+    "es": "Candle; light [es]",
+    "ko": "Candle; light [ko]"
+  },
+  "00000245": {
+    "nl": "Growth; abundance [nl]",
+    "de": "Growth; abundance [de]",
+    "fr": "Growth; abundance [fr]",
+    "es": "Growth; abundance [es]",
+    "ko": "Growth; abundance [ko]"
+  },
+  "00000246": {
+    "nl": "Banana; unique; rare [nl]",
+    "de": "Banana; unique; rare [de]",
+    "fr": "Banana; unique; rare [fr]",
+    "es": "Banana; unique; rare [es]",
+    "ko": "Banana; unique; rare [ko]"
+  },
+  "00000247": {
+    "nl": "Man of peace; Solomon [nl]",
+    "de": "Man of peace; Solomon [de]",
+    "fr": "Man of peace; Solomon [fr]",
+    "es": "Man of peace; Solomon [es]",
+    "ko": "Man of peace; Solomon [ko]"
+  },
+  "00000248": {
+    "nl": "Gift; blessing [nl]",
+    "de": "Gift; blessing [de]",
+    "fr": "Gift; blessing [fr]",
+    "es": "Gift; blessing [es]",
+    "ko": "Gift; blessing [ko]"
+  },
+  "00000249": {
+    "nl": "Archer; thrower [nl]",
+    "de": "Archer; thrower [de]",
+    "fr": "Archer; thrower [fr]",
+    "es": "Archer; thrower [es]",
+    "ko": "Archer; thrower [ko]"
+  },
+  "00000250": {
+    "nl": "White antelope; gazelle [nl]",
+    "de": "White antelope; gazelle [de]",
+    "fr": "White antelope; gazelle [fr]",
+    "es": "White antelope; gazelle [es]",
+    "ko": "White antelope; gazelle [ko]"
+  },
+  "00000251": {
+    "nl": "Sea; victory; forgiveness [nl]",
+    "de": "Sea; victory; forgiveness [de]",
+    "fr": "Sea; victory; forgiveness [fr]",
+    "es": "Sea; victory; forgiveness [es]",
+    "ko": "Sea; victory; forgiveness [ko]"
+  },
+  "00000252": {
+    "nl": "Cherry blossom [nl]",
+    "de": "Cherry blossom [de]",
+    "fr": "Cherry blossom [fr]",
+    "es": "Cherry blossom [es]",
+    "ko": "Cherry blossom [ko]"
+  },
+  "00000253": {
+    "nl": "Strong and vigorous second son [nl]",
+    "de": "Strong and vigorous second son [de]",
+    "fr": "Strong and vigorous second son [fr]",
+    "es": "Strong and vigorous second son [es]",
+    "ko": "Strong and vigorous second son [ko]"
+  },
+  "00000254": {
+    "nl": "Snow; happiness [nl]",
+    "de": "Snow; happiness [de]",
+    "fr": "Snow; happiness [fr]",
+    "es": "Snow; happiness [es]",
+    "ko": "Snow; happiness [ko]"
+  },
+  "00000255": {
+    "nl": "Sun; sunlight; flying [nl]",
+    "de": "Sun; sunlight; flying [de]",
+    "fr": "Sun; sunlight; flying [fr]",
+    "es": "Sun; sunlight; flying [es]",
+    "ko": "Sun; sunlight; flying [ko]"
+  },
+  "00000256": {
+    "nl": "Blue; hollyhock flower [nl]",
+    "de": "Blue; hollyhock flower [de]",
+    "fr": "Blue; hollyhock flower [fr]",
+    "es": "Blue; hollyhock flower [es]",
+    "ko": "Blue; hollyhock flower [ko]"
+  },
+  "00000257": {
+    "nl": "Lotus; love [nl]",
+    "de": "Lotus; love [de]",
+    "fr": "Lotus; love [fr]",
+    "es": "Lotus; love [es]",
+    "ko": "Lotus; love [ko]"
+  },
+  "00000258": {
+    "nl": "Flower; blossom [nl]",
+    "de": "Flower; blossom [de]",
+    "fr": "Flower; blossom [fr]",
+    "es": "Flower; blossom [es]",
+    "ko": "Flower; blossom [ko]"
+  },
+  "00000259": {
+    "nl": "Greatness; power [nl]",
+    "de": "Greatness; power [de]",
+    "fr": "Greatness; power [fr]",
+    "es": "Greatness; power [es]",
+    "ko": "Greatness; power [ko]"
+  },
+  "00000260": {
+    "nl": "Beautiful; plum blossom [nl]",
+    "de": "Beautiful; plum blossom [de]",
+    "fr": "Beautiful; plum blossom [fr]",
+    "es": "Beautiful; plum blossom [es]",
+    "ko": "Beautiful; plum blossom [ko]"
+  },
+  "00000261": {
+    "nl": "Healthy; strong [nl]",
+    "de": "Healthy; strong [de]",
+    "fr": "Healthy; strong [fr]",
+    "es": "Healthy; strong [es]",
+    "ko": "Healthy; strong [ko]"
+  },
+  "00000262": {
+    "nl": "Beautiful; elegant [nl]",
+    "de": "Beautiful; elegant [de]",
+    "fr": "Beautiful; elegant [fr]",
+    "es": "Beautiful; elegant [es]",
+    "ko": "Beautiful; elegant [ko]"
+  },
+  "00000263": {
+    "nl": "Bright; shining [nl]",
+    "de": "Bright; shining [de]",
+    "fr": "Bright; shining [fr]",
+    "es": "Bright; shining [es]",
+    "ko": "Bright; shining [ko]"
+  },
+  "00000264": {
+    "nl": "Orchid; elegant [nl]",
+    "de": "Orchid; elegant [de]",
+    "fr": "Orchid; elegant [fr]",
+    "es": "Orchid; elegant [es]",
+    "ko": "Orchid; elegant [ko]"
+  },
+  "00000265": {
+    "nl": "Wisdom; goodness [nl]",
+    "de": "Wisdom; goodness [de]",
+    "fr": "Wisdom; goodness [fr]",
+    "es": "Wisdom; goodness [es]",
+    "ko": "Wisdom; goodness [ko]"
+  },
+  "00000266": {
+    "nl": "Auspicious; beautiful [nl]",
+    "de": "Auspicious; beautiful [de]",
+    "fr": "Auspicious; beautiful [fr]",
+    "es": "Auspicious; beautiful [es]",
+    "ko": "Auspicious; beautiful [ko]"
+  },
+  "00000267": {
+    "nl": "Quick; talented; handsome [nl]",
+    "de": "Quick; talented; handsome [de]",
+    "fr": "Quick; talented; handsome [fr]",
+    "es": "Quick; talented; handsome [es]",
+    "ko": "Quick; talented; handsome [ko]"
+  },
+  "00000268": {
+    "nl": "Grace; kindness [nl]",
+    "de": "Grace; kindness [de]",
+    "fr": "Grace; kindness [fr]",
+    "es": "Grace; kindness [es]",
+    "ko": "Grace; kindness [ko]"
+  },
+  "00000269": {
+    "nl": "Talented; auspicious [nl]",
+    "de": "Talented; auspicious [de]",
+    "fr": "Talented; auspicious [fr]",
+    "es": "Talented; auspicious [es]",
+    "ko": "Talented; auspicious [ko]"
+  },
+  "00000270": {
+    "nl": "White; clear; silver [nl]",
+    "de": "White; clear; silver [de]",
+    "fr": "White; clear; silver [fr]",
+    "es": "White; clear; silver [es]",
+    "ko": "White; clear; silver [ko]"
+  },
+  "00000271": {
+    "nl": "Beloved; dear one [nl]",
+    "de": "Beloved; dear one [de]",
+    "fr": "Beloved; dear one [fr]",
+    "es": "Beloved; dear one [es]",
+    "ko": "Beloved; dear one [ko]"
+  },
+  "00000272": {
+    "nl": "Ascending; healing [nl]",
+    "de": "Ascending; healing [de]",
+    "fr": "Ascending; healing [fr]",
+    "es": "Ascending; healing [es]",
+    "ko": "Ascending; healing [ko]"
+  },
+  "00000273": {
+    "nl": "Unique; incomparable [nl]",
+    "de": "Unique; incomparable [de]",
+    "fr": "Unique; incomparable [fr]",
+    "es": "Unique; incomparable [es]",
+    "ko": "Unique; incomparable [ko]"
+  },
+  "00000274": {
+    "nl": "Valor; stride; brave [nl]",
+    "de": "Valor; stride; brave [de]",
+    "fr": "Valor; stride; brave [fr]",
+    "es": "Valor; stride; brave [es]",
+    "ko": "Valor; stride; brave [ko]"
+  },
+  "00000275": {
+    "nl": "The sun; the ruling one [nl]",
+    "de": "The sun; the ruling one [de]",
+    "fr": "The sun; the ruling one [fr]",
+    "es": "The sun; the ruling one [es]",
+    "ko": "The sun; the ruling one [ko]"
+  },
+  "00000276": {
+    "nl": "Light; lamp [nl]",
+    "de": "Light; lamp [de]",
+    "fr": "Light; lamp [fr]",
+    "es": "Light; lamp [es]",
+    "ko": "Light; lamp [ko]"
+  },
+  "00000277": {
+    "nl": "Sun; belonging to Aditi [nl]",
+    "de": "Sun; belonging to Aditi [de]",
+    "fr": "Sun; belonging to Aditi [fr]",
+    "es": "Sun; belonging to Aditi [es]",
+    "ko": "Sun; belonging to Aditi [ko]"
+  },
+  "00000278": {
+    "nl": "Poem; poetry [nl]",
+    "de": "Poem; poetry [de]",
+    "fr": "Poem; poetry [fr]",
+    "es": "Poem; poetry [es]",
+    "ko": "Poem; poetry [ko]"
+  },
+  "00000279": {
+    "nl": "Treasure; precious [nl]",
+    "de": "Treasure; precious [de]",
+    "fr": "Treasure; precious [fr]",
+    "es": "Treasure; precious [es]",
+    "ko": "Treasure; precious [ko]"
+  },
+  "00000280": {
+    "nl": "Soul; spirit; clever [nl]",
+    "de": "Soul; spirit; clever [de]",
+    "fr": "Soul; spirit; clever [fr]",
+    "es": "Soul; spirit; clever [es]",
+    "ko": "Soul; spirit; clever [ko]"
+  },
+  "00000281": {
+    "nl": "Bright; intelligent [nl]",
+    "de": "Bright; intelligent [de]",
+    "fr": "Bright; intelligent [fr]",
+    "es": "Bright; intelligent [es]",
+    "ko": "Bright; intelligent [ko]"
+  },
+  "00000282": {
+    "nl": "Elegant; graceful [nl]",
+    "de": "Elegant; graceful [de]",
+    "fr": "Elegant; graceful [fr]",
+    "es": "Elegant; graceful [es]",
+    "ko": "Elegant; graceful [ko]"
+  },
+  "00000283": {
+    "nl": "Divided; sharing [nl]",
+    "de": "Divided; sharing [de]",
+    "fr": "Divided; sharing [fr]",
+    "es": "Divided; sharing [es]",
+    "ko": "Divided; sharing [ko]"
+  },
+  "00000284": {
+    "nl": "Eternal; forever [nl]",
+    "de": "Eternal; forever [de]",
+    "fr": "Eternal; forever [fr]",
+    "es": "Eternal; forever [es]",
+    "ko": "Eternal; forever [ko]"
+  },
+  "00000285": {
+    "nl": "Flower; jasmine [nl]",
+    "de": "Flower; jasmine [de]",
+    "fr": "Flower; jasmine [fr]",
+    "es": "Flower; jasmine [es]",
+    "ko": "Flower; jasmine [ko]"
+  },
+  "00000286": {
+    "nl": "Stars [nl]",
+    "de": "Stars [de]",
+    "fr": "Stars [fr]",
+    "es": "Stars [es]",
+    "ko": "Stars [ko]"
+  },
+  "00000287": {
+    "nl": "Lightning; thunder [nl]",
+    "de": "Lightning; thunder [de]",
+    "fr": "Lightning; thunder [fr]",
+    "es": "Lightning; thunder [es]",
+    "ko": "Lightning; thunder [ko]"
+  },
+  "00000288": {
+    "nl": "Honor; dignity [nl]",
+    "de": "Honor; dignity [de]",
+    "fr": "Honor; dignity [fr]",
+    "es": "Honor; dignity [es]",
+    "ko": "Honor; dignity [ko]"
+  },
+  "00000289": {
+    "nl": "Hero; warrior [nl]",
+    "de": "Hero; warrior [de]",
+    "fr": "Hero; warrior [fr]",
+    "es": "Hero; warrior [es]",
+    "ko": "Hero; warrior [ko]"
+  },
+  "00000290": {
+    "nl": "Moonlight; peace [nl]",
+    "de": "Moonlight; peace [de]",
+    "fr": "Moonlight; peace [fr]",
+    "es": "Moonlight; peace [es]",
+    "ko": "Moonlight; peace [ko]"
+  },
+  "00000291": {
+    "nl": "Sustenance; provision [nl]",
+    "de": "Sustenance; provision [de]",
+    "fr": "Sustenance; provision [fr]",
+    "es": "Sustenance; provision [es]",
+    "ko": "Sustenance; provision [ko]"
+  },
+  "00000292": {
+    "nl": "Free; independent [nl]",
+    "de": "Free; independent [de]",
+    "fr": "Free; independent [fr]",
+    "es": "Free; independent [es]",
+    "ko": "Free; independent [ko]"
+  },
+  "00000293": {
+    "nl": "Prince; nobility [nl]",
+    "de": "Prince; nobility [de]",
+    "fr": "Prince; nobility [fr]",
+    "es": "Prince; nobility [es]",
+    "ko": "Prince; nobility [ko]"
+  },
+  "00000294": {
+    "nl": "Lady; Mrs. [nl]",
+    "de": "Lady; Mrs. [de]",
+    "fr": "Lady; Mrs. [fr]",
+    "es": "Lady; Mrs. [es]",
+    "ko": "Lady; Mrs. [ko]"
+  },
+  "00000295": {
+    "nl": "Intelligence; virtue; character [nl]",
+    "de": "Intelligence; virtue; character [de]",
+    "fr": "Intelligence; virtue; character [fr]",
+    "es": "Intelligence; virtue; character [es]",
+    "ko": "Intelligence; virtue; character [ko]"
+  },
+  "00000296": {
+    "nl": "Goddess [nl]",
+    "de": "Goddess [de]",
+    "fr": "Goddess [fr]",
+    "es": "Goddess [es]",
+    "ko": "Goddess [ko]"
+  },
+  "00000297": {
+    "nl": "Wish; bamboo; crimson [nl]",
+    "de": "Wish; bamboo; crimson [de]",
+    "fr": "Wish; bamboo; crimson [fr]",
+    "es": "Wish; bamboo; crimson [es]",
+    "ko": "Wish; bamboo; crimson [ko]"
+  },
+  "00000298": {
+    "nl": "Hope; wish [nl]",
+    "de": "Hope; wish [de]",
+    "fr": "Hope; wish [fr]",
+    "es": "Hope; wish [es]",
+    "ko": "Hope; wish [ko]"
+  },
+  "00000299": {
+    "nl": "Fierce warrior; bamboo [nl]",
+    "de": "Fierce warrior; bamboo [de]",
+    "fr": "Fierce warrior; bamboo [fr]",
+    "es": "Fierce warrior; bamboo [es]",
+    "ko": "Fierce warrior; bamboo [ko]"
+  },
+  "00000300": {
+    "nl": "Sky [nl]",
+    "de": "Sky [de]",
+    "fr": "Sky [fr]",
+    "es": "Sky [es]",
+    "ko": "Sky [ko]"
+  },
+  "00000301": {
+    "nl": "Saint James; supplanter [nl]",
+    "de": "Saint James; supplanter [de]",
+    "fr": "Saint James; supplanter [fr]",
+    "es": "Saint James; supplanter [es]",
+    "ko": "Saint James; supplanter [ko]"
+  },
+  "00000302": {
+    "nl": "Strong; healthy; brave [nl]",
+    "de": "Strong; healthy; brave [de]",
+    "fr": "Strong; healthy; brave [fr]",
+    "es": "Strong; healthy; brave [es]",
+    "ko": "Strong; healthy; brave [ko]"
+  },
+  "00000303": {
+    "nl": "Venerable; revered [nl]",
+    "de": "Venerable; revered [de]",
+    "fr": "Venerable; revered [fr]",
+    "es": "Venerable; revered [es]",
+    "ko": "Venerable; revered [ko]"
+  },
+  "00000304": {
+    "nl": "God is my oath [nl]",
+    "de": "God is my oath [de]",
+    "fr": "God is my oath [fr]",
+    "es": "God is my oath [es]",
+    "ko": "God is my oath [ko]"
+  },
+  "00000305": {
+    "nl": "Gift of God [nl]",
+    "de": "Gift of God [de]",
+    "fr": "Gift of God [fr]",
+    "es": "Gift of God [es]",
+    "ko": "Gift of God [ko]"
+  },
+  "00000306": {
+    "nl": "Young ceremonial attendant [nl]",
+    "de": "Young ceremonial attendant [de]",
+    "fr": "Young ceremonial attendant [fr]",
+    "es": "Young ceremonial attendant [es]",
+    "ko": "Young ceremonial attendant [ko]"
+  },
+  "00000307": {
+    "nl": "God is my strength [nl]",
+    "de": "God is my strength [de]",
+    "fr": "God is my strength [fr]",
+    "es": "God is my strength [es]",
+    "ko": "God is my strength [ko]"
+  },
+  "00000308": {
+    "nl": "Wisdom [nl]",
+    "de": "Wisdom [de]",
+    "fr": "Wisdom [fr]",
+    "es": "Wisdom [es]",
+    "ko": "Wisdom [ko]"
+  },
+  "00000309": {
+    "nl": "Supplanter; teaching [nl]",
+    "de": "Supplanter; teaching [de]",
+    "fr": "Supplanter; teaching [fr]",
+    "es": "Supplanter; teaching [es]",
+    "ko": "Supplanter; teaching [ko]"
+  },
+  "00000310": {
+    "nl": "Strong; healthy [nl]",
+    "de": "Strong; healthy [de]",
+    "fr": "Strong; healthy [fr]",
+    "es": "Strong; healthy [es]",
+    "ko": "Strong; healthy [ko]"
+  },
+  "00000311": {
+    "nl": "Rival; eager to please [nl]",
+    "de": "Rival; eager to please [de]",
+    "fr": "Rival; eager to please [fr]",
+    "es": "Rival; eager to please [es]",
+    "ko": "Rival; eager to please [ko]"
+  },
+  "00000312": {
+    "nl": "Priceless; praiseworthy [nl]",
+    "de": "Priceless; praiseworthy [de]",
+    "fr": "Priceless; praiseworthy [fr]",
+    "es": "Priceless; praiseworthy [es]",
+    "ko": "Priceless; praiseworthy [ko]"
+  },
+  "00000313": {
+    "nl": "Famous ruler [nl]",
+    "de": "Famous ruler [de]",
+    "fr": "Famous ruler [fr]",
+    "es": "Famous ruler [es]",
+    "ko": "Famous ruler [ko]"
+  },
+  "00000314": {
+    "nl": "Sea of bitterness; grace [nl]",
+    "de": "Sea of bitterness; grace [de]",
+    "fr": "Sea of bitterness; grace [fr]",
+    "es": "Sea of bitterness; grace [es]",
+    "ko": "Sea of bitterness; grace [ko]"
+  },
+  "00000315": {
+    "nl": "Defender of men [nl]",
+    "de": "Defender of men [de]",
+    "fr": "Defender of men [fr]",
+    "es": "Defender of men [es]",
+    "ko": "Defender of men [ko]"
+  },
+  "00000316": {
+    "nl": "Pure; clear [nl]",
+    "de": "Pure; clear [de]",
+    "fr": "Pure; clear [fr]",
+    "es": "Pure; clear [es]",
+    "ko": "Pure; clear [ko]"
+  },
+  "00000317": {
+    "nl": "Manly; brave [nl]",
+    "de": "Manly; brave [de]",
+    "fr": "Manly; brave [fr]",
+    "es": "Manly; brave [es]",
+    "ko": "Manly; brave [ko]"
+  },
+  "00000318": {
+    "nl": "Light; graceful light [nl]",
+    "de": "Light; graceful light [de]",
+    "fr": "Light; graceful light [fr]",
+    "es": "Light; graceful light [es]",
+    "ko": "Light; graceful light [ko]"
+  },
+  "00000319": {
+    "nl": "Twin [nl]",
+    "de": "Twin [de]",
+    "fr": "Twin [fr]",
+    "es": "Twin [es]",
+    "ko": "Twin [ko]"
+  },
+  "00000320": {
+    "nl": "Bold voyager; adventurous [nl]",
+    "de": "Bold voyager; adventurous [de]",
+    "fr": "Bold voyager; adventurous [fr]",
+    "es": "Bold voyager; adventurous [es]",
+    "ko": "Bold voyager; adventurous [ko]"
+  },
+  "00000321": {
+    "nl": "Bringer of light [nl]",
+    "de": "Bringer of light [de]",
+    "fr": "Bringer of light [fr]",
+    "es": "Bringer of light [es]",
+    "ko": "Bringer of light [ko]"
+  },
+  "00000322": {
+    "nl": "Birthday of the Lord; Christmas [nl]",
+    "de": "Birthday of the Lord; Christmas [de]",
+    "fr": "Birthday of the Lord; Christmas [fr]",
+    "es": "Birthday of the Lord; Christmas [es]",
+    "ko": "Birthday of the Lord; Christmas [ko]"
+  },
+  "00000323": {
+    "nl": "Lover of horses [nl]",
+    "de": "Lover of horses [de]",
+    "fr": "Lover of horses [fr]",
+    "es": "Lover of horses [es]",
+    "ko": "Lover of horses [ko]"
+  },
+  "00000324": {
+    "nl": "God is my judge [nl]",
+    "de": "God is my judge [de]",
+    "fr": "God is my judge [fr]",
+    "es": "God is my judge [es]",
+    "ko": "God is my judge [ko]"
+  },
+  "00000325": {
+    "nl": "Victory of the people [nl]",
+    "de": "Victory of the people [de]",
+    "fr": "Victory of the people [fr]",
+    "es": "Victory of the people [es]",
+    "ko": "Victory of the people [ko]"
+  },
+  "00000326": {
+    "nl": "God is my strength [nl]",
+    "de": "God is my strength [de]",
+    "fr": "God is my strength [fr]",
+    "es": "God is my strength [es]",
+    "ko": "God is my strength [ko]"
+  },
+  "00000327": {
+    "nl": "Youthful; downy [nl]",
+    "de": "Youthful; downy [de]",
+    "fr": "Youthful; downy [fr]",
+    "es": "Youthful; downy [es]",
+    "ko": "Youthful; downy [ko]"
+  },
+  "00000328": {
+    "nl": "Small; humble [nl]",
+    "de": "Small; humble [de]",
+    "fr": "Small; humble [fr]",
+    "es": "Small; humble [es]",
+    "ko": "Small; humble [ko]"
+  },
+  "00000329": {
+    "nl": "Wealthy guardian [nl]",
+    "de": "Wealthy guardian [de]",
+    "fr": "Wealthy guardian [fr]",
+    "es": "Wealthy guardian [es]",
+    "ko": "Wealthy guardian [ko]"
+  },
+  "00000330": {
+    "nl": "Brave; manly [nl]",
+    "de": "Brave; manly [de]",
+    "fr": "Brave; manly [fr]",
+    "es": "Brave; manly [es]",
+    "ko": "Brave; manly [ko]"
+  },
+  "00000331": {
+    "nl": "Free man; strong [nl]",
+    "de": "Free man; strong [de]",
+    "fr": "Free man; strong [fr]",
+    "es": "Free man; strong [es]",
+    "ko": "Free man; strong [ko]"
+  },
+  "00000332": {
+    "nl": "Beloved of God; blessed [nl]",
+    "de": "Beloved of God; blessed [de]",
+    "fr": "Beloved of God; blessed [fr]",
+    "es": "Beloved of God; blessed [es]",
+    "ko": "Beloved of God; blessed [ko]"
+  },
+  "00000333": {
+    "nl": "God will increase [nl]",
+    "de": "God will increase [de]",
+    "fr": "God will increase [fr]",
+    "es": "God will increase [es]",
+    "ko": "God will increase [ko]"
+  },
+  "00000334": {
+    "nl": "Reborn; born again [nl]",
+    "de": "Reborn; born again [de]",
+    "fr": "Reborn; born again [fr]",
+    "es": "Reborn; born again [es]",
+    "ko": "Reborn; born again [ko]"
+  },
+  "00000335": {
+    "nl": "God is gracious [nl]",
+    "de": "God is gracious [de]",
+    "fr": "God is gracious [fr]",
+    "es": "God is gracious [es]",
+    "ko": "God is gracious [ko]"
+  },
+  "00000336": {
+    "nl": "Sea and sun [nl]",
+    "de": "Sea and sun [de]",
+    "fr": "Sea and sun [fr]",
+    "es": "Sea and sun [es]",
+    "ko": "Sea and sun [ko]"
+  },
+  "00000337": {
+    "nl": "Farmer; earthworker [nl]",
+    "de": "Farmer; earthworker [de]",
+    "fr": "Farmer; earthworker [fr]",
+    "es": "Farmer; earthworker [es]",
+    "ko": "Farmer; earthworker [ko]"
+  },
+  "00000338": {
+    "nl": "Defender of men [nl]",
+    "de": "Defender of men [de]",
+    "fr": "Defender of men [fr]",
+    "es": "Defender of men [es]",
+    "ko": "Defender of men [ko]"
+  },
+  "00000339": {
+    "nl": "God has healed [nl]",
+    "de": "God has healed [de]",
+    "fr": "God has healed [fr]",
+    "es": "God has healed [es]",
+    "ko": "God has healed [ko]"
+  },
+  "00000340": {
+    "nl": "Small; humble [nl]",
+    "de": "Small; humble [de]",
+    "fr": "Small; humble [fr]",
+    "es": "Small; humble [es]",
+    "ko": "Small; humble [ko]"
+  },
+  "00000341": {
+    "nl": "New house; bright [nl]",
+    "de": "New house; bright [de]",
+    "fr": "New house; bright [fr]",
+    "es": "New house; bright [es]",
+    "ko": "New house; bright [ko]"
+  },
+  "00000342": {
+    "nl": "Hearkening; listener [nl]",
+    "de": "Hearkening; listener [de]",
+    "fr": "Hearkening; listener [fr]",
+    "es": "Hearkening; listener [es]",
+    "ko": "Hearkening; listener [ko]"
+  },
+  "00000343": {
+    "nl": "God is gracious [nl]",
+    "de": "God is gracious [de]",
+    "fr": "God is gracious [fr]",
+    "es": "God is gracious [es]",
+    "ko": "God is gracious [ko]"
+  },
+  "00000344": {
+    "nl": "Hope; faith [nl]",
+    "de": "Hope; faith [de]",
+    "fr": "Hope; faith [fr]",
+    "es": "Hope; faith [es]",
+    "ko": "Hope; faith [ko]"
+  },
+  "00000345": {
+    "nl": "Bright fame [nl]",
+    "de": "Bright fame [de]",
+    "fr": "Bright fame [fr]",
+    "es": "Bright fame [es]",
+    "ko": "Bright fame [ko]"
+  },
+  "00000346": {
+    "nl": "Rosary; garland of roses [nl]",
+    "de": "Rosary; garland of roses [de]",
+    "fr": "Rosary; garland of roses [fr]",
+    "es": "Rosary; garland of roses [es]",
+    "ko": "Rosary; garland of roses [ko]"
+  },
+  "00000347": {
+    "nl": "Brave lion [nl]",
+    "de": "Brave lion [de]",
+    "fr": "Brave lion [fr]",
+    "es": "Brave lion [es]",
+    "ko": "Brave lion [ko]"
+  },
+  "00000348": {
+    "nl": "She who brings happiness [nl]",
+    "de": "She who brings happiness [de]",
+    "fr": "She who brings happiness [fr]",
+    "es": "She who brings happiness [es]",
+    "ko": "She who brings happiness [ko]"
+  },
+  "00000349": {
+    "nl": "Staff of the Goths; royal [nl]",
+    "de": "Staff of the Goths; royal [de]",
+    "fr": "Staff of the Goths; royal [fr]",
+    "es": "Staff of the Goths; royal [es]",
+    "ko": "Staff of the Goths; royal [ko]"
+  },
+  "00000350": {
+    "nl": "Garden; song; crimson [nl]",
+    "de": "Garden; song; crimson [de]",
+    "fr": "Garden; song; crimson [fr]",
+    "es": "Garden; song; crimson [es]",
+    "ko": "Garden; song; crimson [ko]"
+  }
+}

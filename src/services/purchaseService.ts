@@ -8,7 +8,7 @@ import Purchases, {
 import { supabase } from '../lib/supabase';
 
 export const ENTITLEMENT_ID = 'premium_couple';
-export const PREMIUM_ENTITLEMENT_DISPLAY_NAME = 'NameNest Pro';
+export const PREMIUM_ENTITLEMENT_DISPLAY_NAME = 'Babinom Premium';
 export const RC_API_KEY_IOS = process.env.EXPO_PUBLIC_REVENUECAT_IOS_API_KEY?.trim() ?? '';
 export const RC_API_KEY_ANDROID = process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY?.trim() ?? '';
 export const RC_TEST_STORE_API_KEY = process.env.EXPO_PUBLIC_REVENUECAT_TEST_STORE_API_KEY?.trim() ?? '';

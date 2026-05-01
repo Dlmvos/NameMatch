@@ -99,3 +99,10 @@ INSERT INTO public.baby_names (name, meaning, origin, gender, country, region, i
   ('Lara', 'Cheerful; protection', 'Russian / Greek (popular in MENA)', 'girl', 'Lebanon', 'MENA', false),
   ('Amir', 'Prince; ruler', 'Arabic / Persian', 'boy', 'Iran', 'MENA', false),
   ('Jana', 'Paradise; garden', 'Arabic', 'girl', 'Jordan', 'MENA', false);
+
+-- Premium catalog: after schema migration adds `is_premium`, run from repo root:
+--   npm run seed:premium-baby-names
+--   npm run seed:premium-meaning-translations
+-- (Service role in .env; see scripts/seedPremiumBabyNames.ts and scripts/seedPremiumMeaningTranslations.ts.)
+--
+-- Large / external datasets: JSON Lines → scripts/importBabyNamesFromJsonl.ts (see scripts/lib/bulkBabyNameImport.ts).

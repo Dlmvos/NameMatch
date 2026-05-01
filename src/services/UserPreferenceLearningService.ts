@@ -22,7 +22,7 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { enrichName, getNameLength } from './nameEnrichment';
-import type { NormalizedNameRecord } from './nameTypes';
+import type { BabyName } from '../types';
 
 const PREF_KEY_PREFIX = 'user_pref_v1:';
 
@@ -104,7 +104,7 @@ export class UserPreferenceLearningService {
    */
   async recordSwipe(
     userId: string,
-    name: NormalizedNameRecord,
+    name: BabyName,
     direction: 'like' | 'skip' | 'match',
   ): Promise<void> {
     const profile = await this.loadProfile(userId);
@@ -116,7 +116,7 @@ export class UserPreferenceLearningService {
     else if (direction === 'skip') profile.skipCount++;
     else profile.matchCount++;
 
-    const nameStr = name.displayName || name.name;
+    const nameStr = name.name;
     const enriched = enrichName(nameStr);
 
     // Origin affinity
@@ -130,18 +130,14 @@ export class UserPreferenceLearningService {
     }
 
     // Style affinity
-    for (const tag of name.style_tags ?? []) {
-      profile.styleAffinity[tag] = this._ema(
-        profile.styleAffinity[tag] ?? 0.5,
-        signal > 0 ? 1 : 0,
-        α,
-      );
-    }
+    // Legacy "style_tags" only existed in the removed NormalizedNameRecord pipeline.
+    // Preserve current behavior: we learn no style tags from BabyName deck swipes.
 
     // Trend affinity
-    const trend = name.trendDirection;
-    if (trend && trend !== 'unknown') {
-      const trendKey = trend as keyof typeof profile.trendAffinity;
+    const trend = name.trend;
+    const trendDirection = trend === 'rising' ? 'rising' : trend === 'stable' ? 'stable' : trend === 'classic' ? 'classic' : 'unknown';
+    if (trendDirection && trendDirection !== 'unknown') {
+      const trendKey = trendDirection as keyof typeof profile.trendAffinity;
       profile.trendAffinity[trendKey] = this._ema(
         profile.trendAffinity[trendKey],
         signal > 0 ? 1 : 0,
@@ -158,7 +154,7 @@ export class UserPreferenceLearningService {
     );
 
     // Popularity bias (1 = mainstream, 0 = rare)
-    const rank = name.popularityRank ?? 500;
+    const rank = name.popularity_rank ?? 500;
     const isMainstream = rank <= 100 ? 1 : 0;
     profile.popularityBias = this._ema(
       profile.popularityBias,
@@ -203,15 +199,15 @@ export class UserPreferenceLearningService {
    */
   async recomputeFromHistory(
     userId: string,
-    likes: NormalizedNameRecord[],
-    skips: NormalizedNameRecord[],
-    matches: NormalizedNameRecord[],
+    likes: BabyName[],
+    skips: BabyName[],
+    matches: BabyName[],
   ): Promise<LearningProfile> {
     const profile = this._defaultProfile(userId);
 
-    const process = (names: NormalizedNameRecord[], weight: number) => {
+    const process = (names: BabyName[], weight: number) => {
       for (const name of names) {
-        const nameStr = name.displayName || name.name;
+        const nameStr = name.name;
         const enriched = enrichName(nameStr);
 
         // Origin
@@ -221,14 +217,14 @@ export class UserPreferenceLearningService {
         }
 
         // Style tags
-        for (const tag of name.style_tags ?? []) {
-          profile.styleAffinity[tag] = (profile.styleAffinity[tag] ?? 0) + weight;
-        }
+        // Preserve behavior: no "style_tags" are learned from BabyName.
 
         // Trend
-        const trend = name.trendDirection;
-        if (trend && trend !== 'unknown') {
-          const k = trend as keyof typeof profile.trendAffinity;
+        const trend = name.trend;
+        const trendDirection =
+          trend === 'rising' ? 'rising' : trend === 'stable' ? 'stable' : trend === 'classic' ? 'classic' : 'unknown';
+        if (trendDirection && trendDirection !== 'unknown') {
+          const k = trendDirection as keyof typeof profile.trendAffinity;
           profile.trendAffinity[k] = (profile.trendAffinity[k] ?? 0) + weight;
         }
 
