@@ -1,0 +1,19 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "types": ["node"],
+    "resolveJsonModule": true
+  },
+  "include": ["scripts/**/*.ts"],
+  "exclude": [
+    "node_modules",
+    ".expo",
+    "ios",
+    "android",
+    "dist",
+    "build",
+    "coverage",
+    "supabase"
+  ]
+}
