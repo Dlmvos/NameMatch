@@ -34,6 +34,7 @@ function sanitizeFreeFilters(filters: NameFilters): NameFilters {
 /** Bulk-import / Supabase `baby_names.id` uses UUID; bundled core uses short numeric ids. */
 const UUID_LIKE_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const DEBUG_SWIPE_DECK = false;
+const STARTUP_HYDRATION_TIMEOUT_MS = 8000;
 
 const normalizeFilterText = (value?: string): string => value?.trim().toLowerCase() ?? '';
 
@@ -100,6 +101,19 @@ function stableHash(input: string): number {
     h = Math.imul(h, 16777619);
   }
   return h >>> 0;
+}
+
+function withStartupTimeout<T>(promise: Promise<T>, fallback: T, label: string): Promise<T> {
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+  const timeout = new Promise<T>((resolve) => {
+    timeoutId = setTimeout(() => {
+      console.error(`[SwipeDeck] startup hydration timeout: ${label}`);
+      resolve(fallback);
+    }, STARTUP_HYDRATION_TIMEOUT_MS);
+  });
+  return Promise.race([promise, timeout]).finally(() => {
+    if (timeoutId) clearTimeout(timeoutId);
+  });
 }
 
 function applySharedRoomOrdering(names: BabyName[], roomId: string | null): BabyName[] {
@@ -347,11 +361,15 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
 
     let cancelled = false;
     setPublicDeckHydrationKey(null);
-    PremiumContentService.fetchRemotePublicDeckSupplement({
-      limit: 400,
-      region: profile.region_preference ?? null,
-      gender: profile.gender_preference ?? 'both',
-    })
+    withStartupTimeout(
+      PremiumContentService.fetchRemotePublicDeckSupplement({
+        limit: 400,
+        region: profile.region_preference ?? null,
+        gender: profile.gender_preference ?? 'both',
+      }),
+      [],
+      'public deck supplement',
+    )
       .then((rows) => {
         if (!cancelled) setPublicDeckSupplement(rows);
       })
@@ -385,11 +403,15 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
 
     let cancelled = false;
     setPremiumDeckHydrationKey(null);
-    PremiumContentService.fetchRemotePremiumNames({
-      includePremium: true,
-      userId: user.id,
-      meaningLocale: effectiveLanguage,
-    })
+    withStartupTimeout(
+      PremiumContentService.fetchRemotePremiumNames({
+        includePremium: true,
+        userId: user.id,
+        meaningLocale: effectiveLanguage,
+      }),
+      [],
+      'premium deck',
+    )
       .then((remotePremium) => {
         if (cancelled || !remotePremium?.length) {
           if (!cancelled) setRemotePremiumList(null);
@@ -716,10 +738,14 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
     let cancelled = false;
 
     const loadSwipedIds = async () => {
-      const [ids, partnerCustom] = await Promise.all([
-        SwipeService.getSwipedNameIds(user.id, roomId),
-        SwipeService.getPartnerCustomNameIds({ userId: user.id, roomId }),
-      ]);
+      const [ids, partnerCustom] = await withStartupTimeout(
+        Promise.all([
+          SwipeService.getSwipedNameIds(user.id, roomId),
+          SwipeService.getPartnerCustomNameIds({ userId: user.id, roomId }),
+        ]),
+        [new Set<string>(), new Set<string>()],
+        'swipe state',
+      );
       if (cancelled) return;
       swipedIdsRef.current = ids;
       partnerCustomIdsRef.current = partnerCustom;

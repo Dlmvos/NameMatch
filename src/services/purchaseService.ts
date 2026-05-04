@@ -129,9 +129,14 @@ export const PurchaseService = {
       return;
     }
     setDevLogLevel();
-    Purchases.configure({ apiKey });
-    didConfigure = true;
-    purchasesDisabledReason = null;
+    try {
+      Purchases.configure({ apiKey });
+      didConfigure = true;
+      purchasesDisabledReason = null;
+    } catch (err: any) {
+      purchasesDisabledReason = err?.message ?? 'RevenueCat configure failed.';
+      console.error('[PurchaseService] configure failed:', purchasesDisabledReason);
+    }
   },
 
   async logIn(userId: string): Promise<void> {

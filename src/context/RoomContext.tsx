@@ -135,13 +135,20 @@ export function RoomProvider({ children }: { children: React.ReactNode }) {
         });
         setTimeout(async () => {
           if (cancelled) return;
-          const refreshedRoom = await RoomService.getRoom(roomId);
-          if (!cancelled && refreshedRoom) {
-            setRoom(refreshedRoom);
+          try {
+            const refreshedRoom = await RoomService.getRoom(roomId);
+            if (!cancelled && refreshedRoom) {
+              setRoom(refreshedRoom);
+            }
+          } catch (err: any) {
+            if (__DEV__) {
+              console.error('[RoomContext] delayed room refresh failed:', err?.message ?? err);
+            }
           }
         }, 2000);
-      } catch {
+      } catch (err: any) {
         if (cancelled) return;
+        console.error('[RoomContext] startup room hydration failed:', err?.message ?? err);
         clearMatchSubscription();
         clearRoomSubscription();
         setRoom(null);

@@ -1,10 +1,10 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { colors } from '../theme';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
-import { View, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, ActivityIndicator, StyleSheet, Text, TouchableOpacity } from 'react-native';
 
 import { useAuth } from '../context/AuthContext';
 import { AppProvider, useApp } from '../context/AppContext';
@@ -122,6 +122,7 @@ function AuthenticatedRootNavigator() {
     isCountryPrefHydrated &&
     isUnlockedPacksHydrated &&
     (!hasRoom || isRoomHydrated);
+  const [startupTimedOut, setStartupTimedOut] = useState(false);
   const stackKind: 'onboarding' | 'partner' | 'main' = !hasCompletedOnboarding
     ? 'onboarding'
     : !hasRoom
@@ -157,7 +158,33 @@ function AuthenticatedRootNavigator() {
     profile,
   ]);
 
+  useEffect(() => {
+    if (isStartupReady) {
+      setStartupTimedOut(false);
+      return;
+    }
+    const timeout = setTimeout(() => {
+      console.error('[AppNavigator] startup gate timeout', {
+        isCountryPrefHydrated,
+        isUnlockedPacksHydrated,
+        hasRoom,
+        isRoomHydrated,
+        isLoadingRoom,
+      });
+      setStartupTimedOut(true);
+    }, 8000);
+    return () => clearTimeout(timeout);
+  }, [hasRoom, isCountryPrefHydrated, isLoadingRoom, isRoomHydrated, isStartupReady, isUnlockedPacksHydrated]);
+
   if (!isStartupReady) {
+    if (startupTimedOut) {
+      return (
+        <StartupErrorScreen
+          message="Startup is taking longer than expected."
+          onRetry={() => setStartupTimedOut(false)}
+        />
+      );
+    }
     return (
       <View style={styles.loading}>
         <ActivityIndicator size="large" color={COLORS.primary} />
@@ -219,7 +246,7 @@ function AuthenticatedRootNavigator() {
 // Root Navigator
 // ──────────────────────────────────────────────────────────
 export default function AppNavigator() {
-  const { session, profile, isLoading } = useAuth();
+  const { session, profile, isLoading, startupError, retryStartup } = useAuth();
 
   const isAuthenticated = !!session;
 
@@ -232,6 +259,10 @@ export default function AppNavigator() {
       hasProfile: !!profile,
     });
   }, [isLoading, isAuthenticated, session, profile]);
+
+  if (startupError) {
+    return <StartupErrorScreen message={startupError} onRetry={retryStartup} />;
+  }
 
   if (isLoading) {
     if (__DEV__ && DEBUG_STARTUP_GATE) {
@@ -275,11 +306,61 @@ export default function AppNavigator() {
   );
 }
 
+function StartupErrorScreen({
+  message,
+  onRetry,
+}: {
+  message: string;
+  onRetry: () => void;
+}) {
+  return (
+    <View style={styles.errorContainer}>
+      <Text style={styles.errorTitle}>We could not start Babinom</Text>
+      <Text style={styles.errorBody}>{message}</Text>
+      <TouchableOpacity style={styles.retryButton} onPress={onRetry} activeOpacity={0.85}>
+        <Text style={styles.retryButtonText}>Try again</Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   loading: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: colors.neutral.white,
+  },
+  errorContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 32,
+    backgroundColor: colors.neutral.white,
+  },
+  errorTitle: {
+    marginBottom: 8,
+    color: colors.neutral.textDark,
+    fontSize: 22,
+    fontWeight: '800',
+    textAlign: 'center',
+  },
+  errorBody: {
+    marginBottom: 24,
+    color: colors.neutral.textBody,
+    fontSize: 15,
+    lineHeight: 22,
+    textAlign: 'center',
+  },
+  retryButton: {
+    borderRadius: 16,
+    backgroundColor: colors.onboarding.primary,
+    paddingHorizontal: 32,
+    paddingVertical: 14,
+  },
+  retryButtonText: {
+    color: colors.neutral.white,
+    fontSize: 15,
+    fontWeight: '800',
   },
 });

@@ -7,7 +7,7 @@ import React, {
   useRef,
 } from 'react';
 import { Session, User } from '@supabase/supabase-js';
-import { supabase } from '../lib/supabase';
+import { supabase, supabaseStartupError } from '../lib/supabase';
 import { Profile } from '../types';
 import { ProfileService } from '../services/ProfileService';
 import { PurchaseService } from '../services/purchaseService';
@@ -31,6 +31,8 @@ interface AuthContextValue {
   user: User | null;
   profile: Profile | null;
   isLoading: boolean;
+  startupError: string | null;
+  retryStartup: () => void;
   signUp: (email: string, password: string, displayName: string) => Promise<void>;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
@@ -61,6 +63,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [startupError, setStartupError] = useState<string | null>(null);
+  const [bootstrapAttempt, setBootstrapAttempt] = useState(0);
   /** Guards against stale profile writes when auth changes mid-flight (deferred fetches). */
   const activeAuthUserIdRef = useRef<string | null>(null);
 
@@ -69,6 +73,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       authUser.id,
       authUser.user_metadata?.display_name ?? null,
     );
+  }, []);
+
+  const retryStartup = useCallback(() => {
+    setStartupError(null);
+    setIsLoading(true);
+    setBootstrapAttempt((prev) => prev + 1);
   }, []);
 
   // Fetch profile from Supabase
@@ -103,7 +113,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Bootstrap on mount
   useEffect(() => {
-    PurchaseService.configure();
+    let safetyTimeout: ReturnType<typeof setTimeout> | null = null;
+    setStartupError(null);
+
+    if (supabaseStartupError) {
+      if (!__DEV__) {
+        console.error('[AuthContext] startup config error:', supabaseStartupError);
+      }
+      activeAuthUserIdRef.current = null;
+      setSession(null);
+      setUser(null);
+      setProfile(null);
+      setStartupError(supabaseStartupError);
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      PurchaseService.configure();
+    } catch (err: any) {
+      console.error('[AuthContext] purchase startup configure failed:', err?.message ?? err);
+    }
     if (__DEV__) {
       console.log('[AuthContext] bootstrap: start getSession + 8s safety timer');
     }
@@ -111,17 +141,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Safety valve: if getSession() rejects or hangs (e.g. stale refresh token,
     // invalid/empty Supabase URL, network timeout), force-exit loading after 8 s
     // so the user sees WelcomeScreen instead of a frozen spinner.
-    const safetyTimeout = setTimeout(() => {
-      console.warn(
-        '[AuthContext] branch: safety-timeout (8s) — forcing isLoading false',
-      );
+    safetyTimeout = setTimeout(() => {
+      const message = 'Startup took too long while restoring your session.';
+      console.error('[AuthContext] startup timeout:', message);
+      setStartupError(message);
       setIsLoading(false);
     }, 8000);
 
     supabase.auth
       .getSession()
       .then(({ data: { session: s } }) => {
-        clearTimeout(safetyTimeout);
         if (__DEV__) {
           console.log('[AuthContext] branch: getSession resolved', {
             hasSession: !!s,
@@ -144,8 +173,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           fetchProfile(bootUser)
             .catch((err) => {
               console.error('[AuthContext] fetchProfile failed after getSession:', err);
+              setStartupError('Could not load your profile. Please try again.');
             })
             .finally(() => {
+              if (safetyTimeout) clearTimeout(safetyTimeout);
               if (__DEV__) {
                 console.log(
                   '[AuthContext] fetchProfile settled — isLoading -> false',
@@ -154,6 +185,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               setIsLoading(false);
             });
         } else {
+          if (safetyTimeout) clearTimeout(safetyTimeout);
           if (__DEV__) {
             console.log(
               '[AuthContext] branch: no session user — isLoading -> false (immediate)',
@@ -164,11 +196,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       })
       .catch((err) => {
-        clearTimeout(safetyTimeout);
+        if (safetyTimeout) clearTimeout(safetyTimeout);
         if (__DEV__) {
           console.log('[AuthContext] branch: getSession catch', err);
         }
         console.error('[AuthContext] getSession error:', err);
+        setStartupError('Could not restore your session. Please try again.');
         activeAuthUserIdRef.current = null;
         setIsLoading(false);
       });
@@ -201,11 +234,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           // (profile fetch never completes, isLoading stays true). Defer to next macrotask.
           setTimeout(() => {
             void (async () => {
+              const authChangeTimeout = setTimeout(() => {
+                console.error('[AuthContext] auth state profile load timeout.');
+                setStartupError('Could not load your profile. Please try again.');
+                setIsLoading(false);
+              }, 8000);
               try {
                 await fetchProfile(authUser);
               } catch (err) {
                 console.error('[AuthContext] fetchProfile failed after auth state change:', err);
+                setStartupError('Could not load your profile. Please try again.');
               } finally {
+                clearTimeout(authChangeTimeout);
                 setIsLoading(false);
               }
             })();
@@ -218,10 +258,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     );
 
     return () => {
-      clearTimeout(safetyTimeout);
+      if (safetyTimeout) clearTimeout(safetyTimeout);
       subscription.unsubscribe();
     };
-  }, [fetchProfile]);
+  }, [bootstrapAttempt, fetchProfile]);
 
   // ── Auth actions ────────────────────────────────────────
   const signUp = async (
@@ -326,6 +366,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         user,
         profile,
         isLoading,
+        startupError,
+        retryStartup,
         signUp,
         signIn,
         signOut,

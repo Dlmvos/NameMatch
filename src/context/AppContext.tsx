@@ -89,22 +89,41 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setIsUnlockedPacksHydrated(true);
       return;
     }
-    const localPacks = await getDevUnlockedPacks();
-    if (requestId === devUnlockedPacksRequestRef.current) {
-      setDevUnlockedPacks(localPacks);
-      setIsUnlockedPacksHydrated(true);
+    try {
+      const localPacks = await getDevUnlockedPacks();
+      if (requestId === devUnlockedPacksRequestRef.current) {
+        setDevUnlockedPacks(localPacks);
+      }
+    } catch (err: any) {
+      if (__DEV__) {
+        console.error('[AppProvider] dev unlocked packs hydration failed:', err?.message ?? err);
+      }
+      if (requestId === devUnlockedPacksRequestRef.current) {
+        setDevUnlockedPacks([]);
+      }
+    } finally {
+      if (requestId === devUnlockedPacksRequestRef.current) {
+        setIsUnlockedPacksHydrated(true);
+      }
     }
   }, [user?.id, getDevUnlockedPacks]);
 
   const clearDevUnlockedPacks = useCallback(async () => {
     const requestId = ++devUnlockedPacksRequestRef.current;
     setIsUnlockedPacksHydrated(false);
-    if (__DEV__) {
-      await AsyncStorage.removeItem(DEV_UNLOCKED_PACKS_KEY).catch(() => {});
-    }
-    if (requestId === devUnlockedPacksRequestRef.current) {
-      setDevUnlockedPacks([]);
-      setIsUnlockedPacksHydrated(true);
+    try {
+      if (__DEV__) {
+        await AsyncStorage.removeItem(DEV_UNLOCKED_PACKS_KEY);
+      }
+    } catch (err: any) {
+      if (__DEV__) {
+        console.error('[AppProvider] clear dev unlocked packs failed:', err?.message ?? err);
+      }
+    } finally {
+      if (requestId === devUnlockedPacksRequestRef.current) {
+        setDevUnlockedPacks([]);
+        setIsUnlockedPacksHydrated(true);
+      }
     }
   }, []);
 
