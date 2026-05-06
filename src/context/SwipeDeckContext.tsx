@@ -34,7 +34,8 @@ function sanitizeFreeFilters(filters: NameFilters): NameFilters {
 /** Bulk-import / Supabase `baby_names.id` uses UUID; bundled core uses short numeric ids. */
 const UUID_LIKE_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const DEBUG_SWIPE_DECK = false;
-const STARTUP_HYDRATION_TIMEOUT_MS = 8000;
+/** Max wait for remote deck / swipe restores so startup cannot hang indefinitely. */
+const STARTUP_HYDRATION_TIMEOUT_MS = 12_000;
 
 const normalizeFilterText = (value?: string): string => value?.trim().toLowerCase() ?? '';
 
@@ -101,19 +102,6 @@ function stableHash(input: string): number {
     h = Math.imul(h, 16777619);
   }
   return h >>> 0;
-}
-
-function withStartupTimeout<T>(promise: Promise<T>, fallback: T, label: string): Promise<T> {
-  let timeoutId: ReturnType<typeof setTimeout> | null = null;
-  const timeout = new Promise<T>((resolve) => {
-    timeoutId = setTimeout(() => {
-      console.error(`[SwipeDeck] startup hydration timeout: ${label}`);
-      resolve(fallback);
-    }, STARTUP_HYDRATION_TIMEOUT_MS);
-  });
-  return Promise.race([promise, timeout]).finally(() => {
-    if (timeoutId) clearTimeout(timeoutId);
-  });
 }
 
 function applySharedRoomOrdering(names: BabyName[], roomId: string | null): BabyName[] {
@@ -361,24 +349,25 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
 
     let cancelled = false;
     setPublicDeckHydrationKey(null);
-    withStartupTimeout(
-      PremiumContentService.fetchRemotePublicDeckSupplement({
-        limit: 400,
-        region: profile.region_preference ?? null,
-        gender: profile.gender_preference ?? 'both',
-      }),
-      [],
-      'public deck supplement',
-    )
-      .then((rows) => {
+    void (async () => {
+      try {
+        const rows = await Promise.race([
+          PremiumContentService.fetchRemotePublicDeckSupplement({
+            limit: 400,
+            region: profile.region_preference ?? null,
+            gender: profile.gender_preference ?? 'both',
+          }),
+          new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error('public deck timeout')), STARTUP_HYDRATION_TIMEOUT_MS),
+          ),
+        ]);
         if (!cancelled) setPublicDeckSupplement(rows);
-      })
-      .catch(() => {
+      } catch {
         if (!cancelled) setPublicDeckSupplement([]);
-      })
-      .finally(() => {
+      } finally {
         if (!cancelled) setPublicDeckHydrationKey(expectedPublicDeckHydrationKey);
-      });
+      }
+    })();
 
     return () => {
       cancelled = true;
@@ -403,28 +392,27 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
 
     let cancelled = false;
     setPremiumDeckHydrationKey(null);
-    withStartupTimeout(
-      PremiumContentService.fetchRemotePremiumNames({
-        includePremium: true,
-        userId: user.id,
-        meaningLocale: effectiveLanguage,
-      }),
-      [],
-      'premium deck',
-    )
-      .then((remotePremium) => {
-        if (cancelled || !remotePremium?.length) {
-          if (!cancelled) setRemotePremiumList(null);
-          return;
-        }
-        if (!cancelled) setRemotePremiumList(remotePremium);
-      })
-      .catch(() => {
+    void (async () => {
+      try {
+        const remotePremium = await Promise.race([
+          PremiumContentService.fetchRemotePremiumNames({
+            includePremium: true,
+            userId: user.id,
+            meaningLocale: effectiveLanguage,
+          }),
+          new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error('premium deck timeout')), STARTUP_HYDRATION_TIMEOUT_MS),
+          ),
+        ]);
+        if (cancelled) return;
+        if (!remotePremium?.length) setRemotePremiumList(null);
+        else setRemotePremiumList(remotePremium);
+      } catch {
         if (!cancelled) setRemotePremiumList(null);
-      })
-      .finally(() => {
+      } finally {
         if (!cancelled) setPremiumDeckHydrationKey(expectedPremiumDeckHydrationKey);
-      });
+      }
+    })();
 
     return () => {
       cancelled = true;
@@ -738,23 +726,30 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
     let cancelled = false;
 
     const loadSwipedIds = async () => {
-      const [ids, partnerCustom] = await withStartupTimeout(
-        Promise.all([
-          SwipeService.getSwipedNameIds(user.id, roomId),
-          SwipeService.getPartnerCustomNameIds({ userId: user.id, roomId }),
-        ]),
-        [new Set<string>(), new Set<string>()],
-        'swipe state',
-      );
-      if (cancelled) return;
-      swipedIdsRef.current = ids;
-      partnerCustomIdsRef.current = partnerCustom;
-      setSwipeStateHydrationKey(hydrationKey);
+      try {
+        const [ids, partnerCustom] = await Promise.race([
+          Promise.all([
+            SwipeService.getSwipedNameIds(user.id, roomId),
+            SwipeService.getPartnerCustomNameIds({ userId: user.id, roomId }),
+          ]),
+          new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error('swipe state timeout')), STARTUP_HYDRATION_TIMEOUT_MS),
+          ),
+        ]);
+        if (cancelled) return;
+        swipedIdsRef.current = ids;
+        partnerCustomIdsRef.current = partnerCustom;
+      } catch {
+        if (!cancelled) {
+          swipedIdsRef.current = new Set();
+          partnerCustomIdsRef.current = new Set();
+        }
+      } finally {
+        if (!cancelled) setSwipeStateHydrationKey(hydrationKey);
+      }
     };
 
-    loadSwipedIds().catch(() => {
-      if (!cancelled) setSwipeStateHydrationKey(hydrationKey);
-    });
+    void loadSwipedIds();
 
     return () => {
       cancelled = true;

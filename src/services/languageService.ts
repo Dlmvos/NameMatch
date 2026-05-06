@@ -1,5 +1,3 @@
-import { COUNTRY_LANGUAGE_MAP } from '../i18n/countryLanguageMap';
-
 export const SUPPORTED_LANGUAGE_OPTIONS = [
   { code: 'en', label: 'English' },
   { code: 'nl', label: 'Dutch' },
@@ -16,13 +14,6 @@ export const SUPPORTED_LANGUAGE_OPTIONS = [
 
 export type SupportedLanguageCode = (typeof SUPPORTED_LANGUAGE_OPTIONS)[number]['code'];
 
-function normalizeCountryKey(country: string): string {
-  if (country === 'USA' || country === 'United States') {
-    return 'UnitedStates';
-  }
-  return country.replace(/\s+/g, '');
-}
-
 function normalizeLanguageCode(language: string | undefined | null): string | null {
   if (!language) return null;
   const trimmed = language.trim();
@@ -30,25 +21,19 @@ function normalizeLanguageCode(language: string | undefined | null): string | nu
   return trimmed.split(/[-_]/)[0]?.toLowerCase() ?? null;
 }
 
-export function getSuggestedLanguage(
-  country: string | undefined,
+/**
+ * App UI language: explicit preference wins; Auto (null) uses device locale; fallback `en`.
+ * Country/residence preferences do not affect this — they only influence name content/filtering elsewhere.
+ */
+export function getEffectiveLanguage(
+  languagePreference: string | null | undefined,
   deviceLanguage: string | undefined,
 ): string {
-  const mapped = country ? COUNTRY_LANGUAGE_MAP[normalizeCountryKey(country)] : undefined;
-  if (mapped) return mapped;
+  const normalizedPreference = normalizeLanguageCode(languagePreference);
+  if (normalizedPreference) return normalizedPreference;
 
   const normalizedDevice = normalizeLanguageCode(deviceLanguage);
   if (normalizedDevice) return normalizedDevice;
 
   return 'en';
-}
-
-export function getEffectiveLanguage(
-  languagePreference: string | null | undefined,
-  country: string | undefined,
-  deviceLanguage: string | undefined,
-): string {
-  const normalizedPreference = normalizeLanguageCode(languagePreference);
-  if (normalizedPreference) return normalizedPreference;
-  return getSuggestedLanguage(country, deviceLanguage);
 }

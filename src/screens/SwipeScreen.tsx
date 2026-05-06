@@ -25,15 +25,22 @@ import FilterSheet from '../components/FilterSheet';
 import NameDetailModal from '../components/NameDetailModal';
 import { formatLocalizedPrice, resolveCurrencyCode } from '../lib/currency';
 import { getSwipeMetadataLabelKey } from '../lib/swipeMetadataLabel';
-import { getRecommendedPack, type RecommendedPack, type SwipeSignal } from '../services/namePackRecommendationService';
+import {
+  getRecommendedPack,
+  noteCuratedPackOffered,
+  purchasedIncludesCuratedPack,
+  wasCuratedPackOffered,
+  type RecommendedPack,
+  type SwipeSignal,
+} from '../services/namePackRecommendationService';
 import { AnalyticsService } from '../services/AnalyticsService';
-import { DEV_PREVIEW } from '../config/devPreview';
 import type { BabyName, RootStackParamList } from '../types';
 import { colors, COLORS, FONTS, RADIUS, SHADOWS, SPACING } from '../theme';
 
 /** Slice depth: keep one extra card mounted under the stack so the next name is already rendered before it surfaces. */
 const VISIBLE_CARDS = 4;
-const AI_PACK_UNLOCKS_KEY = 'AI_PACK_UNLOCKS';
+/** Legacy AsyncStorage bucket for curated swipe recommendations (formerly mislabeled `AI_*`). */
+const CURATED_RECOMMENDATION_UNLOCKS_STORAGE_KEY = 'AI_PACK_UNLOCKS';
 const DEV_PAYWALL_INTERVAL = 10;
 const DEBUG_SWIPE_SCREEN = false;
 const DEV_PREVIEW_MATCH: BabyName = {
@@ -141,18 +148,15 @@ export default function SwipeScreen() {
   // Completion-bias: show 'N swipes to curated picks' tied to real 15-swipe recommendation cadence
   const RECOMMENDATION_CADENCE = 15;
 
-  const usePreviewScreenshotDeck =
-    __DEV__ && (DEV_PREVIEW.forceScreenshotNames || useDevScreenshotDeck);
-  const forcePremiumUnlocked = __DEV__ && DEV_PREVIEW.forcePaywallState === 'owned';
   const freeSwipesLeft = profile?.free_swipes_remaining ?? 0;
-  const hasUnlockedPacks = forcePremiumUnlocked || effectiveUnlockedPacks.length > 0;
+  const hasUnlockedPacks = effectiveUnlockedPacks.length > 0;
   const hasPartner = !!(room?.user2_id);
-  const screenshotNames = usePreviewScreenshotDeck ? DEV_SCREENSHOT_NAMES : namesToSwipe;
+  const screenshotNames = __DEV__ && useDevScreenshotDeck ? DEV_SCREENSHOT_NAMES : namesToSwipe;
   const visibleNames = screenshotNames.slice(0, VISIBLE_CARDS);
   const nextName = visibleNames[1];
   const totalRemaining = screenshotNames.length;
   const isLocked =
-    !usePreviewScreenshotDeck &&
+    !useDevScreenshotDeck &&
     profile !== null &&
     freeSwipesLeft <= 0 &&
     !hasUnlockedPacks;
@@ -198,14 +202,14 @@ export default function SwipeScreen() {
     if (
       isFocused &&
       !hasUnlockedPacks &&
-      !usePreviewScreenshotDeck &&
+      !useDevScreenshotDeck &&
       freeSwipesLeft === 1 &&
       !didShowFinalSwipePreviewRef.current
     ) {
       didShowFinalSwipePreviewRef.current = true;
       setShowFinalSwipePaywallPreview(true);
     }
-  }, [freeSwipesLeft, hasUnlockedPacks, isFocused, usePreviewScreenshotDeck]);
+  }, [freeSwipesLeft, hasUnlockedPacks, isFocused, useDevScreenshotDeck]);
 
   useEffect(() => {
     if (
@@ -221,7 +225,7 @@ export default function SwipeScreen() {
   }, [isFocused, isLoadingNames, namesToSwipe.length, effectiveUnlockedPacks, loadMoreNames]);
 
   const handleSwipe = async (name: BabyName, direction: 'left' | 'right') => {
-    if (usePreviewScreenshotDeck) return;
+    if (__DEV__ && useDevScreenshotDeck) return;
     if (isLocked) {
       if (!__DEV__) {
         navigation.navigate('Paywall');
@@ -270,14 +274,14 @@ export default function SwipeScreen() {
 
       if (
         recommendation &&
-        !offeredPackTypesRef.current.has(recommendation.packType) &&
-        !effectiveUnlockedPacks.includes(recommendation.packType)
+        !wasCuratedPackOffered(offeredPackTypesRef.current, recommendation.packType) &&
+        !purchasedIncludesCuratedPack(effectiveUnlockedPacks, recommendation.packType)
       ) {
         setTimeout(() => {
           setSuggestedPack(recommendation);
           setShowPackModal(true);
           lastOfferSwipeRef.current = swipeCountRef.current;
-          offeredPackTypesRef.current.add(recommendation.packType);
+          noteCuratedPackOffered(offeredPackTypesRef.current, recommendation.packType);
         }, 180);
       }
     }
@@ -295,7 +299,7 @@ export default function SwipeScreen() {
     }
   };
 
-  if (isLoadingNames && !usePreviewScreenshotDeck) {
+  if (isLoadingNames) {
     return (
       <SafeAreaView style={styles.container}>
         <LinearGradient colors={['#FFF0F5', '#FFF9F5']} style={StyleSheet.absoluteFill} />
@@ -571,7 +575,7 @@ export default function SwipeScreen() {
             {suggestedPack ? (
               <>
                 <LinearGradient
-                  colors={[colors.neutral.white, colors.onboarding.accent]}
+                  colors={['#FFF6FC', '#F6F0FF']}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
                   style={styles.offerHighlightCard}
@@ -611,7 +615,9 @@ export default function SwipeScreen() {
                 activeOpacity={0.9}
                 onPress={async () => {
                   if (suggestedPack) {
-                    const existingRaw = await AsyncStorage.getItem(AI_PACK_UNLOCKS_KEY).catch(() => null);
+                    const existingRaw = await AsyncStorage.getItem(CURATED_RECOMMENDATION_UNLOCKS_STORAGE_KEY).catch(
+                      () => null,
+                    );
                     let existing: Record<string, unknown> = {};
                     if (existingRaw) {
                       try {
@@ -628,7 +634,10 @@ export default function SwipeScreen() {
                       packNames: suggestedPack.packNames.map((n) => n.name),
                       unlockedAt: Date.now(),
                     };
-                    await AsyncStorage.setItem(AI_PACK_UNLOCKS_KEY, JSON.stringify(existing)).catch(() => {});
+                    await AsyncStorage.setItem(
+                      CURATED_RECOMMENDATION_UNLOCKS_STORAGE_KEY,
+                      JSON.stringify(existing),
+                    ).catch(() => {});
                   }
                   setShowPackModal(false);
                   navigation.navigate('MainTabs', { screen: 'Shop' });
@@ -672,7 +681,7 @@ export default function SwipeScreen() {
               }}
             >
               <Text style={styles.devMenuText}>
-                {usePreviewScreenshotDeck ? 'Screenshot deck active' : 'Use screenshot deck'}
+                {useDevScreenshotDeck ? 'Use live deck' : 'Use screenshot deck'}
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -925,7 +934,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: SPACING.md,
     borderWidth: 1,
-    borderColor: colors.neutral.border,
+    borderColor: '#F1E4FF',
     gap: 4,
   },
   offerHighlightEyebrow: {

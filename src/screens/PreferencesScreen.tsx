@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -55,9 +55,21 @@ const GENDER_OPTIONS: GenderOption[] = [
 
 export default function PreferencesScreen({ navigation }: Props) {
   const { t } = useTranslation();
-  const { updateProfile } = useAuth();
+  const { updateProfile, profile } = useAuth();
   const [selected, setSelected] = useState<GenderPreference | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+
+  // ── Auto-forward guard ────────────────────────────────────
+  // If this screen mounts (or re-mounts after a nav-tree reset) but the
+  // user already saved a gender preference, skip straight to Country.
+  // This breaks any mount-loop without needing to find the root trigger.
+  const didAutoForward = useRef(false);
+  useEffect(() => {
+    if (profile?.gender_preference && !didAutoForward.current) {
+      didAutoForward.current = true;
+      navigation.replace('Country');
+    }
+  }, [profile?.gender_preference, navigation]);
 
   const handleContinue = async () => {
     if (!selected) {
@@ -72,7 +84,8 @@ export default function PreferencesScreen({ navigation }: Props) {
           setTimeout(() => reject(new Error('Saving took too long. Please try again.')), SAVE_TIMEOUT_MS)
         ),
       ]);
-      navigation.navigate('Country');
+      didAutoForward.current = true; // prevent auto-forward effect from also firing
+      navigation.replace('Country');
     } catch (err: any) {
       Alert.alert('Error', err.message ?? 'Something went wrong.');
     } finally {

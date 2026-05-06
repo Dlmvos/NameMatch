@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { colors } from '../theme';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -37,6 +37,18 @@ const DEBUG_STARTUP_GATE = false;
 function AppI18nBridge({ children }: { children: React.ReactNode }) {
   const { effectiveLanguage } = useApp();
   return <I18nProvider language={effectiveLanguage}>{children}</I18nProvider>;
+}
+
+/** When auth bootstrap fails before navigation is wired (standalone; no locale context). */
+function StartupErrorView({ message, onRetry }: { message: string; onRetry: () => void }) {
+  return (
+    <View style={styles.loading}>
+      <Text style={styles.startupErrorText}>{message}</Text>
+      <TouchableOpacity style={styles.retryButton} onPress={onRetry} activeOpacity={0.85}>
+        <Text style={styles.retryButtonText}>Try again</Text>
+      </TouchableOpacity>
+    </View>
+  );
 }
 
 // ──────────────────────────────────────────────────────────
@@ -122,7 +134,6 @@ function AuthenticatedRootNavigator() {
     isCountryPrefHydrated &&
     isUnlockedPacksHydrated &&
     (!hasRoom || isRoomHydrated);
-  const [startupTimedOut, setStartupTimedOut] = useState(false);
   const stackKind: 'onboarding' | 'partner' | 'main' = !hasCompletedOnboarding
     ? 'onboarding'
     : !hasRoom
@@ -158,33 +169,7 @@ function AuthenticatedRootNavigator() {
     profile,
   ]);
 
-  useEffect(() => {
-    if (isStartupReady) {
-      setStartupTimedOut(false);
-      return;
-    }
-    const timeout = setTimeout(() => {
-      console.error('[AppNavigator] startup gate timeout', {
-        isCountryPrefHydrated,
-        isUnlockedPacksHydrated,
-        hasRoom,
-        isRoomHydrated,
-        isLoadingRoom,
-      });
-      setStartupTimedOut(true);
-    }, 8000);
-    return () => clearTimeout(timeout);
-  }, [hasRoom, isCountryPrefHydrated, isLoadingRoom, isRoomHydrated, isStartupReady, isUnlockedPacksHydrated]);
-
   if (!isStartupReady) {
-    if (startupTimedOut) {
-      return (
-        <StartupErrorScreen
-          message="Startup is taking longer than expected."
-          onRetry={() => setStartupTimedOut(false)}
-        />
-      );
-    }
     return (
       <View style={styles.loading}>
         <ActivityIndicator size="large" color={COLORS.primary} />
@@ -215,7 +200,9 @@ function AuthenticatedRootNavigator() {
             <Stack.Screen name="Paywall" component={PaywallScreen} options={{ headerShown: false }} />
             <Stack.Screen name="PartnerConnect" component={PartnerConnectScreen} />
             <Stack.Screen name="RoomManagement" component={RoomManagementScreen} />
-            {__DEV__ ? <Stack.Screen name="DevAnalytics" component={DevAnalyticsScreen} /> : null}
+            {__DEV__ ? (
+              <Stack.Screen name="DevAnalytics" component={DevAnalyticsScreen} options={{ headerShown: false }} />
+            ) : null}
           </>
         ) : !hasRoom ? (
           <>
@@ -224,6 +211,9 @@ function AuthenticatedRootNavigator() {
             <Stack.Screen name="MainTabs" component={MainTabs} />
             <Stack.Screen name="Country" component={CountryScreen} />
             <Stack.Screen name="Region" component={RegionScreen} />
+            {__DEV__ ? (
+              <Stack.Screen name="DevAnalytics" component={DevAnalyticsScreen} options={{ headerShown: false }} />
+            ) : null}
           </>
         ) : (
           <>
@@ -234,7 +224,9 @@ function AuthenticatedRootNavigator() {
             <Stack.Screen name="Region" component={RegionScreen} />
             <Stack.Screen name="PartnerConnect" component={PartnerConnectScreen} />
             <Stack.Screen name="RoomManagement" component={RoomManagementScreen} />
-            {__DEV__ ? <Stack.Screen name="DevAnalytics" component={DevAnalyticsScreen} /> : null}
+            {__DEV__ ? (
+              <Stack.Screen name="DevAnalytics" component={DevAnalyticsScreen} options={{ headerShown: false }} />
+            ) : null}
           </>
         )}
       </Stack.Navigator>
@@ -260,10 +252,6 @@ export default function AppNavigator() {
     });
   }, [isLoading, isAuthenticated, session, profile]);
 
-  if (startupError) {
-    return <StartupErrorScreen message={startupError} onRetry={retryStartup} />;
-  }
-
   if (isLoading) {
     if (__DEV__ && DEBUG_STARTUP_GATE) {
       console.log('[AppNavigator] branch: loading spinner (isLoading=true)');
@@ -273,6 +261,10 @@ export default function AppNavigator() {
         <ActivityIndicator size="large" color={COLORS.primary} />
       </View>
     );
+  }
+
+  if (startupError) {
+    return <StartupErrorView message={startupError} onRetry={retryStartup} />;
   }
 
   if (isAuthenticated) {
@@ -306,61 +298,30 @@ export default function AppNavigator() {
   );
 }
 
-function StartupErrorScreen({
-  message,
-  onRetry,
-}: {
-  message: string;
-  onRetry: () => void;
-}) {
-  return (
-    <View style={styles.errorContainer}>
-      <Text style={styles.errorTitle}>We could not start Babinom</Text>
-      <Text style={styles.errorBody}>{message}</Text>
-      <TouchableOpacity style={styles.retryButton} onPress={onRetry} activeOpacity={0.85}>
-        <Text style={styles.retryButtonText}>Try again</Text>
-      </TouchableOpacity>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   loading: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: colors.neutral.white,
+    paddingHorizontal: 24,
   },
-  errorContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 32,
-    backgroundColor: colors.neutral.white,
-  },
-  errorTitle: {
-    marginBottom: 8,
-    color: colors.neutral.textDark,
-    fontSize: 22,
-    fontWeight: '800',
+  startupErrorText: {
+    fontSize: 16,
+    color: colors.shortlist.text,
     textAlign: 'center',
-  },
-  errorBody: {
-    marginBottom: 24,
-    color: colors.neutral.textBody,
-    fontSize: 15,
+    marginBottom: 20,
     lineHeight: 22,
-    textAlign: 'center',
   },
   retryButton: {
-    borderRadius: 16,
     backgroundColor: colors.onboarding.primary,
-    paddingHorizontal: 32,
-    paddingVertical: 14,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 12,
   },
   retryButtonText: {
     color: colors.neutral.white,
-    fontSize: 15,
-    fontWeight: '800',
+    fontWeight: '700',
+    fontSize: 16,
   },
 });

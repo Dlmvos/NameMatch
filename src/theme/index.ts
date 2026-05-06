@@ -35,14 +35,14 @@ export const SPACING = {
 
 export const SHADOWS = {
   card: {
-    shadowColor: '#9B6B8A',
+    shadowColor: colors.onboarding.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.12,
     shadowRadius: 12,
     elevation: 5,
   },
   button: {
-    shadowColor: '#FF6B9D',
+    shadowColor: colors.onboarding.secondary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.25,
     shadowRadius: 8,

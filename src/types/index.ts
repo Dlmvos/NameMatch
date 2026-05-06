@@ -104,7 +104,7 @@ export interface SuggestedName {
   reason: string;
 }
 
-export interface AINameRequest {
+export interface NameSuggestionRequest {
   style?: string;
   origin?: string;
   meaning?: string;
@@ -225,6 +225,7 @@ export type RootStackParamList = {
   RoomManagement: undefined;
   MainTabs: NavigatorScreenParams<MainTabParamList> | undefined;
   Paywall: undefined;
+  DevAnalytics: undefined;
 };
 
 export type MainTabParamList = {

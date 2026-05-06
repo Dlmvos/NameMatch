@@ -10,9 +10,12 @@ import {
   Alert,
   Share,
   Linking,
+  Modal,
+  Pressable,
+  ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
 import { useApp } from '../context/AppContext';
@@ -31,8 +34,9 @@ const SUPPORT_URL = 'https://babinom.com/support/';
 export default function SettingsScreen() {
   const { t } = useTranslation();
   const tr = t;
+  const insets = useSafeAreaInsets();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const { profile, signOut, updateProfile, restorePurchases } = useAuth();
+  const { profile, signOut, updateProfile, restorePurchases, deleteAccount } = useAuth();
   const { room } = useRoomState();
   const { leaveRoom } = useRoomActions();
   const {
@@ -44,6 +48,24 @@ export default function SettingsScreen() {
   } = useApp();
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const [deleteModalVisible, setDeleteModalVisible] = useState(false);
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+
+  const handleDeleteAccountPress = () => {
+    setDeleteModalVisible(true);
+  };
+
+  const handleConfirmDeleteAccount = async () => {
+    setIsDeletingAccount(true);
+    try {
+      await deleteAccount();
+      setDeleteModalVisible(false);
+    } catch (err: any) {
+      Alert.alert(tr('common.error'), err?.message ?? tr('common.error'));
+    } finally {
+      setIsDeletingAccount(false);
+    }
+  };
 
   const handleSignOut = async () => {
     Alert.alert(
@@ -325,7 +347,11 @@ export default function SettingsScreen() {
               icon="analytics-outline"
               label="Dev Analytics"
               value=""
-              onPress={() => navigation.navigate('DevAnalytics')}
+              onPress={() =>
+                navigation.getParent<NativeStackNavigationProp<RootStackParamList>>()?.navigate(
+                  'DevAnalytics',
+                )
+              }
             />
           ) : null}
           <SettingsRow
@@ -362,8 +388,68 @@ export default function SettingsScreen() {
           </Text>
         </TouchableOpacity>
 
+        <TouchableOpacity
+          style={[styles.deleteAccountBtn, SHADOWS.card]}
+          onPress={handleDeleteAccountPress}
+          disabled={isSigningOut || isDeletingAccount}
+          activeOpacity={0.85}
+        >
+          <Ionicons name="trash-outline" size={20} color={colors.neutral.white} />
+          <Text style={styles.deleteAccountText}>{tr('settings.deleteAccount')}</Text>
+        </TouchableOpacity>
+
         <Text style={styles.footer}>{tr('settings.footerMadeWithLove')}</Text>
       </ScrollView>
+
+      <Modal
+        visible={deleteModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {
+          if (!isDeletingAccount) setDeleteModalVisible(false);
+        }}
+      >
+        <View style={styles.deleteModalRoot}>
+          <Pressable
+            style={styles.deleteModalBackdrop}
+            onPress={() => {
+              if (!isDeletingAccount) setDeleteModalVisible(false);
+            }}
+          />
+          <View
+            style={[
+              styles.deleteModalCard,
+              SHADOWS.card,
+              { paddingBottom: Math.max(insets.bottom, SPACING.md) },
+            ]}
+          >
+            <Text style={styles.deleteModalTitle}>{tr('settings.deleteAccountConfirmTitle')}</Text>
+            <Text style={styles.deleteModalBody}>{tr('settings.deleteAccountConfirmBody')}</Text>
+            <View style={styles.deleteModalActions}>
+              <TouchableOpacity
+                style={[styles.deleteModalCancelBtn, SHADOWS.card]}
+                onPress={() => setDeleteModalVisible(false)}
+                disabled={isDeletingAccount}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.deleteModalCancelText}>{tr('common.cancel')}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.deleteModalConfirmBtn, isDeletingAccount && styles.deleteModalConfirmDisabled]}
+                onPress={handleConfirmDeleteAccount}
+                disabled={isDeletingAccount}
+                activeOpacity={0.85}
+              >
+                {isDeletingAccount ? (
+                  <ActivityIndicator color={colors.neutral.white} />
+                ) : (
+                  <Text style={styles.deleteModalConfirmText}>{tr('settings.deleteAccountConfirmAction')}</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -598,6 +684,89 @@ const styles = StyleSheet.create({
     fontSize: FONTS.sizes.md,
     fontWeight: '700',
     color: colors.onboarding.text,
+  },
+  deleteAccountBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.sm,
+    marginHorizontal: SPACING.xl,
+    marginTop: SPACING.md,
+    backgroundColor: COLORS.skip,
+    borderRadius: RADIUS.lg,
+    paddingVertical: SPACING.md,
+    borderWidth: 1.5,
+    borderColor: COLORS.skip,
+  },
+  deleteAccountText: {
+    fontSize: FONTS.sizes.md,
+    fontWeight: '700',
+    color: colors.neutral.white,
+  },
+  deleteModalRoot: {
+    flex: 1,
+    justifyContent: 'center',
+    paddingHorizontal: SPACING.xl,
+  },
+  deleteModalBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(47, 58, 68, 0.45)',
+  },
+  deleteModalCard: {
+    backgroundColor: colors.neutral.white,
+    borderRadius: RADIUS.lg,
+    padding: SPACING.lg,
+    zIndex: 1,
+    elevation: 8,
+  },
+  deleteModalTitle: {
+    fontSize: FONTS.sizes.lg,
+    fontWeight: '800',
+    color: colors.onboarding.text,
+    marginBottom: SPACING.sm,
+  },
+  deleteModalBody: {
+    fontSize: FONTS.sizes.md,
+    color: COLORS.textMuted,
+    lineHeight: 22,
+    marginBottom: SPACING.lg,
+  },
+  deleteModalActions: {
+    flexDirection: 'row',
+    gap: SPACING.sm,
+  },
+  deleteModalCancelBtn: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: SPACING.md,
+    borderRadius: RADIUS.md,
+    backgroundColor: colors.onboarding.background,
+    borderWidth: 1,
+    borderColor: COLORS.divider,
+  },
+  deleteModalCancelText: {
+    fontSize: FONTS.sizes.md,
+    fontWeight: '700',
+    color: colors.onboarding.text,
+  },
+  deleteModalConfirmBtn: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 48,
+    paddingVertical: SPACING.md,
+    borderRadius: RADIUS.md,
+    backgroundColor: COLORS.skip,
+  },
+  deleteModalConfirmDisabled: {
+    opacity: 0.65,
+  },
+  deleteModalConfirmText: {
+    fontSize: FONTS.sizes.md,
+    fontWeight: '700',
+    color: colors.neutral.white,
+    textAlign: 'center',
   },
   footer: {
     textAlign: 'center',

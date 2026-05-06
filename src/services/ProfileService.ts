@@ -49,20 +49,19 @@ export const ProfileService = {
     return (data as Profile | null) ?? null;
   },
 
-  async updateProfile(userId: string, displayName: string | null, updates: SafeProfileUpdates): Promise<Profile> {
+  async updateProfile(userId: string, updates: SafeProfileUpdates): Promise<Profile> {
     const { data, error } = await supabase
       .from('profiles')
       .upsert(
         {
           id: userId,
-          display_name: displayName ?? null,
           ...updates,
           updated_at: nowIso(),
         },
         { onConflict: 'id' },
       )
       .select()
-      .maybeSingle();
+      .single();
 
     if (error) throw error;
     if (!data) {

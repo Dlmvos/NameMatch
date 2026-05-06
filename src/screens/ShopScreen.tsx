@@ -27,12 +27,13 @@ import { COLORS, FONTS, RADIUS, SPACING, SHADOWS } from '../theme';
 import { PurchaseService } from '../services/purchaseService';
 import { DEV_PREVIEW } from '../config/devPreview';
 
-const AI_PACK_UNLOCKS_KEY = 'AI_PACK_UNLOCKS';
+/** Legacy bucket name; stores curated swipe-to-shop recommendations keyed by pack id. */
+const CURATED_RECOMMENDATION_UNLOCKS_STORAGE_KEY = 'AI_PACK_UNLOCKS';
 const DEV_UNLOCKED_PACKS_KEY = 'NAMEMATCH_DEV_UNLOCKED_PACKS';
-const AI_PACK_DURATION_MS = 24 * 60 * 60 * 1000;
+const CURATED_RECOMMENDATION_ACCESS_MS = 24 * 60 * 60 * 1000;
 const PREMIUM_COUPLE_PRICE_FALLBACK = '€29.99';
 
-type AIUnlockPack = {
+type CuratedUnlockPack = {
   packType: string;
   title: string;
   titleKey?: string;
@@ -40,6 +41,12 @@ type AIUnlockPack = {
   packNames: string[];
   unlockedAt: number;
 };
+
+function curatedPackLabelSuffix(packType: string): string {
+  if (packType.startsWith('CURATED_')) return packType.slice('CURATED_'.length);
+  if (packType.startsWith('AI_')) return packType.slice('AI_'.length);
+  return packType;
+}
 
 export default function ShopScreen() {
   const { t, language } = useTranslation();
@@ -54,7 +61,7 @@ export default function ShopScreen() {
   const isFocused = useIsFocused();
   const [showCountryBrowser, setShowCountryBrowser] = useState(false);
   const [countryQuery, setCountryQuery] = useState('');
-  const [aiUnlocks, setAiUnlocks] = useState<Record<string, AIUnlockPack>>({});
+  const [curatedUnlocks, setCuratedUnlocks] = useState<Record<string, CuratedUnlockPack>>({});
   const [nowMs, setNowMs] = useState(Date.now());
   const [premiumPrice, setPremiumPrice] = useState('...');
   const realPremiumState = effectiveUnlockedPacks.length > 0;
@@ -93,14 +100,11 @@ export default function ShopScreen() {
   const localizePackTitle = (packType: string, fallbackTitle: string, titleKey?: string): string => {
     const translatedFromKey = titleKey ? t(titleKey) : '';
     if (titleKey && translatedFromKey !== titleKey) return translatedFromKey;
-    if (packType === 'AI_CLASSIC_EU') return t('pack.euPack.title');
-    if (packType === 'AI_STRONG_BOY' || packType === 'AI_ELEGANT_GIRL') return t('pack.usPack.title');
-    if (packType.startsWith('AI_COUNTRY_NETHERLANDS')) return t('pack.nlFavorites.title');
-    if (
-      packType === 'AI_MODERN_SHORT' ||
-      packType === 'AI_RARE_GLOBAL' ||
-      packType.startsWith('AI_COUNTRY_')
-    ) {
+    const slug = curatedPackLabelSuffix(packType);
+    if (slug === 'CLASSIC_EU') return t('pack.euPack.title');
+    if (slug === 'STRONG_BOY' || slug === 'ELEGANT_GIRL') return t('pack.usPack.title');
+    if (slug.startsWith('COUNTRY_NETHERLANDS')) return t('pack.nlFavorites.title');
+    if (slug === 'MODERN_SHORT' || slug === 'RARE_GLOBAL' || slug.startsWith('COUNTRY_')) {
       return t('pack.worldwide.title');
     }
     return fallbackTitle;
@@ -157,11 +161,11 @@ export default function ShopScreen() {
         if (mounted) setPremiumPrice(PREMIUM_COUPLE_PRICE_FALLBACK);
       });
     const loadUnlocks = async () => {
-      const raw = await AsyncStorage.getItem(AI_PACK_UNLOCKS_KEY).catch(() => null);
-      let parsed: Record<string, AIUnlockPack> = {};
+      const raw = await AsyncStorage.getItem(CURATED_RECOMMENDATION_UNLOCKS_STORAGE_KEY).catch(() => null);
+      let parsed: Record<string, CuratedUnlockPack> = {};
       if (raw) {
         try {
-          parsed = JSON.parse(raw) as Record<string, AIUnlockPack>;
+          parsed = JSON.parse(raw) as Record<string, CuratedUnlockPack>;
         } catch {
           parsed = {};
         }
@@ -169,15 +173,19 @@ export default function ShopScreen() {
 
       const timestamp = Date.now();
       const active = Object.fromEntries(
-        Object.entries(parsed).filter(([, pack]) => timestamp - pack.unlockedAt < AI_PACK_DURATION_MS),
+        Object.entries(parsed).filter(
+          ([, pack]) => timestamp - pack.unlockedAt < CURATED_RECOMMENDATION_ACCESS_MS,
+        ),
       );
 
       if (Object.keys(active).length !== Object.keys(parsed).length) {
-        await AsyncStorage.setItem(AI_PACK_UNLOCKS_KEY, JSON.stringify(active)).catch(() => {});
+        await AsyncStorage.setItem(CURATED_RECOMMENDATION_UNLOCKS_STORAGE_KEY, JSON.stringify(active)).catch(
+          () => {},
+        );
       }
 
       if (mounted) {
-        setAiUnlocks(active);
+        setCuratedUnlocks(active);
       }
     };
 
@@ -191,40 +199,34 @@ export default function ShopScreen() {
 
   useEffect(() => {
     if (!isFocused) return;
-    AsyncStorage.getItem(AI_PACK_UNLOCKS_KEY)
+    AsyncStorage.getItem(CURATED_RECOMMENDATION_UNLOCKS_STORAGE_KEY)
       .then((raw) => {
         if (!raw) {
-          setAiUnlocks({});
+          setCuratedUnlocks({});
           return;
         }
         try {
-          const parsed = JSON.parse(raw) as Record<string, AIUnlockPack>;
-          setAiUnlocks(parsed);
+          const parsed = JSON.parse(raw) as Record<string, CuratedUnlockPack>;
+          setCuratedUnlocks(parsed);
         } catch {
-          setAiUnlocks({});
+          setCuratedUnlocks({});
         }
       })
       .catch(() => {});
     void refreshUnlockedPacks();
   }, [isFocused, refreshUnlockedPacks]);
 
-  const aiPacks = useMemo(
-    () =>
-      Object.values(aiUnlocks)
-        .filter((pack) => nowMs - pack.unlockedAt < AI_PACK_DURATION_MS)
-        .sort((a, b) => b.unlockedAt - a.unlockedAt),
-    [aiUnlocks, nowMs],
-  );
-
   useEffect(() => {
     const active = Object.fromEntries(
-      Object.entries(aiUnlocks).filter(([, pack]) => nowMs - pack.unlockedAt < AI_PACK_DURATION_MS),
+      Object.entries(curatedUnlocks).filter(
+        ([, pack]) => nowMs - pack.unlockedAt < CURATED_RECOMMENDATION_ACCESS_MS,
+      ),
     );
-    if (Object.keys(active).length !== Object.keys(aiUnlocks).length) {
-      setAiUnlocks(active);
-      AsyncStorage.setItem(AI_PACK_UNLOCKS_KEY, JSON.stringify(active)).catch(() => {});
+    if (Object.keys(active).length !== Object.keys(curatedUnlocks).length) {
+      setCuratedUnlocks(active);
+      AsyncStorage.setItem(CURATED_RECOMMENDATION_UNLOCKS_STORAGE_KEY, JSON.stringify(active)).catch(() => {});
     }
-  }, [aiUnlocks, nowMs]);
+  }, [curatedUnlocks, nowMs]);
 
   const createCountryPack = (countryName: string, flag: string, countryLabel: string): NamePack => ({
     key: `COUNTRY_${countryName.replace(/\s+/g, '_').toUpperCase()}`,
@@ -260,7 +262,6 @@ export default function ShopScreen() {
     try {
       const result = await PurchaseService.purchasePremium();
       if (!result.success) return;
-      await refreshProfile();
       if (PurchaseService.hasPremiumEntitlement(result.customerInfo)) {
         await PurchaseService.syncRevenueCatEntitlement();
         await refreshProfile();
@@ -287,16 +288,16 @@ export default function ShopScreen() {
   const handleResetDevPremium = async () => {
     if (!__DEV__) return;
     await clearDevUnlockedPacks();
-    await AsyncStorage.removeItem(AI_PACK_UNLOCKS_KEY).catch(() => {});
-    setAiUnlocks({});
+    await AsyncStorage.removeItem(CURATED_RECOMMENDATION_UNLOCKS_STORAGE_KEY).catch(() => {});
+    setCuratedUnlocks({});
     loadMoreNames();
     Alert.alert('Dev premium reset');
   };
 
   const freeSwipesLeft = profile?.free_swipes_remaining ?? 0;
   const hasUnlockedPacks = isPremium;
-  const formatRemaining = (pack: AIUnlockPack) => {
-    const remaining = Math.max(0, AI_PACK_DURATION_MS - (nowMs - pack.unlockedAt));
+  const formatRemaining = (pack: CuratedUnlockPack) => {
+    const remaining = Math.max(0, CURATED_RECOMMENDATION_ACCESS_MS - (nowMs - pack.unlockedAt));
     const hours = Math.floor(remaining / (60 * 60 * 1000));
     const minutes = Math.floor((remaining % (60 * 60 * 1000)) / (60 * 1000));
     return { hours, minutes };

@@ -583,3 +583,37 @@ left join lateral (
     cnm.created_at asc
   limit 1
 ) best_meaning on true;
+
+-- ============================================================
+-- RPC: delete_own_account (SECURITY DEFINER)
+-- Permanently deletes the calling user's account and all
+-- associated data. Cascade rules handle most cleanup, but we
+-- explicitly delete matches in rooms where the user is the
+-- joiner (user2_id) because those rooms survive via SET NULL.
+-- ============================================================
+create or replace function public.delete_own_account()
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_uid uuid := auth.uid();
+begin
+  if v_uid is null then
+    raise exception 'Not authenticated';
+  end if;
+
+  -- 1. Delete matches in rooms where user is partner (user2).
+  --    The room itself won't cascade-delete (SET NULL), so its
+  --    matches would survive. Clean them up first.
+  delete from public.matches m
+  using public.rooms r
+  where m.room_id = r.id
+    and r.user2_id = v_uid;
+
+  -- 2. Delete auth.users row. FK cascades handle the rest:
+  --    auth.users → profiles → swipes, purchases, rooms (user1) → matches
+  delete from auth.users where id = v_uid;
+end;
+$$;

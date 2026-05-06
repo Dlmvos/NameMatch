@@ -27,7 +27,6 @@ import { useApp } from '../context/AppContext';
 import { useTranslation } from '../i18n/I18nProvider';
 import { RootStackParamList } from '../types';
 import { COUNTRY_OPTIONS, CountryOption } from '../data/countries';
-import { getSuggestedLanguage } from '../services/languageService';
 import { colors, COLORS, FONTS, RADIUS, SPACING, SHADOWS } from '../theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Country'>;
@@ -86,16 +85,6 @@ export default function CountryScreen({ navigation, route }: Props) {
       await setCountryPreference(selected.name);
       if (!fromSettings && useAsResidenceCountry) {
         await setResidenceCountry(selected.name);
-      }
-      const deviceLanguage =
-        Intl.DateTimeFormat().resolvedOptions().locale?.split(/[-_]/)[0] ?? 'en';
-      const suggestedLanguage = getSuggestedLanguage(selected.name, deviceLanguage);
-      if (__DEV__) {
-        console.log('[CountryScreen] suggested language', {
-          country: selected.name,
-          deviceLanguage,
-          suggestedLanguage,
-        });
       }
       if (fromSettings) {
         navigation.goBack();
@@ -231,10 +220,11 @@ export default function CountryScreen({ navigation, route }: Props) {
         <TouchableOpacity
           style={styles.skipBtn}
           onPress={async () => {
-            // Skip: default to WORLDWIDE region with no country
+            // Skip: default to WORLDWIDE region + Worldwide country preference
             setIsLoading(true);
             try {
               await updateProfile({ region_preference: 'WORLDWIDE' });
+              await setCountryPreference('Worldwide');
               if (fromSettings) {
                 navigation.goBack();
               } else {

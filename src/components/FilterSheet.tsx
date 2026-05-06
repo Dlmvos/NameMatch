@@ -53,6 +53,13 @@ const QUICK_CHIPS: QuickChip[] = [
 const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
 const FEATURED_LETTERS = ['A', 'E', 'L', 'M', 'N', 'S'];
 
+const PREMIUM_TEASERS: readonly { labelKey: string }[] = [
+  { labelKey: 'filter.premium.rare' },
+  { labelKey: 'filter.premium.vintage' },
+  { labelKey: 'filter.premium.international' },
+  { labelKey: 'filter.premium.similarFavorites' },
+];
+
 const normalizeFilters = (filters: NameFilters): NameFilters => ({
   ...DEFAULT_FILTERS,
   ...filters,
@@ -306,6 +313,26 @@ export default function FilterSheet({
             })}
           </View>
 
+          {!isPremium ? (
+            <>
+              <Text style={styles.sectionLabel}>{t('filter.premium.section')}</Text>
+              <View style={styles.premiumTeaserList}>
+                {PREMIUM_TEASERS.map((row) => (
+                  <TouchableOpacity
+                    key={row.labelKey}
+                    style={styles.premiumTeaserRow}
+                    onPress={openPremium}
+                    activeOpacity={0.75}
+                  >
+                    <Ionicons name="sparkles-outline" size={18} color={colors.onboarding.primary} />
+                    <Text style={styles.premiumTeaserLabel}>{t(row.labelKey)}</Text>
+                    <Ionicons name="lock-closed-outline" size={16} color={colors.neutral.gray} />
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </>
+          ) : null}
+
           {/* Starting Letter */}
           <Text style={styles.sectionLabel}>{t('filter.section.startsWith')}</Text>
           <View style={styles.compactLetterRow}>
@@ -513,6 +540,28 @@ const styles = StyleSheet.create({
   },
   customOriginChip: {
     borderStyle: 'dashed',
+  },
+  premiumTeaserList: {
+    gap: SPACING.sm,
+    marginBottom: SPACING.sm,
+  },
+  premiumTeaserRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    paddingVertical: SPACING.sm + 2,
+    paddingHorizontal: SPACING.md,
+    borderRadius: RADIUS.lg,
+    backgroundColor: colors.neutral.bgSoft,
+    borderWidth: 1,
+    borderColor: colors.neutral.border,
+    borderStyle: 'dashed',
+  },
+  premiumTeaserLabel: {
+    flex: 1,
+    fontSize: FONTS.sizes.sm,
+    fontWeight: '700',
+    color: colors.neutral.textDark,
   },
   applyBtn: {
     marginTop: SPACING.lg,

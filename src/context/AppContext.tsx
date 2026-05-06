@@ -89,41 +89,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setIsUnlockedPacksHydrated(true);
       return;
     }
-    try {
-      const localPacks = await getDevUnlockedPacks();
-      if (requestId === devUnlockedPacksRequestRef.current) {
-        setDevUnlockedPacks(localPacks);
-      }
-    } catch (err: any) {
-      if (__DEV__) {
-        console.error('[AppProvider] dev unlocked packs hydration failed:', err?.message ?? err);
-      }
-      if (requestId === devUnlockedPacksRequestRef.current) {
-        setDevUnlockedPacks([]);
-      }
-    } finally {
-      if (requestId === devUnlockedPacksRequestRef.current) {
-        setIsUnlockedPacksHydrated(true);
-      }
+    const localPacks = await getDevUnlockedPacks();
+    if (requestId === devUnlockedPacksRequestRef.current) {
+      setDevUnlockedPacks(localPacks);
+      setIsUnlockedPacksHydrated(true);
     }
   }, [user?.id, getDevUnlockedPacks]);
 
   const clearDevUnlockedPacks = useCallback(async () => {
     const requestId = ++devUnlockedPacksRequestRef.current;
     setIsUnlockedPacksHydrated(false);
-    try {
-      if (__DEV__) {
-        await AsyncStorage.removeItem(DEV_UNLOCKED_PACKS_KEY);
-      }
-    } catch (err: any) {
-      if (__DEV__) {
-        console.error('[AppProvider] clear dev unlocked packs failed:', err?.message ?? err);
-      }
-    } finally {
-      if (requestId === devUnlockedPacksRequestRef.current) {
-        setDevUnlockedPacks([]);
-        setIsUnlockedPacksHydrated(true);
-      }
+    if (__DEV__) {
+      await AsyncStorage.removeItem(DEV_UNLOCKED_PACKS_KEY).catch(() => {});
+    }
+    if (requestId === devUnlockedPacksRequestRef.current) {
+      setDevUnlockedPacks([]);
+      setIsUnlockedPacksHydrated(true);
     }
   }, []);
 
@@ -276,11 +257,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const deviceLanguage =
     Intl.DateTimeFormat().resolvedOptions().locale?.split(/[-_]/)[0] ?? 'en';
-  const effectiveLanguage = getEffectiveLanguage(
-    languagePreference,
-    countryPreference ?? undefined,
-    deviceLanguage,
-  );
+  const effectiveLanguage = getEffectiveLanguage(languagePreference, deviceLanguage);
   const effectiveUnlockedPacks = useMemo(
     () => [
       ...new Set([

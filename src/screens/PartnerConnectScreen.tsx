@@ -30,7 +30,7 @@ const DEV_SCREENSHOT_ROOM_CODE = 'NEST24';
 
 export default function PartnerConnectScreen({ navigation }: Props) {
   const { t } = useTranslation();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const { room } = useRoomState();
   const { createRoom, joinRoom } = useRoomActions();
   const isFocused = useIsFocused();
@@ -44,6 +44,20 @@ export default function PartnerConnectScreen({ navigation }: Props) {
   const isConnected = !!(room?.user1_id && room?.user2_id) || (__DEV__ && showDevConnectedState);
   const normalizedJoinCode = joinCode.trim().toUpperCase();
   const isJoinCodeComplete = normalizedJoinCode.length === 6;
+
+  const hasCompletedOnboarding = !!(
+    profile?.gender_preference &&
+    profile?.region_preference &&
+    profile?.country_preference
+  );
+
+  const navigateToSoloSwipeHome = () => {
+    if (!hasCompletedOnboarding) {
+      navigation.navigate('Preferences');
+      return;
+    }
+    navigation.navigate('MainTabs', { screen: 'Swipe' });
+  };
 
   const joinPayload = effectiveCode
     ? createRoomJoinPayload(effectiveCode)
@@ -125,22 +139,11 @@ export default function PartnerConnectScreen({ navigation }: Props) {
     setRoomCode('');
     setIsLoading(false);
     setActiveTab('create');
-    navigateToMainTabs();
-  };
-
-  const navigateToMainTabs = () => {
-    const routeNames = navigation.getState().routeNames as Array<keyof RootStackParamList>;
-    if (routeNames.includes('MainTabs')) {
-      navigation.navigate('MainTabs', { screen: 'Swipe' });
-      return;
-    }
-    if (navigation.canGoBack()) {
-      navigation.goBack();
-    }
+    navigateToSoloSwipeHome();
   };
 
   const handleStartSwiping = () => {
-    navigation.navigate('MainTabs', { screen: 'Swipe' });
+    navigateToSoloSwipeHome();
   };
 
   return (

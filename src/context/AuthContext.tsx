@@ -7,7 +7,10 @@ import React, {
   useRef,
 } from 'react';
 import { Session, User } from '@supabase/supabase-js';
-import { supabase, supabaseStartupError } from '../lib/supabase';
+import {
+  supabase,
+  supabaseStartupError,
+} from '../lib/supabase';
 import { Profile } from '../types';
 import { ProfileService } from '../services/ProfileService';
 import { PurchaseService } from '../services/purchaseService';
@@ -42,6 +45,8 @@ interface AuthContextValue {
   consumeFreeSwipe: (count?: number) => Promise<void>;
   refreshProfile: () => Promise<void>;
   restorePurchases: () => Promise<void>;
+  /** Permanently deletes the authenticated user (server-side) and clears local session. */
+  deleteAccount: () => Promise<void>;
 }
 
 // ──────────────────────────────────────────────────────────
@@ -67,6 +72,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [bootstrapAttempt, setBootstrapAttempt] = useState(0);
   /** Guards against stale profile writes when auth changes mid-flight (deferred fetches). */
   const activeAuthUserIdRef = useRef<string | null>(null);
+  /** Latest profile for stable callbacks (avoids stale reads without widening useCallback deps). */
+  const profileRef = useRef<Profile | null>(null);
+  profileRef.current = profile;
 
   const ensureProfile = useCallback(async (authUser: User) => {
     return ProfileService.ensureProfile(
@@ -90,22 +98,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     if (data) {
-      if (__DEV__) {
-        console.log('[AuthContext] profile found', { userId: uid });
-      }
       setProfile(data as Profile);
       return data as Profile;
     }
 
-    if (__DEV__) {
-      console.warn('[AuthContext] profile missing, ensuring row exists', { userId: uid });
-    }
     const createdProfile = await ensureProfile(authUser);
     if (activeAuthUserIdRef.current !== uid) {
       return null;
-    }
-    if (__DEV__) {
-      console.log('[AuthContext] profile created successfully', { userId: uid });
     }
     setProfile(createdProfile as Profile);
     return createdProfile;
@@ -134,10 +133,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (err: any) {
       console.error('[AuthContext] purchase startup configure failed:', err?.message ?? err);
     }
-    if (__DEV__) {
-      console.log('[AuthContext] bootstrap: start getSession + 8s safety timer');
-    }
-
     // Safety valve: if getSession() rejects or hangs (e.g. stale refresh token,
     // invalid/empty Supabase URL, network timeout), force-exit loading after 8 s
     // so the user sees WelcomeScreen instead of a frozen spinner.
@@ -151,12 +146,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     supabase.auth
       .getSession()
       .then(({ data: { session: s } }) => {
-        if (__DEV__) {
-          console.log('[AuthContext] branch: getSession resolved', {
-            hasSession: !!s,
-            hasUser: !!s?.user,
-          });
-        }
         setSession(s);
         const bootUser = s?.user ?? null;
         activeAuthUserIdRef.current = bootUser?.id ?? null;
@@ -165,11 +154,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           PurchaseService.logIn(bootUser.id).catch((err) => {
             console.error('[AuthContext] RevenueCat logIn failed after getSession:', err);
           });
-          if (__DEV__) {
-            console.log(
-              '[AuthContext] branch: fetchProfile for user — isLoading clears in fetchProfile.finally',
-            );
-          }
           fetchProfile(bootUser)
             .catch((err) => {
               console.error('[AuthContext] fetchProfile failed after getSession:', err);
@@ -177,29 +161,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             })
             .finally(() => {
               if (safetyTimeout) clearTimeout(safetyTimeout);
-              if (__DEV__) {
-                console.log(
-                  '[AuthContext] fetchProfile settled — isLoading -> false',
-                );
-              }
               setIsLoading(false);
             });
         } else {
           if (safetyTimeout) clearTimeout(safetyTimeout);
-          if (__DEV__) {
-            console.log(
-              '[AuthContext] branch: no session user — isLoading -> false (immediate)',
-            );
-          }
           activeAuthUserIdRef.current = null;
           setIsLoading(false);
         }
       })
       .catch((err) => {
         if (safetyTimeout) clearTimeout(safetyTimeout);
-        if (__DEV__) {
-          console.log('[AuthContext] branch: getSession catch', err);
-        }
         console.error('[AuthContext] getSession error:', err);
         setStartupError('Could not restore your session. Please try again.');
         activeAuthUserIdRef.current = null;
@@ -209,6 +180,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, s) => {
         const nextUser = s?.user ?? null;
+        const prevUserId = activeAuthUserIdRef.current;
         activeAuthUserIdRef.current = nextUser?.id ?? null;
 
         if (event === 'SIGNED_IN' && nextUser) {
@@ -222,37 +194,51 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           });
         }
 
-        if (nextUser) {
-          setIsLoading(true);
-        }
-        setSession(s);
-        setUser(nextUser);
+        // Only show the full loading spinner when the user identity actually changes
+        // (sign-in, sign-out, account switch).  TOKEN_REFRESHED / INITIAL_SESSION
+        // events for the same user should NOT unmount the NavigationContainer.
+        const isNewUser = nextUser?.id !== prevUserId;
 
-        if (nextUser) {
-          const authUser = nextUser;
-          // Never await other Supabase calls inside this callback — it deadlocks auth-js
-          // (profile fetch never completes, isLoading stays true). Defer to next macrotask.
-          setTimeout(() => {
-            void (async () => {
-              const authChangeTimeout = setTimeout(() => {
-                console.error('[AuthContext] auth state profile load timeout.');
-                setStartupError('Could not load your profile. Please try again.');
-                setIsLoading(false);
-              }, 8000);
-              try {
-                await fetchProfile(authUser);
-              } catch (err) {
-                console.error('[AuthContext] fetchProfile failed after auth state change:', err);
-                setStartupError('Could not load your profile. Please try again.');
-              } finally {
-                clearTimeout(authChangeTimeout);
-                setIsLoading(false);
-              }
-            })();
-          }, 0);
+        setSession(s);
+
+        if (isNewUser) {
+          // User identity changed (sign-in, sign-out, account switch).
+          // Show full loading gate and fetch the profile.
+          if (nextUser) {
+            setIsLoading(true);
+          }
+          setUser(nextUser);
+
+          if (nextUser) {
+            const authUser = nextUser;
+            setTimeout(() => {
+              void (async () => {
+                const authChangeTimeout = setTimeout(() => {
+                  console.error('[AuthContext] auth state profile load timeout.');
+                  setStartupError('Could not load your profile. Please try again.');
+                  setIsLoading(false);
+                }, 8000);
+                try {
+                  await fetchProfile(authUser);
+                } catch (err) {
+                  console.error('[AuthContext] fetchProfile failed after auth state change:', err);
+                  setStartupError('Could not load your profile. Please try again.');
+                } finally {
+                  clearTimeout(authChangeTimeout);
+                  setIsLoading(false);
+                }
+              })();
+            }, 0);
+          } else {
+            setProfile(null);
+            setIsLoading(false);
+          }
         } else {
-          setProfile(null);
-          setIsLoading(false);
+          // Same user (TOKEN_REFRESHED, INITIAL_SESSION repeat, etc.).
+          // Only update the session — do NOT refetch the profile.
+          // Refetching here races with in-flight updateProfile calls and can
+          // revert optimistic state (e.g. gender_preference back to default),
+          // which resets the navigator to PreferencesScreen.
         }
       },
     );
@@ -287,23 +273,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (error) throw error;
   };
 
-  const updateProfile = async (updates: SafeProfileUpdates) => {
-    if (!user) throw new Error('Not authenticated');
+  const updateProfile = useCallback(
+    async (updates: SafeProfileUpdates) => {
+      if (!user) throw new Error('Not authenticated');
 
-    // Hard guardrail: entitlement mutations must go through dedicated methods/RPCs.
-    if (
-      Object.prototype.hasOwnProperty.call(updates, 'free_swipes_remaining') ||
-      Object.prototype.hasOwnProperty.call(updates, 'purchased_packs')
-    ) {
-      throw new Error('Use entitlement mutation methods instead of updateProfile.');
-    }
+      // Hard guardrail: entitlement mutations must go through dedicated methods/RPCs.
+      if (
+        Object.prototype.hasOwnProperty.call(updates, 'free_swipes_remaining') ||
+        Object.prototype.hasOwnProperty.call(updates, 'purchased_packs')
+      ) {
+        throw new Error('Use entitlement mutation methods instead of updateProfile.');
+      }
 
-    await ensureProfile(user);
+      // NOTE: ensureProfile removed — the handle_new_user trigger guarantees
+      // the row exists after signup. Calling it here added an unnecessary
+      // round-trip and could race with the real update below.
 
-    const displayName = profile?.display_name ?? user.user_metadata?.display_name ?? null;
-    const data = await ProfileService.updateProfile(user.id, displayName, updates);
-    setProfile(data as Profile);
-  };
+      const data = await ProfileService.updateProfile(user.id, updates);
+      setProfile(data as Profile);
+    },
+    [user],
+  );
 
   const consumeFreeSwipe = useCallback(
     async (count: number = 1) => {
@@ -345,9 +335,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [fetchProfile, setProfile, user]
   );
 
-  const refreshProfile = async () => {
+  const refreshProfile = useCallback(async () => {
     if (user) await fetchProfile(user);
-  };
+  }, [user, fetchProfile]);
 
   const restorePurchases = async () => {
     if (!user) throw new Error('Not authenticated');
@@ -356,6 +346,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (PurchaseService.hasPremiumEntitlement(customerInfo)) {
       await PurchaseService.syncRevenueCatEntitlement();
       await refreshProfile();
+    }
+  };
+
+  const deleteAccount = async () => {
+    if (!user) throw new Error('Not authenticated');
+
+    // Server-side SECURITY DEFINER RPC: deletes matches for rooms
+    // where user is partner (user2), then deletes auth.users row.
+    // FK cascades handle profiles → swipes, purchases, rooms (owner) → matches.
+    const { error } = await supabase.rpc('delete_own_account');
+    if (error) throw new Error(error.message ?? 'Could not delete account.');
+
+    await PurchaseService.logOut().catch(() => {
+      /* best-effort */
+    });
+    const { error: signOutError } = await supabase.auth.signOut({ scope: 'local' });
+    if (signOutError && __DEV__) {
+      console.warn('[AuthContext] signOut after deleteAccount:', signOutError.message);
     }
   };
 
@@ -375,6 +383,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         consumeFreeSwipe,
         refreshProfile,
         restorePurchases,
+        deleteAccount,
       }}
     >
       {children}

@@ -6,7 +6,7 @@
 // API (claude-haiku-4-5) with a structured prompt.
 // ============================================================
 
-import { AINameRequest, SuggestedName, GenderPreference } from '../types';
+import { NameSuggestionRequest, SuggestedName, GenderPreference } from '../types';
 
 // Mock suggestion banks by style
 const SUGGESTIONS: Record<string, SuggestedName[]> = {
@@ -55,7 +55,7 @@ const SUGGESTIONS: Record<string, SuggestedName[]> = {
  *   return data.suggestions as SuggestedName[];
  */
 export async function generateNameSuggestions(
-  request: AINameRequest
+  request: NameSuggestionRequest
 ): Promise<SuggestedName[]> {
   // Simulate network delay
   await new Promise((r) => setTimeout(r, 800));

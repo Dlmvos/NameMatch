@@ -22,6 +22,37 @@ export interface RecommendedPack {
   price: number;
 }
 
+const LEGACY_AI_PREFIX = 'AI_';
+const CURATED_PREFIX = 'CURATED_';
+
+/** Companion id persisted by older app builds for the same deterministic recommendation pack. */
+export function legacyCuratedPackTypeId(packType: string): string | null {
+  if (packType.startsWith(CURATED_PREFIX))
+    return LEGACY_AI_PREFIX + packType.slice(CURATED_PREFIX.length);
+  if (packType.startsWith(LEGACY_AI_PREFIX))
+    return CURATED_PREFIX + packType.slice(LEGACY_AI_PREFIX.length);
+  return null;
+}
+
+export function purchasedIncludesCuratedPack(purchased: Iterable<string>, packType: string): boolean {
+  const set = purchased instanceof Set ? purchased : new Set(purchased);
+  if (set.has(packType)) return true;
+  const legacy = legacyCuratedPackTypeId(packType);
+  return legacy ? set.has(legacy) : false;
+}
+
+export function wasCuratedPackOffered(offered: ReadonlySet<string>, packType: string): boolean {
+  if (offered.has(packType)) return true;
+  const legacy = legacyCuratedPackTypeId(packType);
+  return legacy ? offered.has(legacy) : false;
+}
+
+export function noteCuratedPackOffered(offered: Set<string>, packType: string): void {
+  offered.add(packType);
+  const legacy = legacyCuratedPackTypeId(packType);
+  if (legacy) offered.add(legacy);
+}
+
 function pickNames(
   predicate: (name: BabyName) => boolean,
   fallback: (name: BabyName) => boolean,
@@ -37,8 +68,9 @@ export function getRecommendedPack(input: RecommendationInput): RecommendedPack 
   const likes = input.swipeHistory.filter((s) => s.direction === 'right');
   if (likes.length < 4) return null;
 
-  const purchased = new Set(input.purchasedPacks ?? []);
-  const includePremium = (input.purchasedPacks?.length ?? 0) > 0;
+  const purchased = input.purchasedPacks ?? [];
+  const purchasedSet = new Set(purchased);
+  const includePremium = purchased.length > 0;
   const likedNames = likes.map((l) => l.name);
   const avgLength =
     likedNames.reduce((sum, n) => sum + n.name.length, 0) / Math.max(1, likedNames.length);
@@ -46,8 +78,8 @@ export function getRecommendedPack(input: RecommendationInput): RecommendedPack 
   const rareRatio = rareLikeCount / Math.max(1, likedNames.length);
 
   if (input.countryPreference) {
-    const countryPackType = `AI_COUNTRY_${input.countryPreference.replace(/\s+/g, '_').toUpperCase()}`;
-    if (!purchased.has(countryPackType)) {
+    const countryPackType = `CURATED_COUNTRY_${input.countryPreference.replace(/\s+/g, '_').toUpperCase()}`;
+    if (!purchasedIncludesCuratedPack(purchasedSet, countryPackType)) {
       const packNames = pickNames(
         (n) => n.country === input.countryPreference,
         (n) => n.region === (input.regionPreference ?? 'WORLDWIDE'),
@@ -67,9 +99,9 @@ export function getRecommendedPack(input: RecommendationInput): RecommendedPack 
     }
   }
 
-  if (avgLength <= 5 && !purchased.has('AI_MODERN_SHORT')) {
+  if (avgLength <= 5 && !purchasedIncludesCuratedPack(purchasedSet, 'CURATED_MODERN_SHORT')) {
     return {
-      packType: 'AI_MODERN_SHORT',
+      packType: 'CURATED_MODERN_SHORT',
       title: 'Modern Short Names',
       titleKey: 'pack.worldwide.title',
       packNames: pickNames(
@@ -81,9 +113,9 @@ export function getRecommendedPack(input: RecommendationInput): RecommendedPack 
     };
   }
 
-  if (input.genderPreference === 'boy' && !purchased.has('AI_STRONG_BOY')) {
+  if (input.genderPreference === 'boy' && !purchasedIncludesCuratedPack(purchasedSet, 'CURATED_STRONG_BOY')) {
     return {
-      packType: 'AI_STRONG_BOY',
+      packType: 'CURATED_STRONG_BOY',
       title: 'Strong Boy Names',
       titleKey: 'pack.usPack.title',
       packNames: pickNames(
@@ -95,9 +127,9 @@ export function getRecommendedPack(input: RecommendationInput): RecommendedPack 
     };
   }
 
-  if (input.genderPreference === 'girl' && !purchased.has('AI_ELEGANT_GIRL')) {
+  if (input.genderPreference === 'girl' && !purchasedIncludesCuratedPack(purchasedSet, 'CURATED_ELEGANT_GIRL')) {
     return {
-      packType: 'AI_ELEGANT_GIRL',
+      packType: 'CURATED_ELEGANT_GIRL',
       title: 'Elegant Girl Names',
       titleKey: 'pack.usPack.title',
       packNames: pickNames(
@@ -109,9 +141,9 @@ export function getRecommendedPack(input: RecommendationInput): RecommendedPack 
     };
   }
 
-  if (rareRatio >= 0.4 && !purchased.has('AI_RARE_GLOBAL')) {
+  if (rareRatio >= 0.4 && !purchasedIncludesCuratedPack(purchasedSet, 'CURATED_RARE_GLOBAL')) {
     return {
-      packType: 'AI_RARE_GLOBAL',
+      packType: 'CURATED_RARE_GLOBAL',
       title: 'Rare Global Names',
       titleKey: 'pack.worldwide.title',
       packNames: pickNames(
@@ -123,9 +155,9 @@ export function getRecommendedPack(input: RecommendationInput): RecommendedPack 
     };
   }
 
-  if (!purchased.has('AI_CLASSIC_EU')) {
+  if (!purchasedIncludesCuratedPack(purchasedSet, 'CURATED_CLASSIC_EU')) {
     return {
-      packType: 'AI_CLASSIC_EU',
+      packType: 'CURATED_CLASSIC_EU',
       title: 'Classic European Names',
       titleKey: 'pack.euPack.title',
       packNames: pickNames(
