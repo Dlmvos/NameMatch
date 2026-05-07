@@ -14,6 +14,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import type { PurchasesPackage } from 'react-native-purchases';
 import { useIsFocused } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
 import { useApp } from '../context/AppContext';
@@ -32,7 +33,6 @@ import { DEV_PREVIEW } from '../config/devPreview';
 const CURATED_RECOMMENDATION_UNLOCKS_STORAGE_KEY = 'AI_PACK_UNLOCKS';
 const DEV_UNLOCKED_PACKS_KEY = 'NAMEMATCH_DEV_UNLOCKED_PACKS';
 const CURATED_RECOMMENDATION_ACCESS_MS = 24 * 60 * 60 * 1000;
-const PREMIUM_COUPLE_PRICE_FALLBACK = '€29.99';
 
 type CuratedUnlockPack = {
   packType: string;
@@ -64,7 +64,11 @@ export default function ShopScreen() {
   const [countryQuery, setCountryQuery] = useState('');
   const [curatedUnlocks, setCuratedUnlocks] = useState<Record<string, CuratedUnlockPack>>({});
   const [nowMs, setNowMs] = useState(Date.now());
-  const [premiumPrice, setPremiumPrice] = useState('...');
+  const [premiumLifetimePkg, setPremiumLifetimePkg] = useState<PurchasesPackage | null>(null);
+  const [premiumMonthlyPkg, setPremiumMonthlyPkg] = useState<PurchasesPackage | null>(null);
+  const [premiumLegacyPkg, setPremiumLegacyPkg] = useState<PurchasesPackage | null>(null);
+  const [premiumSelectedPkg, setPremiumSelectedPkg] = useState<PurchasesPackage | null>(null);
+  const [premiumOffersHydrated, setPremiumOffersHydrated] = useState(false);
   const realPremiumState = effectiveUnlockedPacks.length > 0;
   const isPremium =
     __DEV__ && DEV_PREVIEW.forcePaywallState === 'owned'
@@ -134,14 +138,39 @@ export default function ShopScreen() {
       label: t('shop.premiumCouple.title'),
       description: t('shop.premiumCouple.subtitle'),
       type: 'worldwide',
-      price: 29.99,
-      priceCents: 2999,
+      price: 14.99,
+      priceCents: 1499,
       nameCount: 0,
       emoji: '💞',
       gradient: [colors.onboarding.primary, colors.onboarding.secondary],
     }),
     [t],
   );
+
+  const dualPremiumOffers = !!(premiumLifetimePkg && premiumMonthlyPkg);
+
+  function isSamePremiumPackage(a: PurchasesPackage | null, b: PurchasesPackage | null): boolean {
+    if (!a || !b) return false;
+    return a.identifier === b.identifier && a.product.identifier === b.product.identifier;
+  }
+
+  useEffect(() => {
+    const def =
+      premiumLegacyPkg && !premiumLifetimePkg && !premiumMonthlyPkg
+        ? premiumLegacyPkg
+        : premiumLifetimePkg && premiumMonthlyPkg
+          ? premiumLifetimePkg
+          : premiumLifetimePkg ?? premiumMonthlyPkg ?? premiumLegacyPkg;
+    setPremiumSelectedPkg(def ?? null);
+  }, [premiumLifetimePkg, premiumMonthlyPkg, premiumLegacyPkg]);
+
+  const premiumSinglePriceDisplay = (() => {
+    if (dualPremiumOffers) return '';
+    const pkg = premiumLifetimePkg ?? premiumMonthlyPkg ?? premiumLegacyPkg;
+    if (pkg) return pkg.product.priceString;
+    if (!premiumOffersHydrated) return '…';
+    return t('paywall.couple.price');
+  })();
 
   const countryResults = useMemo(() => {
     const q = countryQuery.trim().toLowerCase();
@@ -154,12 +183,16 @@ export default function ShopScreen() {
 
   useEffect(() => {
     let mounted = true;
-    PurchaseService.getLocalizedPrice()
-      .then((price) => {
-        if (mounted) setPremiumPrice(price);
+    PurchaseService.getPremiumOfferingPackages()
+      .then(({ lifetime, monthly, legacy }) => {
+        if (!mounted) return;
+        setPremiumLifetimePkg(lifetime);
+        setPremiumMonthlyPkg(monthly);
+        setPremiumLegacyPkg(legacy);
       })
-      .catch(() => {
-        if (mounted) setPremiumPrice(PREMIUM_COUPLE_PRICE_FALLBACK);
+      .catch(() => {})
+      .finally(() => {
+        if (mounted) setPremiumOffersHydrated(true);
       });
     const loadUnlocks = async () => {
       const raw = await AsyncStorage.getItem(CURATED_RECOMMENDATION_UNLOCKS_STORAGE_KEY).catch(() => null);
@@ -261,7 +294,9 @@ export default function ShopScreen() {
       return;
     }
     try {
-      const result = await PurchaseService.purchasePremium();
+      const result = await PurchaseService.purchasePremium(
+        pack.key === PREMIUM_COUPLE_PACK_KEY ? premiumSelectedPkg ?? undefined : undefined,
+      );
       if (!result.success) return;
       if (PurchaseService.hasPremiumEntitlement(result.customerInfo)) {
         await PurchaseService.syncRevenueCatEntitlement();
@@ -358,12 +393,64 @@ export default function ShopScreen() {
             >
               <Text style={styles.premiumHeroEmoji}>{premiumCouplePack.emoji}</Text>
             </LinearGradient>
-            <View style={styles.featuredBadge}>
-              <Text style={styles.featuredBadgeText}>{t('shop.badge.bestValue')}</Text>
-            </View>
+            {!dualPremiumOffers && !isPurchased(premiumCouplePack.key) ? (
+              <View style={styles.featuredBadge}>
+                <Text style={styles.featuredBadgeText}>{t('shop.badge.bestValue')}</Text>
+              </View>
+            ) : null}
             <Text style={styles.premiumHeroTitle}>{premiumCouplePack.label}</Text>
             <Text style={styles.premiumHeroSubtitle}>{premiumCouplePack.description}</Text>
-            <Text style={styles.premiumPrice}>{premiumPrice}</Text>
+            {!isPurchased(premiumCouplePack.key) ? (
+              dualPremiumOffers && premiumLifetimePkg && premiumMonthlyPkg ? (
+                <View style={styles.premiumPlanBlock}>
+                  <TouchableOpacity
+                    activeOpacity={0.92}
+                    onPress={() => setPremiumSelectedPkg(premiumLifetimePkg)}
+                    style={[
+                      styles.premiumPlanLifetimeRow,
+                      isSamePremiumPackage(premiumSelectedPkg, premiumLifetimePkg) &&
+                        styles.premiumPlanLifetimeSelected,
+                    ]}
+                  >
+                    <View style={styles.premiumPlanTexts}>
+                      <Text style={styles.premiumPlanLabelStrong}>{t('paywall.couple.bestValue')}</Text>
+                      <Text style={styles.premiumPlanCaption}>{t('paywall.couple.planLifetimeCaption')}</Text>
+                    </View>
+                    <Text style={styles.premiumPlanPriceStrong}>
+                      {premiumLifetimePkg.product.priceString ?? t('paywall.couple.price')}
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    activeOpacity={0.92}
+                    onPress={() => setPremiumSelectedPkg(premiumMonthlyPkg)}
+                    style={[
+                      styles.premiumPlanMonthlyRow,
+                      isSamePremiumPackage(premiumSelectedPkg, premiumMonthlyPkg) &&
+                        styles.premiumPlanMonthlySelected,
+                    ]}
+                  >
+                    <View style={styles.premiumPlanTexts}>
+                      <Text style={styles.premiumPlanLabelMuted}>{t('paywall.couple.planMonthlyLabel')}</Text>
+                      <Text style={styles.premiumPlanCaptionMuted}>{t('paywall.couple.planMonthlyCaption')}</Text>
+                    </View>
+                    <View style={{ alignItems: 'flex-end' }}>
+                      <Text style={styles.premiumPlanPriceMuted}>
+                        {premiumMonthlyPkg.product.priceString ?? t('paywall.couple.priceMonthly')}
+                      </Text>
+                      {premiumMonthlyPkg.product.pricePerYearString ? (
+                        <Text style={styles.premiumPlanYearHint}>
+                          {t('paywall.couple.yearlyCompare', {
+                            yearly: premiumMonthlyPkg.product.pricePerYearString,
+                          })}
+                        </Text>
+                      ) : null}
+                    </View>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <Text style={styles.premiumPrice}>{premiumSinglePriceDisplay}</Text>
+              )
+            ) : null}
             {(
               [
                 'paywall.couple.feature.unlimitedSwipes',
@@ -662,6 +749,97 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     color: colors.shortlist.text,
     marginTop: SPACING.xs,
+  },
+  premiumPlanBlock: {
+    marginTop: SPACING.xs,
+    gap: SPACING.sm,
+    width: '100%',
+  },
+  premiumPlanLifetimeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: SPACING.md,
+    borderRadius: RADIUS.md,
+    borderWidth: 2,
+    borderColor: colors.neutral.border,
+    backgroundColor: colors.neutral.white,
+    gap: SPACING.sm,
+  },
+  premiumPlanLifetimeSelected: {
+    borderColor: colors.onboarding.primary,
+    backgroundColor: colors.neutral.bgSoft,
+  },
+  premiumPlanMonthlyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.md,
+    borderRadius: RADIUS.md,
+    borderWidth: 1,
+    borderColor: colors.neutral.border,
+    backgroundColor: colors.neutral.bgSoft,
+    opacity: 0.96,
+    gap: SPACING.sm,
+  },
+  premiumPlanMonthlySelected: {
+    borderWidth: 2,
+    borderColor: colors.onboarding.primary,
+    backgroundColor: colors.neutral.white,
+  },
+  premiumPlanTexts: {
+    flex: 1,
+    gap: 2,
+    paddingRight: SPACING.xs,
+  },
+  premiumPlanLabelStrong: {
+    fontSize: FONTS.sizes.sm,
+    fontWeight: '900',
+    letterSpacing: 0.4,
+    color: colors.shortlist.text,
+  },
+  premiumPlanLabelMuted: {
+    fontSize: FONTS.sizes.sm,
+    fontWeight: '800',
+    color: colors.shortlist.text,
+    opacity: 0.82,
+  },
+  premiumPlanCaption: {
+    fontSize: FONTS.sizes.xs,
+    fontWeight: '700',
+    color: colors.shortlist.text,
+    lineHeight: 16,
+    maxWidth: 210,
+    opacity: 0.92,
+  },
+  premiumPlanCaptionMuted: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: COLORS.textMuted,
+    lineHeight: 15,
+    maxWidth: 210,
+  },
+  premiumPlanPriceStrong: {
+    fontSize: FONTS.sizes.lg,
+    fontWeight: '900',
+    color: colors.shortlist.text,
+    flexShrink: 0,
+  },
+  premiumPlanPriceMuted: {
+    fontSize: FONTS.sizes.md,
+    fontWeight: '800',
+    color: colors.shortlist.text,
+    opacity: 0.89,
+    flexShrink: 0,
+  },
+  premiumPlanYearHint: {
+    fontSize: FONTS.sizes.xs,
+    fontWeight: '700',
+    color: COLORS.textMuted,
+    textAlign: 'right',
+    marginTop: 3,
+    maxWidth: 210,
   },
   premiumFeatureRow: {
     flexDirection: 'row',

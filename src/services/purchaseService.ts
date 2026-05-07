@@ -2,7 +2,10 @@ import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 import Purchases, {
   LOG_LEVEL,
+  PACKAGE_TYPE,
   type CustomerInfo,
+  type PurchasesOffering,
+  type PurchasesOfferings,
   type PurchasesPackage,
 } from 'react-native-purchases';
 import { supabase } from '../lib/supabase';
@@ -12,6 +15,13 @@ export const PREMIUM_ENTITLEMENT_DISPLAY_NAME = 'Babinom Premium';
 export const RC_API_KEY_IOS = process.env.EXPO_PUBLIC_REVENUECAT_IOS_API_KEY?.trim() ?? '';
 export const RC_API_KEY_ANDROID = process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY?.trim() ?? '';
 export const RC_TEST_STORE_API_KEY = process.env.EXPO_PUBLIC_REVENUECAT_TEST_STORE_API_KEY?.trim() ?? '';
+
+export type PremiumOfferingPackages = {
+  lifetime: PurchasesPackage | null;
+  monthly: PurchasesPackage | null;
+  /** When current offering lacks lifetime/monthly presets, entitlement-matched SKU (legacy setups). */
+  legacy: PurchasesPackage | null;
+};
 
 type PurchaseSuccess = { success: true; customerInfo: CustomerInfo };
 type PurchaseCancelled = { success: false; cancelled: true };
@@ -111,6 +121,67 @@ export function hasPremiumEntitlement(customerInfo: CustomerInfo): boolean {
   return Boolean(customerInfo.entitlements.active[ENTITLEMENT_ID]);
 }
 
+function pickLifetimeFromOffering(offering: PurchasesOffering | null): PurchasesPackage | null {
+  if (!offering) return null;
+  return (
+    offering.lifetime ??
+    offering.availablePackages.find((pkg) => pkg.packageType === PACKAGE_TYPE.LIFETIME) ??
+    null
+  );
+}
+
+function pickMonthlyFromOffering(offering: PurchasesOffering | null): PurchasesPackage | null {
+  if (!offering) return null;
+  return (
+    offering.monthly ??
+    offering.availablePackages.find((pkg) => pkg.packageType === PACKAGE_TYPE.MONTHLY) ??
+    null
+  );
+}
+
+function scanOfferingsForPackageType(
+  offerings: PurchasesOfferings,
+  packageType: PACKAGE_TYPE,
+): PurchasesPackage | null {
+  for (const offering of Object.values(offerings.all)) {
+    const preset =
+      packageType === PACKAGE_TYPE.LIFETIME
+        ? offering.lifetime
+        : packageType === PACKAGE_TYPE.MONTHLY
+          ? offering.monthly
+          : null;
+    if (preset) return preset;
+    const fromAvailable = offering.availablePackages.find((p) => p.packageType === packageType);
+    if (fromAvailable) return fromAvailable;
+  }
+  return null;
+}
+
+function resolvePremiumSlots(offerings: PurchasesOfferings): {
+  lifetime: PurchasesPackage | null;
+  monthly: PurchasesPackage | null;
+} {
+  const lifetime =
+    pickLifetimeFromOffering(offerings.current) ??
+    scanOfferingsForPackageType(offerings, PACKAGE_TYPE.LIFETIME);
+  const monthly =
+    pickMonthlyFromOffering(offerings.current) ??
+    scanOfferingsForPackageType(offerings, PACKAGE_TYPE.MONTHLY);
+  return { lifetime, monthly };
+}
+
+function resolveLegacyPremiumPackage(offerings: PurchasesOfferings): PurchasesPackage | null {
+  const flat = Object.values(offerings.all).flatMap((offering) => offering.availablePackages);
+  return (
+    offerings.current?.availablePackages.find(
+      (pkg) => pkg.identifier === ENTITLEMENT_ID || pkg.product.identifier === ENTITLEMENT_ID,
+    ) ??
+    offerings.current?.lifetime ??
+    flat.find((pkg) => pkg.identifier === ENTITLEMENT_ID || pkg.product.identifier === ENTITLEMENT_ID) ??
+    null
+  );
+}
+
 function isPurchaseCancelled(err: unknown): boolean {
   const maybeError = err as { code?: string; userCancelled?: boolean | null };
   return (
@@ -149,12 +220,14 @@ export const PurchaseService = {
     await Purchases.logOut();
   },
 
-  async purchasePremium(): Promise<PurchaseSuccess | PurchaseCancelled> {
+  async purchasePremium(selectedPackage?: PurchasesPackage): Promise<PurchaseSuccess | PurchaseCancelled> {
     if (!canUsePurchases('purchasePremium')) {
       if (!__DEV__) throw purchasesUnavailableError('purchasePremium');
       return { success: false, cancelled: true };
     }
-    const premiumPackage = await this.getPremiumPackage();
+    const premiumPackage =
+      selectedPackage ??
+      (await this.getPremiumPackage());
     try {
       const { customerInfo } = await Purchases.purchasePackage(premiumPackage);
       return { success: true, customerInfo };
@@ -179,14 +252,6 @@ export const PurchaseService = {
     return hasPremiumEntitlement(customerInfo);
   },
 
-  async getLocalizedPrice(): Promise<string> {
-    if (!canUsePurchases('getLocalizedPrice')) {
-      throw purchasesUnavailableError('getLocalizedPrice');
-    }
-    const premiumPackage = await this.getPremiumPackage();
-    return premiumPackage.product.priceString;
-  },
-
   async syncRevenueCatEntitlement(): Promise<void> {
     const { error } = await supabase.functions.invoke('sync-revenuecat-entitlement', {
       method: 'POST',
@@ -197,27 +262,33 @@ export const PurchaseService = {
   hasPremiumEntitlement,
   isEntitlementActive: hasPremiumEntitlement,
 
+  async getPremiumOfferingPackages(): Promise<PremiumOfferingPackages> {
+    if (!canUsePurchases('getPremiumOfferingPackages')) {
+      throw purchasesUnavailableError('getPremiumOfferingPackages');
+    }
+    const offerings = await Purchases.getOfferings();
+    const { lifetime, monthly } = resolvePremiumSlots(offerings);
+
+    let legacy: PurchasesPackage | null = null;
+    if (!lifetime && !monthly) {
+      legacy = resolveLegacyPremiumPackage(offerings);
+    }
+
+    return { lifetime, monthly, legacy };
+  },
+
   async getPremiumPackage(): Promise<PurchasesPackage> {
     if (!canUsePurchases('getPremiumPackage')) {
       throw purchasesUnavailableError('getPremiumPackage');
     }
     const offerings = await Purchases.getOfferings();
-    const availablePackages = Object.values(offerings.all).flatMap(
-      (offering) => offering.availablePackages,
-    );
-    const premiumPackage =
-      offerings.current?.availablePackages.find(
-        (pkg) => pkg.identifier === ENTITLEMENT_ID || pkg.product.identifier === ENTITLEMENT_ID,
-      ) ??
-      offerings.current?.lifetime ??
-      availablePackages.find(
-        (pkg) => pkg.identifier === ENTITLEMENT_ID || pkg.product.identifier === ENTITLEMENT_ID,
-      );
+    const { lifetime, monthly } = resolvePremiumSlots(offerings);
+    const typed = lifetime ?? monthly;
+    if (typed) return typed;
 
-    if (!premiumPackage) {
-      throw new Error('Premium Couple package is not configured in RevenueCat.');
-    }
+    const legacy = resolveLegacyPremiumPackage(offerings);
+    if (legacy) return legacy;
 
-    return premiumPackage;
+    throw new Error('Premium Couple package is not configured in RevenueCat.');
   },
 };

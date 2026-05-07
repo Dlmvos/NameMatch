@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert } from 'rea
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import type { PurchasesPackage } from 'react-native-purchases';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useTranslation } from '../i18n/I18nProvider';
 import { RootStackParamList } from '../types';
@@ -13,12 +14,21 @@ import { AnalyticsService } from '../services/AnalyticsService';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Paywall'>;
 
+function isSamePackage(a: PurchasesPackage | null, b: PurchasesPackage | null): boolean {
+  if (!a || !b) return false;
+  return a.identifier === b.identifier && a.product.identifier === b.product.identifier;
+}
+
 // TODO: If react-native-purchases-ui is added later, this screen can present RevenueCat's paywall UI.
 
 export default function PaywallScreen({ navigation }: Props) {
   const { t } = useTranslation();
   const { refreshProfile } = useAuth();
-  const [premiumPrice, setPremiumPrice] = useState('...');
+  const [lifetimePkg, setLifetimePkg] = useState<PurchasesPackage | null>(null);
+  const [monthlyPkg, setMonthlyPkg] = useState<PurchasesPackage | null>(null);
+  const [legacyPkg, setLegacyPkg] = useState<PurchasesPackage | null>(null);
+  const [selectedPremium, setSelectedPremium] = useState<PurchasesPackage | null>(null);
+  const [offersHydrated, setOffersHydrated] = useState(false);
   const [isBusy, setIsBusy] = useState(false);
   const premiumFeatures = [
     t('paywall.couple.feature.unlimitedSwipes'),
@@ -27,20 +37,46 @@ export default function PaywallScreen({ navigation }: Props) {
     t('paywall.couple.feature.meaningInsights'),
   ];
 
+  const showDualOffers = Boolean(lifetimePkg && monthlyPkg);
+
   useEffect(() => {
     AnalyticsService.track('paywall_impression');
     let mounted = true;
-    PurchaseService.getLocalizedPrice()
-      .then((price) => {
-        if (mounted) setPremiumPrice(price);
+    PurchaseService.getPremiumOfferingPackages()
+      .then(({ lifetime, monthly, legacy }) => {
+        if (!mounted) return;
+        setLifetimePkg(lifetime);
+        setMonthlyPkg(monthly);
+        setLegacyPkg(legacy);
       })
       .catch(() => {
-        if (mounted) setPremiumPrice(t('paywall.couple.price'));
+        /** Fall back to localized static prices via UI */
+      })
+      .finally(() => {
+        if (mounted) setOffersHydrated(true);
       });
     return () => {
       mounted = false;
     };
-  }, [t]);
+  }, []);
+
+  useEffect(() => {
+    const def =
+      legacyPkg && !lifetimePkg && !monthlyPkg
+        ? legacyPkg
+        : lifetimePkg && monthlyPkg
+          ? lifetimePkg
+          : lifetimePkg ?? monthlyPkg ?? legacyPkg;
+    setSelectedPremium(def ?? null);
+  }, [lifetimePkg, monthlyPkg, legacyPkg]);
+
+  const singleSkuPrice = (() => {
+    if (showDualOffers) return '';
+    const pkg = lifetimePkg ?? monthlyPkg ?? legacyPkg;
+    if (pkg) return pkg.product.priceString;
+    if (!offersHydrated) return '…';
+    return t('paywall.couple.price');
+  })();
 
   const navigateAfterPremiumVerified = () => {
     navigation.replace('MainTabs');
@@ -57,7 +93,7 @@ export default function PaywallScreen({ navigation }: Props) {
     AnalyticsService.track('purchase_started');
     setIsBusy(true);
     try {
-      const result = await PurchaseService.purchasePremium();
+      const result = await PurchaseService.purchasePremium(selectedPremium ?? undefined);
       if (!result.success) {
         AnalyticsService.track('purchase_failed', { reason: 'purchase_not_successful' });
         return;
@@ -123,7 +159,61 @@ export default function PaywallScreen({ navigation }: Props) {
           <Text style={styles.heroText}>
             {t('paywall.couple.heroText')}
           </Text>
-          <Text style={styles.priceText}>{premiumPrice}</Text>
+
+          {showDualOffers ? (
+            <View style={styles.planBlock}>
+              <TouchableOpacity
+                activeOpacity={0.92}
+                onPress={() => setSelectedPremium(lifetimePkg)}
+                style={[
+                  styles.planRowPrimary,
+                  lifetimePkg &&
+                    selectedPremium &&
+                    isSamePackage(selectedPremium, lifetimePkg) &&
+                    styles.planRowSelected,
+                ]}
+              >
+                <View style={styles.planRowLeft}>
+                  <Text style={styles.planRowTitle}>{t('paywall.couple.bestValue')}</Text>
+                  <Text style={styles.planRowCaption}>{t('paywall.couple.planLifetimeCaption')}</Text>
+                </View>
+                <Text style={styles.planRowPricePrimary}>
+                  {lifetimePkg?.product.priceString ?? t('paywall.couple.price')}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                activeOpacity={0.92}
+                onPress={() => setSelectedPremium(monthlyPkg)}
+                style={[
+                  styles.planRowSecondary,
+                  monthlyPkg &&
+                    selectedPremium &&
+                    isSamePackage(selectedPremium, monthlyPkg) &&
+                    styles.planRowSecondarySelected,
+                ]}
+              >
+                <View style={styles.planRowLeft}>
+                  <Text style={styles.planRowTitleSecondary}>{t('paywall.couple.planMonthlyLabel')}</Text>
+                  <Text style={styles.planRowCaptionSecondary}>{t('paywall.couple.planMonthlyCaption')}</Text>
+                </View>
+                <View style={{ alignItems: 'flex-end' }}>
+                  <Text style={styles.planRowPriceSecondary}>
+                    {monthlyPkg?.product.priceString ?? t('paywall.couple.priceMonthly')}
+                  </Text>
+                  {monthlyPkg?.product.pricePerYearString ? (
+                    <Text style={styles.yearlyHint}>
+                      {t('paywall.couple.yearlyCompare', {
+                        yearly: monthlyPkg.product.pricePerYearString,
+                      })}
+                    </Text>
+                  ) : null}
+                </View>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <Text style={styles.priceText}>{singleSkuPrice}</Text>
+          )}
         </LinearGradient>
 
         <View style={styles.card}>
@@ -240,6 +330,93 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     alignSelf: 'flex-start',
     overflow: 'hidden',
+  },
+  planBlock: {
+    marginTop: 18,
+    gap: 12,
+  },
+  planRowPrimary: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(255, 255, 255, 0.94)',
+    borderRadius: 18,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  planRowSelected: {
+    borderColor: colors.match?.primary || colors.swipe.primary,
+  },
+  planRowSecondary: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(255, 255, 255, 0.72)',
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    opacity: 0.95,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.65)',
+  },
+  planRowSecondarySelected: {
+    borderColor: colors.match?.primary || colors.swipe.primary,
+    borderWidth: 2,
+  },
+  planRowLeft: {
+    flex: 1,
+    paddingRight: 12,
+    gap: 2,
+  },
+  planRowTitle: {
+    fontSize: 13,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+    color: colors.neutral.textDark,
+  },
+  planRowTitleSecondary: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: colors.neutral.textDark,
+    opacity: 0.85,
+  },
+  planRowCaption: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: colors.neutral.textBody,
+    maxWidth: 180,
+    lineHeight: 15,
+  },
+  planRowCaptionSecondary: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: colors.neutral.textBody,
+    opacity: 0.88,
+    maxWidth: 180,
+    lineHeight: 14,
+  },
+  planRowPricePrimary: {
+    fontSize: 22,
+    fontWeight: '900',
+    color: colors.neutral.textDark,
+    flexShrink: 0,
+  },
+  planRowPriceSecondary: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: colors.neutral.textDark,
+    opacity: 0.88,
+    flexShrink: 0,
+  },
+  yearlyHint: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: colors.neutral.textBody,
+    marginTop: 4,
+    textAlign: 'right',
+    maxWidth: 180,
   },
   card: {
     backgroundColor: '#FFFFFF',
