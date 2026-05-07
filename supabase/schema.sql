@@ -23,6 +23,8 @@ create table public.profiles (
   language_preference text,
   room_id uuid,
   free_swipes_remaining integer not null default 100,
+  -- UTC calendar date of last daily free-swipe grant; server-owned (RPC).
+  free_swipes_last_refill_utc_date date,
   purchased_packs text[] not null default '{}',
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
@@ -43,6 +45,10 @@ create policy "Users can update own profile"
     -- Entitlement fields must not be arbitrarily rewritten by clients.
     AND purchased_packs = (
       select p.purchased_packs from public.profiles p where p.id = id
+    )
+    -- Daily refill stamp is server-owned (RPC sets it); block client tampering.
+    AND free_swipes_last_refill_utc_date IS NOT DISTINCT FROM (
+      select p.free_swipes_last_refill_utc_date from public.profiles p where p.id = id
     )
     -- Only allow free_swipes_remaining to decrease (never increase).
     AND free_swipes_remaining >= 0
@@ -248,12 +254,81 @@ create policy "Users can insert own purchases"
   on public.purchases for insert with check (auth.uid() = user_id);
 
 -- ============================================================
--- RPC: Consume free swipe entitlement (server-trusted decrement)
+-- RPCs: Daily free-swipe refill (UTC) + consume (refill-first, atomic per call)
 -- ============================================================
+create or replace function public.maybe_refill_daily_free_swipes()
+returns integer
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_uid uuid := auth.uid();
+  v_today date := (timezone('utc', now()))::date;
+  v_remaining integer;
+  v_room_id uuid;
+  v_packs text[];
+  v_last_ref date;
+  v_has_premium boolean := false;
+  v_daily_grant integer := 20;
+  v_bank_cap integer := 100;
+  v_next integer;
+begin
+  if v_uid is null then
+    return null;
+  end if;
+
+  select
+    p.free_swipes_remaining,
+    p.room_id,
+    p.purchased_packs,
+    p.free_swipes_last_refill_utc_date
+    into v_remaining, v_room_id, v_packs, v_last_ref
+  from public.profiles p
+  where p.id = v_uid
+  for update;
+
+  if not found then
+    return null;
+  end if;
+
+  v_has_premium := cardinality(coalesce(v_packs, '{}'::text[])) > 0;
+
+  if not v_has_premium and v_room_id is not null then
+    select cardinality(coalesce(r.premium_packs, '{}'::text[])) > 0
+      into v_has_premium
+    from public.rooms r
+    where r.id = v_room_id;
+  end if;
+
+  if v_has_premium then
+    return v_remaining;
+  end if;
+
+  if v_last_ref is not distinct from v_today then
+    return v_remaining;
+  end if;
+
+  v_next := least(v_bank_cap, greatest(0, coalesce(v_remaining, 0)) + v_daily_grant);
+
+  update public.profiles
+  set free_swipes_remaining = v_next,
+      free_swipes_last_refill_utc_date = v_today,
+      updated_at = now()
+  where id = v_uid;
+
+  return v_next;
+end;
+$$;
+
 create or replace function public.consume_free_swipe(
   p_amount integer default 1
 )
-returns integer as $$
+returns integer
+language plpgsql
+security definer
+set search_path = ''
+as $$
 declare
   v_remaining integer;
   v_amount integer := greatest(1, coalesce(p_amount, 1));
@@ -261,6 +336,8 @@ begin
   if auth.uid() is null then
     return null;
   end if;
+
+  perform public.maybe_refill_daily_free_swipes();
 
   update public.profiles
   set free_swipes_remaining = greatest(0, free_swipes_remaining - v_amount),
@@ -271,7 +348,15 @@ begin
 
   return v_remaining;
 end;
-$$ language plpgsql;
+$$;
+
+revoke all on function public.maybe_refill_daily_free_swipes() from public;
+revoke all on function public.maybe_refill_daily_free_swipes() from anon;
+grant execute on function public.maybe_refill_daily_free_swipes() to authenticated;
+
+revoke all on function public.consume_free_swipe(integer) from public;
+revoke all on function public.consume_free_swipe(integer) from anon;
+grant execute on function public.consume_free_swipe(integer) to authenticated;
 
 -- ============================================================
 -- FUNCTION: Check & create match after a right-swipe
