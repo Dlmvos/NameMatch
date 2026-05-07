@@ -135,6 +135,8 @@ export interface Profile {
   language_preference: string | null;
   room_id: string | null;
   free_swipes_remaining: number;
+  /** UTC calendar date (`YYYY-MM-DD`) of last daily free-swipe grant; server-owned. */
+  free_swipes_last_refill_utc_date?: string | null;
   purchased_packs: string[];
   created_at: string;
   updated_at: string;

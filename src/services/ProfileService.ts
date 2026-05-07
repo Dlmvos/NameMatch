@@ -41,6 +41,15 @@ export const ProfileService = {
   },
 
   async fetchProfile(userId: string): Promise<Profile | null> {
+    try {
+      const { error: refillErr } = await supabase.rpc('maybe_refill_daily_free_swipes');
+      if (refillErr && __DEV__) {
+        console.warn('[ProfileService] maybe_refill_daily_free_swipes:', refillErr.message);
+      }
+    } catch {
+      // Offline / transient errors — proceed with stale-safe fetch.
+    }
+
     const { data, error } = await supabase.from('profiles').select('*').eq('id', userId).maybeSingle();
     if (error) {
       console.error('[ProfileService] fetchProfile error:', error.message);

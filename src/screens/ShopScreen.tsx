@@ -22,6 +22,7 @@ import { useTranslation } from '../i18n/I18nProvider';
 import { translateCountryName } from '../i18n/display';
 import { formatLocalizedPrice, resolveCurrencyCode } from '../lib/currency';
 import { NamePack, PREMIUM_COUPLE_PACK_KEY } from '../types';
+import { FREE_SWIPE_BANK_CAP } from '../constants/freeSwipes';
 import { COUNTRY_OPTIONS } from '../data/countries';
 import { COLORS, FONTS, RADIUS, SPACING, SHADOWS } from '../theme';
 import { PurchaseService } from '../services/purchaseService';
@@ -339,7 +340,7 @@ export default function ShopScreen() {
               <View
                 style={[
                   styles.freeProgressFill,
-                  { width: `${(freeSwipesLeft / 100) * 100}%` },
+                  { width: `${(freeSwipesLeft / FREE_SWIPE_BANK_CAP) * 100}%` },
                 ]}
               />
             </View>
