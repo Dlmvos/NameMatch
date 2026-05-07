@@ -363,15 +363,17 @@ export default function ShopScreen() {
             <Text style={styles.premiumHeroTitle}>{premiumCouplePack.label}</Text>
             <Text style={styles.premiumHeroSubtitle}>{premiumCouplePack.description}</Text>
             <Text style={styles.premiumPrice}>{premiumPrice}</Text>
-            {[
-              t('shop.premiumCouple.feature.unlimitedSwipes'),
-              t('shop.premiumCouple.feature.curatedNames'),
-              t('shop.premiumCouple.feature.advancedFilters'),
-              t('shop.premiumCouple.feature.deeperMeanings'),
-            ].map((feature) => (
-              <View key={feature} style={styles.premiumFeatureRow}>
+            {(
+              [
+                'paywall.couple.feature.unlimitedSwipes',
+                'paywall.couple.feature.curatedNames',
+                'paywall.couple.feature.advancedFilters',
+                'paywall.couple.feature.meaningInsights',
+              ] as const
+            ).map((featureKey) => (
+              <View key={featureKey} style={styles.premiumFeatureRow}>
                 <Ionicons name="checkmark-circle" size={18} color={colors.onboarding.primary} />
-                <Text style={styles.premiumFeatureText}>{feature}</Text>
+                <Text style={styles.premiumFeatureText}>{t(featureKey)}</Text>
               </View>
             ))}
             <TouchableOpacity

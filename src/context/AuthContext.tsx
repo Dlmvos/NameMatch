@@ -342,11 +342,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const restorePurchases = async () => {
     if (!user) throw new Error('Not authenticated');
     const customerInfo = await PurchaseService.restorePurchases();
-    await refreshProfile();
     if (PurchaseService.hasPremiumEntitlement(customerInfo)) {
       await PurchaseService.syncRevenueCatEntitlement();
-      await refreshProfile();
     }
+    await refreshProfile();
   };
 
   const deleteAccount = async () => {
