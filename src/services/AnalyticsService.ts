@@ -9,7 +9,8 @@ type AnalyticsEvent =
   | 'premium_filter_tap'
   | 'low_swipes_banner_tap'
   | 'match_shared'
-  | 'match_created';
+  | 'match_created'
+  | 'milestone_reached';
 
 type AnalyticsProperties = Record<string, string | number | boolean | null | undefined>;
 export type StoredAnalyticsEvent = {

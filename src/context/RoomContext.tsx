@@ -3,6 +3,7 @@ import { RoomService } from '../services/RoomService';
 import { BabyName, Match, Room } from '../types';
 import { useAuth } from './AuthContext';
 import { AnalyticsService } from '../services/AnalyticsService';
+import { checkMilestone, type Milestone } from '../lib/milestoneTracker';
 
 interface RoomStateContextValue {
   room: Room | null;
@@ -21,6 +22,9 @@ interface MatchStateContextValue {
   matches: Match[];
   latestMatch: BabyName | null;
   dismissLatestMatch: () => void;
+  /** Non-null when a milestone was just reached and hasn't been dismissed. */
+  pendingMilestone: Milestone | null;
+  dismissMilestone: () => void;
 }
 
 const RoomStateContext = createContext<RoomStateContextValue | null>(null);
@@ -59,6 +63,7 @@ export function RoomProvider({ children }: { children: React.ReactNode }) {
   const [room, setRoom] = useState<Room | null>(null);
   const [matches, setMatches] = useState<Match[]>([]);
   const [latestMatch, setLatestMatch] = useState<BabyName | null>(null);
+  const [pendingMilestone, setPendingMilestone] = useState<Milestone | null>(null);
   const [isLoadingRoom, setIsLoadingRoom] = useState(false);
   const [isRoomHydrated, setIsRoomHydrated] = useState(false);
 
@@ -248,9 +253,21 @@ export function RoomProvider({ children }: { children: React.ReactNode }) {
         count: loadedMatches.length,
       });
     }
+
+    // Check milestone thresholds (fire-and-forget; never blocks swipe flow).
+    try {
+      const milestone = await checkMilestone(roomId, loadedMatches.length);
+      if (milestone) {
+        setPendingMilestone(milestone);
+        AnalyticsService.track('milestone_reached', { roomId, milestone, matchCount: loadedMatches.length });
+      }
+    } catch {
+      // Non-critical — swallowed silently.
+    }
   };
 
   const dismissLatestMatch = () => setLatestMatch(null);
+  const dismissMilestone = () => setPendingMilestone(null);
 
   const roomStateValue: RoomStateContextValue = {
     room,
@@ -269,6 +286,8 @@ export function RoomProvider({ children }: { children: React.ReactNode }) {
     matches,
     latestMatch,
     dismissLatestMatch,
+    pendingMilestone,
+    dismissMilestone,
   };
 
   return (

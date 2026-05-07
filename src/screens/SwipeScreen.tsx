@@ -21,6 +21,7 @@ import { useAuth } from '../context/AuthContext';
 import { useTranslation } from '../i18n/I18nProvider';
 import SwipeCard from '../components/SwipeCard';
 import MatchCelebration from '../components/MatchCelebration';
+import MilestoneCelebration from '../components/MilestoneCelebration';
 import FilterSheet from '../components/FilterSheet';
 import NameDetailModal from '../components/NameDetailModal';
 import { formatLocalizedPrice, resolveCurrencyCode } from '../lib/currency';
@@ -124,7 +125,7 @@ export default function SwipeScreen() {
   const { recordSwipe, loadMoreNames, setFilters } = useSwipeDeckActions();
   const { countryPreference, residenceCountry, effectiveUnlockedPacks, effectiveLanguage } = useApp();
   const { room } = useRoomState();
-  const { latestMatch, dismissLatestMatch } = useMatchState();
+  const { latestMatch, dismissLatestMatch, pendingMilestone, dismissMilestone } = useMatchState();
   const { profile } = useAuth();
   const isFocused = useIsFocused();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
@@ -145,8 +146,8 @@ export default function SwipeScreen() {
   const didRefillAttemptRef = useRef(false);
   const lockedAttemptRef = useRef(0);
 
-  // Completion-bias: show 'N swipes to curated picks' tied to real 15-swipe recommendation cadence
-  const RECOMMENDATION_CADENCE = 15;
+  // Completion-bias: progress toward curated packs (~40 swipes); offers first near ~40 swipes then on 45-swipe rhythm (min gap 45).
+  const RECOMMENDATION_CADENCE = 40;
 
   const freeSwipesLeft = profile?.free_swipes_remaining ?? 0;
   const hasUnlockedPacks = effectiveUnlockedPacks.length > 0;
@@ -258,8 +259,8 @@ export default function SwipeScreen() {
     ];
 
     const shouldCheckRecommendation =
-      swipeCountRef.current % 15 === 0 &&
-      swipeCountRef.current - lastOfferSwipeRef.current >= 30 &&
+      (swipeCountRef.current === 40 || swipeCountRef.current % 45 === 0) &&
+      swipeCountRef.current - lastOfferSwipeRef.current >= 45 &&
       namesToSwipe.length > 0 &&
       !showPackModal;
 
@@ -485,6 +486,9 @@ export default function SwipeScreen() {
 
       {latestMatch && (
         <MatchCelebration name={latestMatch} onDismiss={dismissLatestMatch} />
+      )}
+      {!latestMatch && pendingMilestone && (
+        <MilestoneCelebration milestone={pendingMilestone} onDismiss={dismissMilestone} />
       )}
       {__DEV__ && devPreviewMatch ? (
         <MatchCelebration

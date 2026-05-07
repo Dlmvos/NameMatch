@@ -54,10 +54,9 @@ const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
 const FEATURED_LETTERS = ['A', 'E', 'L', 'M', 'N', 'S'];
 
 const PREMIUM_TEASERS: readonly { labelKey: string }[] = [
-  { labelKey: 'filter.premium.rare' },
-  { labelKey: 'filter.premium.vintage' },
-  { labelKey: 'filter.premium.international' },
-  { labelKey: 'filter.premium.similarFavorites' },
+  { labelKey: 'filter.premium.microcopy.modernSpanish' },
+  { labelKey: 'filter.premium.microcopy.rareElegant' },
+  { labelKey: 'filter.premium.microcopy.lovedIntl' },
 ];
 
 const normalizeFilters = (filters: NameFilters): NameFilters => ({
@@ -229,7 +228,11 @@ export default function FilterSheet({
           {/* Style / culture */}
           <Text style={styles.sectionLabel}>STYLE / CULTURE</Text>
           <Text style={styles.sectionHint}>Combine chips to shape the deck without typing.</Text>
-          <View style={styles.chipRow}>
+          <View style={!isPremium ? styles.lockedClusterWrap : undefined}>
+            {!isPremium ? (
+              <View pointerEvents="none" style={[StyleSheet.absoluteFillObject, styles.lockedFrostOverlay]} />
+            ) : null}
+            <View style={styles.chipRow}>
             {QUICK_CHIPS.map((chip) => {
               const active = isQuickChipActive(chip);
               return (
@@ -238,16 +241,22 @@ export default function FilterSheet({
                   style={[
                     styles.filterChip,
                     styles.quickChip,
-                    !isPremium && styles.filterChipLocked,
+                    !isPremium && styles.filterChipLockedPremium,
                     active && styles.filterChipActive,
                   ]}
                   onPress={() => toggleQuickChip(chip)}
                 >
-                  <Text style={[styles.filterChipText, active && styles.filterChipTextActive]}>
+                  <Text
+                    style={[
+                      styles.filterChipText,
+                      !isPremium && styles.filterChipTextBehindLock,
+                      active && styles.filterChipTextActive,
+                    ]}
+                  >
                     {chip.label}
                   </Text>
                   {!isPremium ? (
-                    <Ionicons name="lock-closed-outline" size={13} color={colors.neutral.gray} />
+                    <Ionicons name="lock-closed-outline" size={13} color={'rgba(100,106,126,0.78)'} />
                   ) : null}
                 </TouchableOpacity>
               );
@@ -261,6 +270,7 @@ export default function FilterSheet({
                 <Ionicons name="close-circle" size={16} color={colors.neutral.gray} />
               </TouchableOpacity>
             ) : null}
+          </View>
           </View>
 
           {/* Name Length */}
@@ -324,9 +334,13 @@ export default function FilterSheet({
                     onPress={openPremium}
                     activeOpacity={0.75}
                   >
-                    <Ionicons name="sparkles-outline" size={18} color={colors.onboarding.primary} />
+                    <View style={styles.premiumTeaserGlow}>
+                      <Ionicons name="sparkles-outline" size={17} color={colors.onboarding.primary} />
+                    </View>
                     <Text style={styles.premiumTeaserLabel}>{t(row.labelKey)}</Text>
-                    <Ionicons name="lock-closed-outline" size={16} color={colors.neutral.gray} />
+                    <View style={styles.lockBadge}>
+                      <Ionicons name="lock-closed" size={12} color={colors.neutral.textDark} />
+                    </View>
                   </TouchableOpacity>
                 ))}
               </View>
@@ -335,7 +349,11 @@ export default function FilterSheet({
 
           {/* Starting Letter */}
           <Text style={styles.sectionLabel}>{t('filter.section.startsWith')}</Text>
-          <View style={styles.compactLetterRow}>
+          <View style={!isPremium ? styles.lockedClusterWrap : undefined}>
+            {!isPremium ? (
+              <View pointerEvents="none" style={[StyleSheet.absoluteFillObject, styles.lockedFrostOverlay]} />
+            ) : null}
+            <View style={styles.compactLetterRow}>
             {letterOptions.map((letter) => {
               const active = draft.startingLetter === letter;
               return (
@@ -373,6 +391,7 @@ export default function FilterSheet({
                 <Ionicons name="lock-closed-outline" size={10} color={colors.neutral.gray} />
               ) : null}
             </TouchableOpacity>
+          </View>
           </View>
 
         </ScrollView>
@@ -445,6 +464,24 @@ const styles = StyleSheet.create({
     marginTop: -SPACING.xs,
     marginBottom: SPACING.sm,
   },
+  lockedClusterWrap: {
+    position: 'relative',
+    borderRadius: RADIUS.lg,
+    overflow: 'hidden',
+    padding: SPACING.xs + 2,
+    marginBottom: SPACING.xs,
+    borderWidth: StyleSheet.hairlineWidth + 1,
+    borderColor: 'rgba(110,118,148,0.16)',
+    backgroundColor: 'rgba(239,241,246,0.55)',
+  },
+  lockedFrostOverlay: {
+    borderRadius: RADIUS.md,
+    margin: SPACING.xs / 2,
+    backgroundColor: 'rgba(255,255,255,0.6)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255,255,255,0.85)',
+    opacity: 0.94,
+  },
   chipRow: {
     flexDirection: 'row',
     gap: SPACING.sm,
@@ -470,13 +507,24 @@ const styles = StyleSheet.create({
     borderColor: colors.onboarding.primary,
   },
   filterChipLocked: {
-    opacity: 0.72,
+    opacity: 0.55,
     borderStyle: 'dashed',
+    borderColor: 'rgba(118,126,146,0.35)',
+    backgroundColor: 'rgba(235,237,243,0.92)',
+  },
+  filterChipLockedPremium: {
+    opacity: 0.5,
+    borderStyle: 'dashed',
+    borderColor: 'rgba(118,126,146,0.4)',
+    backgroundColor: 'rgba(236,237,243,0.88)',
   },
   filterChipText: {
     fontSize: FONTS.sizes.sm,
     fontWeight: '700',
     color: colors.neutral.textDark,
+  },
+  filterChipTextBehindLock: {
+    color: 'rgba(88,92,108,0.78)',
   },
   filterChipTextActive: {
     color: colors.onboarding.primary,
@@ -510,8 +558,10 @@ const styles = StyleSheet.create({
     borderColor: colors.onboarding.primary,
   },
   letterChipLocked: {
-    opacity: 0.72,
+    opacity: 0.54,
     borderStyle: 'dashed',
+    borderColor: 'rgba(118,126,146,0.32)',
+    backgroundColor: 'rgba(238,239,244,0.88)',
   },
   letterText: {
     fontSize: FONTS.sizes.sm,
@@ -552,16 +602,42 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING.sm + 2,
     paddingHorizontal: SPACING.md,
     borderRadius: RADIUS.lg,
-    backgroundColor: colors.neutral.bgSoft,
+    backgroundColor: 'rgba(239,241,247,0.92)',
     borderWidth: 1,
-    borderColor: colors.neutral.border,
+    borderColor: 'rgba(118,126,146,0.22)',
     borderStyle: 'dashed',
+    opacity: 0.93,
+  },
+  premiumTeaserGlow: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    backgroundColor: 'rgba(246,229,239,0.55)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    opacity: 0.95,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(235,209,226,0.45)',
   },
   premiumTeaserLabel: {
     flex: 1,
     fontSize: FONTS.sizes.sm,
-    fontWeight: '700',
+    fontWeight: '600',
+    letterSpacing: 0.25,
     color: colors.neutral.textDark,
+    opacity: 0.86,
+    fontStyle: 'italic',
+  },
+  lockBadge: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(229,231,238,0.88)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(148,157,173,0.32)',
+    opacity: 0.96,
   },
   applyBtn: {
     marginTop: SPACING.lg,
