@@ -11,7 +11,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import type { BabyName } from '../types';
 import { useTranslation } from '../i18n/I18nProvider';
-import { getLocalizedNameMeaning, cleanOriginForDisplay } from '../i18n/nameMeaningDisplay';
+import { getLocalizedNameMeaning, cleanOriginForDisplay, shouldShowEnglishMeaningBadge } from '../i18n/nameMeaningDisplay';
 import { enrichName, getTrendLabel } from '../services/nameEnrichment';
 import { colors, COLORS, FONTS, SPACING } from '../theme';
 
@@ -87,6 +87,7 @@ export default function NameDetailModal({ name, visible, onClose }: NameDetailMo
     if (!name) return null;
     const enrichment = enrichName(name.name);
     const meaning = getLocalizedNameMeaning(name, language);
+    const showEnglishMeaningFallback = shouldShowEnglishMeaningBadge(name, language);
     const origin = cleanOriginForDisplay(name.origin);
     const trendLabel = getTrendLabel(enrichment.trend);
     const characterTags = deriveCharacterTags(name, enrichment.trend);
@@ -96,6 +97,7 @@ export default function NameDetailModal({ name, visible, onClose }: NameDetailMo
 
     return {
       meaning,
+      showEnglishMeaningFallback,
       origin,
       trendLabel,
       characterTags,
@@ -177,6 +179,9 @@ export default function NameDetailModal({ name, visible, onClose }: NameDetailMo
             <View style={s.section}>
               <Text style={s.sectionLabel}>{t('nameDetail.section.meaning')}</Text>
               <Text style={s.meaningText}>&ldquo;{detail.meaning}&rdquo;</Text>
+              {detail.showEnglishMeaningFallback && (
+                <Text style={s.meaningFallbackHint}>{t('nameDetail.meaningEnglishFallback')}</Text>
+              )}
             </View>
           )}
 
@@ -345,6 +350,13 @@ const s = StyleSheet.create({
     color: TEXT_PRIMARY,
     fontStyle: 'italic',
     lineHeight: FONTS.sizes.xl * 1.5,
+  },
+  meaningFallbackHint: {
+    marginTop: SPACING.sm,
+    fontSize: FONTS.sizes.sm,
+    fontWeight: '500',
+    color: TEXT_MUTED,
+    fontStyle: 'normal',
   },
   // ── Popularity ──
   popularityRow: {

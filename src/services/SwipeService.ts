@@ -1,6 +1,8 @@
 import { supabase } from '../lib/supabase';
 import { rarityFromPopularityRank } from '../lib/rarityFromPopularityRank';
 import { enrichName } from './nameEnrichment';
+import { fetchCatalogNameMeaningTranslationsByNameIds } from './catalogMeaningTranslations';
+import { resolveBabyNameMeaningFields } from '../i18n/nameMeaningDisplay';
 import type { BabyName, Gender, Region, SwipeDirection } from '../types';
 
 /** Row shape returned by `swipes` for liked names. */
@@ -29,29 +31,37 @@ export interface LikedName {
   name: BabyName;
 }
 
-function mapLikedRow(row: LikedSwipeRow, babyNamesById: Map<string, LikedBabyNameRow>): LikedName | null {
+function mapLikedRow(
+  row: LikedSwipeRow,
+  babyNamesById: Map<string, LikedBabyNameRow>,
+  translationsById: Map<string, string>,
+  language: string,
+): LikedName | null {
   const bn = babyNamesById.get(row.name_id);
   if (!bn) return null;
   const enriched = enrichName(bn.name);
   const popularity_rank = bn.popularity_rank ?? enriched.popularity_rank;
+  const base: BabyName = {
+    id: bn.id,
+    name: bn.name,
+    meaning: bn.meaning ?? '',
+    origin: bn.origin ?? '',
+    gender: bn.gender as Gender,
+    country: bn.country ?? undefined,
+    region: bn.region as Region,
+    is_worldwide: bn.is_worldwide,
+    popularity_rank,
+    rarity: rarityFromPopularityRank(popularity_rank),
+    trend: enriched.trend,
+    pronunciation: enriched.pronunciation,
+    similar_names: enriched.similar_names,
+    source: bn.origin === 'Custom' ? 'custom' : 'catalog',
+  };
+  const resolved = resolveBabyNameMeaningFields(base, translationsById.get(bn.id), language);
   return {
     swipeId: row.id,
     swipedAt: row.created_at,
-    name: {
-      id: bn.id,
-      name: bn.name,
-      meaning: bn.meaning ?? '',
-      origin: bn.origin ?? '',
-      gender: bn.gender as Gender,
-      country: bn.country ?? undefined,
-      region: bn.region as Region,
-      is_worldwide: bn.is_worldwide,
-      popularity_rank,
-      rarity: rarityFromPopularityRank(popularity_rank),
-      trend: enriched.trend,
-      pronunciation: enriched.pronunciation,
-      source: bn.origin === 'Custom' ? 'custom' : 'catalog',
-    },
+    name: resolved,
   };
 }
 
@@ -105,7 +115,8 @@ export const SwipeService = {
    * Fetch all names the current user swiped right on in this room.
    * Uses two queries instead of Supabase embedded joins so schema-cache FK naming cannot break My Likes.
    */
-  async getLikedNames(userId: string, roomId: string): Promise<LikedName[]> {
+  async getLikedNames(userId: string, roomId: string, language?: string): Promise<LikedName[]> {
+    const lang = language ?? 'en';
     const { data: swipeRows, error: swipeError } = await supabase
       .from('swipes')
       .select('id, name_id, direction, created_at')
@@ -140,6 +151,8 @@ export const SwipeService = {
       ((babyNameRows ?? []) as LikedBabyNameRow[]).map((row) => [row.id, row] as const),
     );
 
+    const translationsById = await fetchCatalogNameMeaningTranslationsByNameIds(nameIds, lang);
+
     if (__DEV__) {
       console.log('[SwipeService] getLikedNames loaded', {
         swipes: swipes.length,
@@ -149,7 +162,7 @@ export const SwipeService = {
     }
 
     return swipes
-      .map((row) => mapLikedRow(row, babyNamesById))
+      .map((row) => mapLikedRow(row, babyNamesById, translationsById, lang))
       .filter((x): x is LikedName => x !== null);
   },
 

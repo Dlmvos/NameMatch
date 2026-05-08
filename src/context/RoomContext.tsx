@@ -1,4 +1,6 @@
-import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
+import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { hydrateMatchesWithCatalogMeanings } from '../services/catalogMeaningTranslations';
+import { getEffectiveLanguage } from '../services/languageService';
 import { RoomService } from '../services/RoomService';
 import { BabyName, Match, Room } from '../types';
 import { useAuth } from './AuthContext';
@@ -60,6 +62,15 @@ export function useRoom(): RoomStateContextValue & RoomActionsContextValue & Mat
 export function RoomProvider({ children }: { children: React.ReactNode }) {
   const { user, profile, refreshProfile } = useAuth();
 
+  const deviceLanguage =
+    Intl.DateTimeFormat().resolvedOptions().locale?.split(/[-_]/)[0] ?? 'en';
+  const effectiveLanguage = useMemo(
+    () => getEffectiveLanguage(profile?.language_preference ?? null, deviceLanguage),
+    [profile?.language_preference, deviceLanguage],
+  );
+  const effectiveLanguageRef = useRef(effectiveLanguage);
+  effectiveLanguageRef.current = effectiveLanguage;
+
   const [room, setRoom] = useState<Room | null>(null);
   const [matches, setMatches] = useState<Match[]>([]);
   const [latestMatch, setLatestMatch] = useState<BabyName | null>(null);
@@ -105,7 +116,11 @@ export function RoomProvider({ children }: { children: React.ReactNode }) {
         if (cancelled) return;
 
         setRoom(loadedRoom);
-        setMatches(loadedMatches);
+        const hydratedMatches = await hydrateMatchesWithCatalogMeanings(
+          loadedMatches,
+          effectiveLanguageRef.current,
+        );
+        setMatches(hydratedMatches);
         setLatestMatch(null);
 
         clearMatchSubscription();
@@ -117,7 +132,7 @@ export function RoomProvider({ children }: { children: React.ReactNode }) {
             user2Id: loadedRoom?.user2_id ?? null,
           });
         }
-        matchSubscriptionRef.current = RoomService.subscribeToMatches(roomId, (m) => {
+        matchSubscriptionRef.current = RoomService.subscribeToMatches(roomId, async (m) => {
           if (__DEV__) {
             console.log('[RoomContext] match realtime payload received', {
               roomId: m.room_id,
@@ -125,8 +140,9 @@ export function RoomProvider({ children }: { children: React.ReactNode }) {
               name: m.baby_names?.name ?? null,
             });
           }
-          setMatches((prev) => [m, ...prev.filter((existing) => existing.id !== m.id)]);
-          setLatestMatch(m.baby_names ?? null);
+          const [hm] = await hydrateMatchesWithCatalogMeanings([m], effectiveLanguageRef.current);
+          setMatches((prev) => [hm, ...prev.filter((existing) => existing.id !== hm.id)]);
+          setLatestMatch(hm.baby_names ?? null);
         });
         roomSubscriptionRef.current = RoomService.subscribeToRoom(roomId, (nextRoom) => {
           if (__DEV__) {
@@ -175,6 +191,20 @@ export function RoomProvider({ children }: { children: React.ReactNode }) {
       clearRoomSubscription();
     };
   }, [profile?.room_id]);
+
+  const matchesRef = useRef(matches);
+  matchesRef.current = matches;
+
+  useEffect(() => {
+    if (matchesRef.current.length === 0) return;
+    let cancelled = false;
+    void hydrateMatchesWithCatalogMeanings(matchesRef.current, effectiveLanguage).then((h) => {
+      if (!cancelled) setMatches(h);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [effectiveLanguage]);
 
   const createRoom = async () => {
     if (!user?.id) throw new Error('Not authenticated');
@@ -246,20 +276,24 @@ export function RoomProvider({ children }: { children: React.ReactNode }) {
     if (!roomId) return;
 
     const loadedMatches = await RoomService.getMatches(roomId);
-    setMatches(loadedMatches);
+    const hydratedMatches = await hydrateMatchesWithCatalogMeanings(
+      loadedMatches,
+      effectiveLanguage,
+    );
+    setMatches(hydratedMatches);
     if (__DEV__) {
       console.log('[RoomContext] matches refreshed after confirmed match', {
         roomId,
-        count: loadedMatches.length,
+        count: hydratedMatches.length,
       });
     }
 
     // Check milestone thresholds (fire-and-forget; never blocks swipe flow).
     try {
-      const milestone = await checkMilestone(roomId, loadedMatches.length);
+      const milestone = await checkMilestone(roomId, hydratedMatches.length);
       if (milestone) {
         setPendingMilestone(milestone);
-        AnalyticsService.track('milestone_reached', { roomId, milestone, matchCount: loadedMatches.length });
+        AnalyticsService.track('milestone_reached', { roomId, milestone, matchCount: hydratedMatches.length });
       }
     } catch {
       // Non-critical — swallowed silently.

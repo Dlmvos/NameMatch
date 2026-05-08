@@ -557,6 +557,35 @@ create policy "premium_meaning_translations read by entitlement"
     )
   );
 
+-- Per-row localized meanings for catalog baby_names (English fallback stays on baby_names.meaning).
+-- CHECK lists every app UI locale; rollout priority for meanings: en, es, pt, nl, de, fr, it, then zh, ja, ko, ar (see NAME_MEANING_TRANSLATION_LAUNCH_PRIORITY in src/services/languageService.ts).
+create table if not exists public.name_meaning_translations (
+  id uuid primary key default gen_random_uuid(),
+  name_id uuid not null references public.baby_names(id) on delete cascade,
+  language_code text not null
+    check (language_code in ('en', 'nl', 'de', 'fr', 'es', 'it', 'pt', 'zh', 'ja', 'ko', 'ar')),
+  meaning text not null,
+  source text,
+  confidence numeric,
+  verified boolean not null default false,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (name_id, language_code)
+);
+
+create index if not exists idx_name_meaning_translations_language_code
+  on public.name_meaning_translations (language_code);
+
+alter table public.name_meaning_translations enable row level security;
+alter table public.name_meaning_translations force row level security;
+
+drop policy if exists "Authenticated users can read name_meaning_translations"
+  on public.name_meaning_translations;
+
+create policy "Authenticated users can read name_meaning_translations"
+  on public.name_meaning_translations for select
+  using (auth.uid() is not null);
+
 -- ============================================================
 -- Canonical name identity layer
 -- ============================================================

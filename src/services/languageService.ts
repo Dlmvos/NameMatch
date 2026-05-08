@@ -14,6 +14,23 @@ export const SUPPORTED_LANGUAGE_OPTIONS = [
 
 export type SupportedLanguageCode = (typeof SUPPORTED_LANGUAGE_OPTIONS)[number]['code'];
 
+/**
+ * Order for rolling out `name_meaning_translations` coverage (batch/import tooling).
+ * Full UI support remains {@link SUPPORTED_LANGUAGE_OPTIONS}; zh, ja, ko, ar follow after this wave.
+ */
+export const NAME_MEANING_TRANSLATION_LAUNCH_PRIORITY = [
+  'en',
+  'es',
+  'pt',
+  'nl',
+  'de',
+  'fr',
+  'it',
+] as const satisfies readonly SupportedLanguageCode[];
+
+export type NameMeaningTranslationLaunchLanguageCode =
+  (typeof NAME_MEANING_TRANSLATION_LAUNCH_PRIORITY)[number];
+
 function normalizeLanguageCode(language: string | undefined | null): string | null {
   if (!language) return null;
   const trimmed = language.trim();

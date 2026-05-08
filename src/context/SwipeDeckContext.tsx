@@ -12,6 +12,8 @@ import {
 } from '../types';
 import { PremiumContentService } from '../services/PremiumContentService';
 import { enrichName, getNameLength } from '../services/nameEnrichment';
+import { fetchCatalogNameMeaningTranslationsByNameIds } from '../services/catalogMeaningTranslations';
+import { resolveBabyNameMeaningFields } from '../i18n/nameMeaningDisplay';
 import { countryWeightingService } from '../services/CountryWeightingService';
 import { useApp } from './AppContext';
 import { userPreferenceLearningService } from '../services/UserPreferenceLearningService';
@@ -233,6 +235,40 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     namesToSwipeRef.current = namesToSwipe;
   }, [namesToSwipe]);
+
+  const swipeDeckMeaningKey = useMemo(
+    () =>
+      `${effectiveLanguage}|${user?.id ?? 'anon'}|${namesToSwipe.map((n) => n.id).sort().join(',')}`,
+    [effectiveLanguage, user?.id, namesToSwipe],
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    const snapshot = namesToSwipeRef.current;
+    if (!snapshot.length) return;
+
+    void (async () => {
+      const uuidIds = [...new Set(snapshot.filter((n) => UUID_LIKE_ID.test(n.id)).map((n) => n.id))];
+      const map =
+        user?.id && uuidIds.length > 0
+          ? await fetchCatalogNameMeaningTranslationsByNameIds(uuidIds, effectiveLanguage)
+          : new Map<string, string>();
+      if (cancelled) return;
+      setNamesToSwipe((prev) =>
+        prev.map((n) =>
+          resolveBabyNameMeaningFields(
+            n,
+            UUID_LIKE_ID.test(n.id) ? map.get(n.id) : undefined,
+            effectiveLanguage,
+          ),
+        ),
+      );
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [swipeDeckMeaningKey, effectiveLanguage, user?.id]);
 
   useEffect(() => {
     freeSwipesRemainingRef.current = profile?.free_swipes_remaining ?? 0;

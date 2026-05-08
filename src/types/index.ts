@@ -37,6 +37,12 @@ export interface BabyName {
   id: string;
   name: string;
   meaning: string;
+  /** Resolved meaning for `meaningLocale` from `name_meaning_translations` and/or bundled premium maps; display as `localizedMeaning ?? meaning`. */
+  localizedMeaning?: string;
+  /** Language code of the primary meaning line shown (`en` when falling back to canonical `meaning`). */
+  meaningLanguage?: AppLanguage;
+  /** True when UI language is not English and the displayed line uses canonical English `meaning`. */
+  meaningIsFallback?: boolean;
   // Content translations for per-name meaning text (not runtime UI-label translations).
   meaningTranslations?: Partial<Record<AppLanguage, string>>;
   origin: string;

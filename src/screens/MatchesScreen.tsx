@@ -169,14 +169,14 @@ export default function MatchesScreen() {
     if (!user?.id || !roomId) return;
     setIsLoadingLikes(true);
     try {
-      const liked = await SwipeService.getLikedNames(user.id, roomId);
+      const liked = await SwipeService.getLikedNames(user.id, roomId, language);
       setLikedNames(liked);
     } catch (err: any) {
       console.error('[MatchesScreen] fetchLikedNames error:', err?.message ?? err);
     } finally {
       setIsLoadingLikes(false);
     }
-  }, [user?.id, roomId]);
+  }, [user?.id, roomId, language]);
 
   // Fetch liked names when tab becomes active
   useEffect(() => {
