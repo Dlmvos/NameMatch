@@ -26,7 +26,7 @@ import { NamePack, PREMIUM_COUPLE_PACK_KEY } from '../types';
 import { FREE_SWIPE_BANK_CAP } from '../constants/freeSwipes';
 import { COUNTRY_OPTIONS } from '../data/countries';
 import { COLORS, FONTS, RADIUS, SPACING, SHADOWS } from '../theme';
-import { PurchaseService } from '../services/purchaseService';
+import { PurchaseService, classifyPurchaseError } from '../services/purchaseService';
 import { DEV_PREVIEW } from '../config/devPreview';
 
 /** Legacy bucket name; stores curated swipe-to-shop recommendations keyed by pack id. */
@@ -313,13 +313,14 @@ export default function ShopScreen() {
       loadMoreNames();
       Alert.alert(t('shop.purchaseSuccessTitle'), t('shop.purchaseSuccessBody'));
     } catch (err: any) {
-      const msg = err?.message ?? t('shop.purchaseError');
       console.error('[ShopScreen] handlePurchase error:', JSON.stringify({
         code: err?.code,
         message: err?.message,
         underlyingErrorMessage: err?.underlyingErrorMessage,
         userCancelled: err?.userCancelled,
       }));
+      const classifiedKey = classifyPurchaseError(err);
+      const msg = classifiedKey ? t(classifiedKey) : (err?.message || t('shop.purchaseError'));
       Alert.alert(t('common.error'), msg);
     }
   };

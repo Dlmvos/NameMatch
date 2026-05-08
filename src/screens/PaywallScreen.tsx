@@ -9,7 +9,7 @@ import { useTranslation } from '../i18n/I18nProvider';
 import { RootStackParamList } from '../types';
 import { colors } from '../theme/colors';
 import { useAuth } from '../context/AuthContext';
-import { PurchaseService } from '../services/purchaseService';
+import { PurchaseService, classifyPurchaseError } from '../services/purchaseService';
 import { AnalyticsService } from '../services/AnalyticsService';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Paywall'>;
@@ -119,8 +119,10 @@ export default function PaywallScreen({ navigation }: Props) {
         underlyingErrorMessage: err?.underlyingErrorMessage,
         userCancelled: err?.userCancelled,
       }));
-      AnalyticsService.track('purchase_failed', { reason: err?.message ?? 'unknown' });
-      Alert.alert(t('common.error'), err?.message ?? t('shop.purchaseError'));
+      const classifiedKey = classifyPurchaseError(err);
+      AnalyticsService.track('purchase_failed', { reason: err?.code ?? err?.message ?? 'unknown' });
+      const msg = classifiedKey ? t(classifiedKey) : (err?.message || t('shop.purchaseError'));
+      Alert.alert(t('common.error'), msg);
     } finally {
       setIsBusy(false);
     }

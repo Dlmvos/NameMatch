@@ -346,20 +346,40 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const hydratePremiumFromRevenueCat = useCallback(
     async (customerInfoSeed?: CustomerInfo): Promise<boolean> => {
       if (!user) return false;
+      console.log('[AuthContext] hydratePremiumFromRevenueCat → start');
       let info: CustomerInfo | null = null;
       try {
         info = await PurchaseService.getCustomerInfo();
+        console.log(
+          `[AuthContext] hydratePremiumFromRevenueCat → fresh entitlement: ${PurchaseService.hasPremiumEntitlement(info)}`,
+        );
       } catch {
+        console.warn('[AuthContext] hydratePremiumFromRevenueCat → getCustomerInfo failed, using seed');
         info = customerInfoSeed ?? null;
       }
-      if (!info || !PurchaseService.hasPremiumEntitlement(info)) return false;
+      // If the fresh fetch returned info without the entitlement, prefer the
+      // seed — the purchase just succeeded so the seed is likely more current
+      // than a delayed backend read.
+      if (info && !PurchaseService.hasPremiumEntitlement(info) && customerInfoSeed && PurchaseService.hasPremiumEntitlement(customerInfoSeed)) {
+        console.log('[AuthContext] hydratePremiumFromRevenueCat → fresh missing entitlement, seed has it → using seed');
+        info = customerInfoSeed;
+      }
+      if (!info || !PurchaseService.hasPremiumEntitlement(info)) {
+        console.warn('[AuthContext] hydratePremiumFromRevenueCat → no entitlement found, returning false');
+        return false;
+      }
       try {
         await PurchaseService.syncRevenueCatEntitlement();
-      } catch (err) {
-        if (__DEV__) console.warn('[AuthContext] syncRevenueCatEntitlement:', err);
+        console.log('[AuthContext] hydratePremiumFromRevenueCat → sync edge function succeeded');
+      } catch (err: any) {
+        console.warn('[AuthContext] syncRevenueCatEntitlement failed:', err?.message ?? err);
       }
       const updated = await fetchProfile(user);
+      console.log(
+        `[AuthContext] hydratePremiumFromRevenueCat → profile.purchased_packs: ${JSON.stringify(updated?.purchased_packs ?? [])}`,
+      );
       if (updated && !updated.purchased_packs?.includes(PREMIUM_COUPLE_PACK_KEY)) {
+        console.log('[AuthContext] hydratePremiumFromRevenueCat → optimistic patch: adding PREMIUM_COUPLE');
         setProfile({
           ...updated,
           purchased_packs: Array.from(

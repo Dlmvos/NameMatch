@@ -3,6 +3,7 @@ import Constants from 'expo-constants';
 import Purchases, {
   LOG_LEVEL,
   PACKAGE_TYPE,
+  PURCHASES_ERROR_CODE,
   type CustomerInfo,
   type PurchasesOffering,
   type PurchasesOfferings,
@@ -207,6 +208,32 @@ function logPurchaseError(method: string, err: unknown): void {
   );
 }
 
+/**
+ * Maps a RevenueCat error to a user-safe i18n key.
+ * Returns `null` for cancellations (caller handles those) or unknown codes
+ * (falls back to generic `shop.purchaseError`).
+ */
+export function classifyPurchaseError(err: unknown): string | null {
+  const e = err as { code?: string } | undefined;
+  switch (e?.code) {
+    case PURCHASES_ERROR_CODE.PRODUCT_NOT_AVAILABLE_FOR_PURCHASE_ERROR:
+      return 'shop.purchaseErrorProductUnavailable';
+    case PURCHASES_ERROR_CODE.STORE_PROBLEM_ERROR:
+      return 'shop.purchaseErrorStoreProblem';
+    case PURCHASES_ERROR_CODE.PURCHASE_NOT_ALLOWED_ERROR:
+      return 'shop.purchaseErrorNotAllowed';
+    case PURCHASES_ERROR_CODE.PRODUCT_ALREADY_PURCHASED_ERROR:
+      return 'shop.purchaseErrorAlreadyOwned';
+    case PURCHASES_ERROR_CODE.NETWORK_ERROR:
+    case PURCHASES_ERROR_CODE.OFFLINE_CONNECTION_ERROR:
+      return 'shop.purchaseErrorNetwork';
+    case PURCHASES_ERROR_CODE.PAYMENT_PENDING_ERROR:
+      return 'shop.purchaseErrorPending';
+    default:
+      return null;
+  }
+}
+
 function isPurchaseCancelled(err: unknown): boolean {
   const maybeError = err as { code?: string; userCancelled?: boolean | null };
   return (
@@ -267,6 +294,27 @@ export const PurchaseService = {
     try {
       const { customerInfo } = await Purchases.purchasePackage(premiumPackage);
       console.log('[PurchaseService] purchasePremium → success');
+      if (hasPremiumEntitlement(customerInfo)) {
+        console.log('[PurchaseService] purchasePremium → entitlement active immediately');
+        return { success: true, customerInfo };
+      }
+      // Entitlement may lag behind the StoreKit transaction on RevenueCat's
+      // backend.  Re-fetch up to 3 times with short back-off before giving up.
+      console.warn('[PurchaseService] purchasePremium → entitlement NOT active on initial customerInfo, retrying…');
+      const delays = [1000, 2000, 3000];
+      for (const ms of delays) {
+        await new Promise((r) => setTimeout(r, ms));
+        try {
+          const fresh = await Purchases.getCustomerInfo();
+          if (hasPremiumEntitlement(fresh)) {
+            console.log(`[PurchaseService] purchasePremium → entitlement active after ${ms}ms retry`);
+            return { success: true, customerInfo: fresh };
+          }
+        } catch {
+          // Transient fetch failure — continue retrying.
+        }
+      }
+      console.warn('[PurchaseService] purchasePremium → entitlement still missing after retries, returning original customerInfo');
       return { success: true, customerInfo };
     } catch (err) {
       logPurchaseError('purchasePremium', err);
