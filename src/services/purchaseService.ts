@@ -220,6 +220,13 @@ export const PurchaseService = {
     await Purchases.logOut();
   },
 
+  async getCustomerInfo(): Promise<CustomerInfo> {
+    if (!canUsePurchases('getCustomerInfo')) {
+      throw purchasesUnavailableError('getCustomerInfo');
+    }
+    return await Purchases.getCustomerInfo();
+  },
+
   async purchasePremium(selectedPackage?: PurchasesPackage): Promise<PurchaseSuccess | PurchaseCancelled> {
     if (!canUsePurchases('purchasePremium')) {
       if (!__DEV__) throw purchasesUnavailableError('purchasePremium');

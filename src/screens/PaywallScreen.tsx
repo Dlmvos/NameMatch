@@ -23,7 +23,7 @@ function isSamePackage(a: PurchasesPackage | null, b: PurchasesPackage | null): 
 
 export default function PaywallScreen({ navigation }: Props) {
   const { t } = useTranslation();
-  const { refreshProfile } = useAuth();
+  const { hydratePremiumFromRevenueCat, restorePurchases } = useAuth();
   const [lifetimePkg, setLifetimePkg] = useState<PurchasesPackage | null>(null);
   const [monthlyPkg, setMonthlyPkg] = useState<PurchasesPackage | null>(null);
   const [legacyPkg, setLegacyPkg] = useState<PurchasesPackage | null>(null);
@@ -103,9 +103,9 @@ export default function PaywallScreen({ navigation }: Props) {
         Alert.alert(t('common.error'), t('shop.purchaseError'));
         return;
       }
-      await PurchaseService.syncRevenueCatEntitlement();
-      await refreshProfile();
+      await hydratePremiumFromRevenueCat(result.customerInfo);
       AnalyticsService.track('purchase_completed');
+      Alert.alert(t('shop.purchaseSuccessTitle'), t('shop.purchaseSuccessBody'));
       navigateAfterPremiumVerified();
     } catch (err: any) {
       AnalyticsService.track('purchase_failed', { reason: err?.message ?? 'unknown' });
@@ -119,14 +119,12 @@ export default function PaywallScreen({ navigation }: Props) {
     if (isBusy) return;
     setIsBusy(true);
     try {
-      const customerInfo = await PurchaseService.restorePurchases();
-      if (!PurchaseService.hasPremiumEntitlement(customerInfo)) {
-        Alert.alert(t('common.error'), t('shop.restoreError'));
+      const restored = await restorePurchases();
+      if (!restored) {
+        Alert.alert(t('shop.restoreNoneTitle'), t('shop.restoreNoneBody'));
         return;
       }
-      await PurchaseService.syncRevenueCatEntitlement();
-      await refreshProfile();
-      Alert.alert(t('shop.restoreSuccessTitle'), t('shop.restoreSuccessBody'));
+      Alert.alert(t('shop.restoreReadyTitle'), t('shop.restoreReadyBody'));
       navigateAfterPremiumVerified();
     } catch (err: any) {
       Alert.alert(t('common.error'), err?.message ?? t('shop.restoreError'));

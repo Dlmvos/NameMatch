@@ -103,8 +103,13 @@ const EN: TranslationMap = {
   'shop.restoreSuccessTitle': 'Welcome back to Premium',
   'shop.restoreSuccessBody': 'Your Premium access has been restored. Pick up right where you left off.',
   'shop.restoreError': 'Could not restore purchases.',
-  'shop.purchaseSuccessTitle': 'Welcome to Premium',
-  'shop.purchaseSuccessBody': 'Premium is now active for both of you. Enjoy the journey together.',
+  'shop.restoreReadyTitle': 'Premium ready',
+  'shop.restoreReadyBody': 'Your Premium access is ready.',
+  'shop.restoreNoneTitle': 'No purchase found',
+  'shop.restoreNoneBody':
+    'We couldn\'t find an active Premium subscription for this store account. If you subscribed on another device, sign in with the same Apple ID or Google account and try again.',
+  'shop.purchaseSuccessTitle': 'All set',
+  'shop.purchaseSuccessBody': 'You\'re all set — keep discovering names together.',
   'shop.purchaseError': 'Could not complete this purchase.',
   'country.alert.selectTitle': 'Almost there!',
   'country.alert.selectBody': 'Please select your country to continue.',
@@ -559,8 +564,13 @@ const TRANSLATIONS: Record<string, Partial<TranslationMap>> = {
   nl: {
     'shop.restoreSuccessTitle': 'Welkom terug bij Premium',
     'shop.restoreSuccessBody': 'Je Premium-toegang is hersteld. Ga verder waar je gebleven was.',
-    'shop.purchaseSuccessTitle': 'Welkom bij Premium',
-    'shop.purchaseSuccessBody': 'Premium is nu actief voor jullie allebei. Geniet samen van de reis.',
+    'shop.restoreReadyTitle': 'Premium klaar',
+    'shop.restoreReadyBody': 'Je Premium-toegang is klaar.',
+    'shop.restoreNoneTitle': 'Geen aankoop gevonden',
+    'shop.restoreNoneBody':
+      'We vonden geen actief Premium-abonnement voor dit winkelaccount. Als je op een ander apparaat hebt geabonneerd, log in met dezelfde Apple ID of Google-account en probeer opnieuw.',
+    'shop.purchaseSuccessTitle': 'Helemaal klaar',
+    'shop.purchaseSuccessBody': 'Jullie zijn helemaal klaar — blijf samen namen ontdekken.',
 
     'auth.title.signup': 'Account aanmaken',
     'auth.title.login': 'Welkom terug',
@@ -938,8 +948,13 @@ const TRANSLATIONS: Record<string, Partial<TranslationMap>> = {
   de: {
     'shop.restoreSuccessTitle': 'Willkommen zurück bei Premium',
     'shop.restoreSuccessBody': 'Dein Premium-Zugang wurde wiederhergestellt. Mach weiter, wo du aufgehört hast.',
-    'shop.purchaseSuccessTitle': 'Willkommen bei Premium',
-    'shop.purchaseSuccessBody': 'Premium ist jetzt für euch beide aktiv. Genießt die Reise gemeinsam.',
+    'shop.restoreReadyTitle': 'Premium bereit',
+    'shop.restoreReadyBody': 'Dein Premium-Zugang ist bereit.',
+    'shop.restoreNoneTitle': 'Kein Kauf gefunden',
+    'shop.restoreNoneBody':
+      'Wir haben kein aktives Premium-Abo für dieses Store-Konto gefunden. Falls ihr auf einem anderen Gerät abonniert habt, meldet euch mit derselben Apple-ID oder demselben Google-Konto an und versucht es erneut.',
+    'shop.purchaseSuccessTitle': 'Alles bereit',
+    'shop.purchaseSuccessBody': 'Du seid startklar – entdeckt weiter gemeinsam Namen.',
 
     'auth.title.signup': 'Konto erstellen',
     'auth.title.login': 'Willkommen zurück',
@@ -1316,8 +1331,13 @@ const TRANSLATIONS: Record<string, Partial<TranslationMap>> = {
   fr: {
     'shop.restoreSuccessTitle': 'Bon retour en Premium',
     'shop.restoreSuccessBody': 'Votre accès Premium a été restauré. Reprenez là où vous en étiez.',
-    'shop.purchaseSuccessTitle': 'Bienvenue en Premium',
-    'shop.purchaseSuccessBody': 'Premium est maintenant actif pour vous deux. Profitez du voyage ensemble.',
+    'shop.restoreReadyTitle': 'Premium prêt',
+    'shop.restoreReadyBody': 'Votre accès Premium est prêt.',
+    'shop.restoreNoneTitle': 'Aucun achat trouvé',
+    'shop.restoreNoneBody':
+      'Nous n’avons trouvé aucun abonnement Premium actif pour ce compte de boutique. Si vous vous êtes abonné sur un autre appareil, connectez-vous avec le même compte Apple ou Google et réessayez.',
+    'shop.purchaseSuccessTitle': 'C’est bon',
+    'shop.purchaseSuccessBody': 'Vous êtes parés — continuez à explorer des noms ensemble.',
 
     'auth.title.signup': 'Créer un compte',
     'auth.title.login': 'Bon retour',
@@ -1696,8 +1716,13 @@ const TRANSLATIONS: Record<string, Partial<TranslationMap>> = {
   es: {
     'shop.restoreSuccessTitle': 'Bienvenido de nuevo a Premium',
     'shop.restoreSuccessBody': 'Tu acceso Premium ha sido restaurado. Continúa donde lo dejaste.',
-    'shop.purchaseSuccessTitle': 'Bienvenido a Premium',
-    'shop.purchaseSuccessBody': 'Premium está activo para los dos. Disfruten el viaje juntos.',
+    'shop.restoreReadyTitle': 'Premium listo',
+    'shop.restoreReadyBody': 'Tu acceso Premium está listo.',
+    'shop.restoreNoneTitle': 'No encontramos una compra',
+    'shop.restoreNoneBody':
+      'No encontramos una suscripción Premium activa para esta cuenta de la tienda. Si os suscribisteis en otro dispositivo, iniciad sesión con la misma cuenta de Apple o Google e intentadlo de nuevo.',
+    'shop.purchaseSuccessTitle': 'Listos',
+    'shop.purchaseSuccessBody': 'Ya estáis listos — seguid descubriendo nombres juntos.',
 
     'auth.title.signup': 'Crear cuenta',
     'auth.title.login': 'Bienvenido de nuevo',
@@ -2092,8 +2117,13 @@ const TRANSLATIONS: Record<string, Partial<TranslationMap>> = {
   it: {
     'shop.restoreSuccessTitle': 'Bentornato in Premium',
     'shop.restoreSuccessBody': 'Il tuo accesso Premium è stato ripristinato. Riprendi da dove avevi lasciato.',
-    'shop.purchaseSuccessTitle': 'Benvenuto in Premium',
-    'shop.purchaseSuccessBody': 'Premium è ora attivo per entrambi. Godetevi il viaggio insieme.',
+    'shop.restoreReadyTitle': 'Premium attivo',
+    'shop.restoreReadyBody': 'Il tuo accesso Premium è pronto.',
+    'shop.restoreNoneTitle': 'Nessun acquisto trovato',
+    'shop.restoreNoneBody':
+      'Non abbiamo trovato un abbonamento Premium attivo per questo account dello store. Se vi siete abbonati da un altro dispositivo, accedete con lo stesso account Apple o Google e riprovate.',
+    'shop.purchaseSuccessTitle': 'Tutto pronto',
+    'shop.purchaseSuccessBody': 'Ci siete — continuate insieme a scoprire nomi.',
 
     'auth.title.signup': 'Crea un account',
     'auth.title.login': 'Bentornato',
@@ -2472,8 +2502,13 @@ const TRANSLATIONS: Record<string, Partial<TranslationMap>> = {
   pt: {
     'shop.restoreSuccessTitle': 'Bem-vindo de volta ao Premium',
     'shop.restoreSuccessBody': 'Seu acesso Premium foi restaurado. Continue de onde parou.',
-    'shop.purchaseSuccessTitle': 'Bem-vindo ao Premium',
-    'shop.purchaseSuccessBody': 'O Premium está ativo para vocês dois. Aproveitem a jornada juntos.',
+    'shop.restoreReadyTitle': 'Premium pronto',
+    'shop.restoreReadyBody': 'O seu acesso Premium está pronto.',
+    'shop.restoreNoneTitle': 'Nenhuma compra encontrada',
+    'shop.restoreNoneBody':
+      'Não encontrámos uma subscrição Premium ativa para esta conta da loja. Se subscreveste doutro dispositivo, inicia sessão com a mesma conta Apple ou Google e tenta novamente.',
+    'shop.purchaseSuccessTitle': 'Tudo pronto',
+    'shop.purchaseSuccessBody': 'Estão prontos — continuem a descobrir nomes juntos.',
 
     'auth.title.signup': 'Criar conta',
     'auth.title.login': 'Bem-vindo de volta',
@@ -2852,8 +2887,13 @@ const TRANSLATIONS: Record<string, Partial<TranslationMap>> = {
   zh: {
     'shop.restoreSuccessTitle': '欢迎回到 Premium',
     'shop.restoreSuccessBody': '你的 Premium 权限已恢复。从上次中断的地方继续吧。',
-    'shop.purchaseSuccessTitle': '欢迎加入 Premium',
-    'shop.purchaseSuccessBody': 'Premium 已为你们双方激活。一起享受这段旅程吧。',
+    'shop.restoreReadyTitle': 'Premium 已就绪',
+    'shop.restoreReadyBody': '你的 Premium 权限已就绪。',
+    'shop.restoreNoneTitle': '未找到购买记录',
+    'shop.restoreNoneBody':
+      '我们未在此商店账号下找到有效的 Premium 订阅。如果你曾在其他设备订阅，请使用相同的 Apple ID 或 Google 账号登录后再试。',
+    'shop.purchaseSuccessTitle': '一切就绪',
+    'shop.purchaseSuccessBody': '一切就绪——继续一起发现喜欢的名字吧。',
 
     'auth.title.signup': '创建账户',
     'auth.title.login': '欢迎回来',
@@ -3274,8 +3314,13 @@ const TRANSLATIONS: Record<string, Partial<TranslationMap>> = {
   ja: {
     'shop.restoreSuccessTitle': 'Premiumへおかえりなさい',
     'shop.restoreSuccessBody': 'Premiumアクセスが復元されました。続きからお楽しみください。',
-    'shop.purchaseSuccessTitle': 'Premiumへようこそ',
-    'shop.purchaseSuccessBody': 'Premiumがおふたりに有効になりました。一緒に旅をお楽しみください。',
+    'shop.restoreReadyTitle': 'Premiumの準備ができました',
+    'shop.restoreReadyBody': 'Premiumにアクセスできます。',
+    'shop.restoreNoneTitle': '購入が見つかりません',
+    'shop.restoreNoneBody':
+      'このストアアカウントに有効なPremiumのサブスクが見つかりませんでした。別の端末で購入した場合は、同じApple IDまたはGoogleアカウントでサインインしてからもう一度お試しください。',
+    'shop.purchaseSuccessTitle': '準備OK',
+    'shop.purchaseSuccessBody': '準備は整いました。これからもふたりで、名前探しを楽しんでください。',
 
     'auth.title.signup': 'アカウント作成',
     'auth.title.login': 'おかえりなさい',
@@ -3652,8 +3697,13 @@ const TRANSLATIONS: Record<string, Partial<TranslationMap>> = {
   ko: {
     'shop.restoreSuccessTitle': 'Premium에 다시 오신 걸 환영합니다',
     'shop.restoreSuccessBody': 'Premium 이용 권한이 복원되었습니다. 이전에 하던 곳에서 계속하세요.',
-    'shop.purchaseSuccessTitle': 'Premium에 오신 걸 환영합니다',
-    'shop.purchaseSuccessBody': 'Premium이 두 분 모두에게 활성화되었습니다. 함께 여정을 즐기세요.',
+    'shop.restoreReadyTitle': 'Premium 준비 완료',
+    'shop.restoreReadyBody': 'Premium 이용이 준비되었습니다.',
+    'shop.restoreNoneTitle': '구매 내역 없음',
+    'shop.restoreNoneBody':
+      '이 스토어 계정에서 활성화된 Premium 구독을 찾지 못했습니다. 다른 기기에서 구독하셨다면 동일한 Apple ID 또는 Google 계정으로 로그인한 뒤 다시 시도해 주세요.',
+    'shop.purchaseSuccessTitle': '준비 완료',
+    'shop.purchaseSuccessBody': '이제 준비됐어요 — 함께 이름을 계속 찾아보세요.',
 
     'auth.title.signup': '계정 만들기',
     'auth.title.login': '다시 오신 걸 환영합니다',
@@ -4004,8 +4054,13 @@ const TRANSLATIONS: Record<string, Partial<TranslationMap>> = {
   ar: {
     'shop.restoreSuccessTitle': 'مرحباً بعودتك إلى Premium',
     'shop.restoreSuccessBody': 'تم استعادة وصولك إلى Premium. تابع من حيث توقفت.',
-    'shop.purchaseSuccessTitle': 'مرحباً بك في Premium',
-    'shop.purchaseSuccessBody': 'Premium مفعّل الآن لكليكما. استمتعا بالرحلة معاً.',
+    'shop.restoreReadyTitle': 'Premium جاهز',
+    'shop.restoreReadyBody': 'وصولك إلى Premium جاهز.',
+    'shop.restoreNoneTitle': 'لم يُعثر على عملية شراء',
+    'shop.restoreNoneBody':
+      'لم نعثر على اشتراك Premium نشط لهذا الحساب في المتجر. إذا اشتركتما من جهاز آخر، سجّلا الدخول باستخدام نفس حساب Apple أو Google وحاولا مرة أخرى.',
+    'shop.purchaseSuccessTitle': 'كل شيء جاهز',
+    'shop.purchaseSuccessBody': 'أنتما جاهزان — تابعا اكتشاف الأسماء معاً.',
 
     'auth.title.signup': 'إنشاء حساب',
     'auth.title.login': 'مرحباً بعودتك',

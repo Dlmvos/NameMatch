@@ -124,8 +124,12 @@ export default function SettingsScreen() {
 
   const handleRestorePurchases = async () => {
     try {
-      await restorePurchases();
-      Alert.alert(tr('settings.restorePurchasesSuccessTitle'), tr('settings.restorePurchasesSuccessBody'));
+      const restored = await restorePurchases();
+      if (restored) {
+        Alert.alert(tr('shop.restoreReadyTitle'), tr('shop.restoreReadyBody'));
+      } else {
+        Alert.alert(tr('shop.restoreNoneTitle'), tr('shop.restoreNoneBody'));
+      }
     } catch (err: any) {
       Alert.alert(tr('common.error'), err?.message ?? tr('settings.restorePurchasesError'));
     }

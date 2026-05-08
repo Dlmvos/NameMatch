@@ -7,11 +7,12 @@ import React, {
   useRef,
 } from 'react';
 import { Session, User } from '@supabase/supabase-js';
+import type { CustomerInfo } from 'react-native-purchases';
 import {
   supabase,
   supabaseStartupError,
 } from '../lib/supabase';
-import { Profile } from '../types';
+import { Profile, PREMIUM_COUPLE_PACK_KEY } from '../types';
 import { ProfileService } from '../services/ProfileService';
 import { PurchaseService } from '../services/purchaseService';
 
@@ -44,7 +45,10 @@ interface AuthContextValue {
   // Entitlements (free swipes / purchased packs) must not be mutated via updateProfile.
   consumeFreeSwipe: (count?: number) => Promise<void>;
   refreshProfile: () => Promise<void>;
-  restorePurchases: () => Promise<void>;
+  /** Writes RevenueCat premium_couple to Supabase and refreshes local profile (with optimistic fallback). */
+  hydratePremiumFromRevenueCat: (customerInfoSeed?: CustomerInfo) => Promise<boolean>;
+  /** Calls RevenueCat restore, then hydrate. Returns true when premium entitlement is active. */
+  restorePurchases: () => Promise<boolean>;
   /** Permanently deletes the authenticated user (server-side) and clears local session. */
   deleteAccount: () => Promise<void>;
 }
@@ -339,14 +343,44 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (user) await fetchProfile(user);
   }, [user, fetchProfile]);
 
-  const restorePurchases = async () => {
+  const hydratePremiumFromRevenueCat = useCallback(
+    async (customerInfoSeed?: CustomerInfo): Promise<boolean> => {
+      if (!user) return false;
+      let info: CustomerInfo | null = null;
+      try {
+        info = await PurchaseService.getCustomerInfo();
+      } catch {
+        info = customerInfoSeed ?? null;
+      }
+      if (!info || !PurchaseService.hasPremiumEntitlement(info)) return false;
+      try {
+        await PurchaseService.syncRevenueCatEntitlement();
+      } catch (err) {
+        if (__DEV__) console.warn('[AuthContext] syncRevenueCatEntitlement:', err);
+      }
+      const updated = await fetchProfile(user);
+      if (updated && !updated.purchased_packs?.includes(PREMIUM_COUPLE_PACK_KEY)) {
+        setProfile({
+          ...updated,
+          purchased_packs: Array.from(
+            new Set([...(updated.purchased_packs ?? []), PREMIUM_COUPLE_PACK_KEY]),
+          ),
+        });
+      }
+      return true;
+    },
+    [user, fetchProfile],
+  );
+
+  const restorePurchases = useCallback(async (): Promise<boolean> => {
     if (!user) throw new Error('Not authenticated');
-    const customerInfo = await PurchaseService.restorePurchases();
-    if (PurchaseService.hasPremiumEntitlement(customerInfo)) {
-      await PurchaseService.syncRevenueCatEntitlement();
+    const info = await PurchaseService.restorePurchases();
+    if (!PurchaseService.hasPremiumEntitlement(info)) {
+      await refreshProfile();
+      return false;
     }
-    await refreshProfile();
-  };
+    return hydratePremiumFromRevenueCat(info);
+  }, [user, refreshProfile, hydratePremiumFromRevenueCat]);
 
   const deleteAccount = async () => {
     if (!user) throw new Error('Not authenticated');
@@ -381,6 +415,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         updateProfile,
         consumeFreeSwipe,
         refreshProfile,
+        hydratePremiumFromRevenueCat,
         restorePurchases,
         deleteAccount,
       }}

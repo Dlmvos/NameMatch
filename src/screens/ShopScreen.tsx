@@ -51,7 +51,7 @@ function curatedPackLabelSuffix(packType: string): string {
 
 export default function ShopScreen() {
   const { t, language } = useTranslation();
-  const { profile, refreshProfile, restorePurchases } = useAuth();
+  const { profile, hydratePremiumFromRevenueCat, restorePurchases } = useAuth();
   const {
     effectiveUnlockedPacks,
     refreshUnlockedPacks,
@@ -298,10 +298,11 @@ export default function ShopScreen() {
         pack.key === PREMIUM_COUPLE_PACK_KEY ? premiumSelectedPkg ?? undefined : undefined,
       );
       if (!result.success) return;
-      if (PurchaseService.hasPremiumEntitlement(result.customerInfo)) {
-        await PurchaseService.syncRevenueCatEntitlement();
-        await refreshProfile();
+      if (!PurchaseService.hasPremiumEntitlement(result.customerInfo)) {
+        Alert.alert(t('common.error'), t('shop.purchaseError'));
+        return;
       }
+      await hydratePremiumFromRevenueCat(result.customerInfo);
       await refreshUnlockedPacks();
       loadMoreNames();
       Alert.alert(t('shop.purchaseSuccessTitle'), t('shop.purchaseSuccessBody'));
@@ -312,10 +313,14 @@ export default function ShopScreen() {
 
   const handleRestorePurchases = async () => {
     try {
-      await restorePurchases();
+      const restored = await restorePurchases();
       await refreshUnlockedPacks();
       loadMoreNames();
-      Alert.alert(t('shop.restoreSuccessTitle'), t('shop.restoreSuccessBody'));
+      if (restored) {
+        Alert.alert(t('shop.restoreReadyTitle'), t('shop.restoreReadyBody'));
+      } else {
+        Alert.alert(t('shop.restoreNoneTitle'), t('shop.restoreNoneBody'));
+      }
     } catch (err: any) {
       Alert.alert(t('common.error'), err?.message ?? t('shop.restoreError'));
     }
@@ -471,7 +476,7 @@ export default function ShopScreen() {
             >
               <Text style={[styles.premiumCtaText, isPurchased(premiumCouplePack.key) && styles.premiumCtaTextOwned]}>
                 {isPurchased(premiumCouplePack.key)
-                  ? t('shop.badge.owned')
+                  ? `${t('shop.premiumActive.title')} · ${t('shop.badge.owned')}`
                   : t('shop.premiumCouple.cta')}
               </Text>
             </TouchableOpacity>
