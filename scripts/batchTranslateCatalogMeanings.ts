@@ -28,6 +28,7 @@
  *   --input ./scripts/data/name-meanings-source.csv \
  *   --output ./scripts/data/name_meaning_translations.import.csv \
  *   --languages es,pt,nl,de,fr,it \
+ *   --batch-size 22 \
  *   --limit 500
  * ```
  *
@@ -35,6 +36,11 @@
  * # Plan only (no API calls, no API key)
  * npm run batch:translate-name-meanings -- --input ./in.csv --output ./out.csv --dry-run
  * ```
+ *
+ * ## Robustness (model omits ids)
+ * Each chunk is requested once; if any ids are missing from the JSON response, the same chunk is
+ * retried **once**. Still missing rows are **bisected** (smaller sub-chunks) until singles.
+ * Only a **single-row** chunk that still fails after several attempts stops the run (so resume stays consistent).
  *
  * ## Resume
  * If `--output` already exists, existing `(name_id, language_code)` pairs are skipped so you can re-run
@@ -57,7 +63,7 @@ import path from 'node:path';
 
 const SOURCE_TAG = 'gpt-batch-v1';
 const CONFIDENCE_DEFAULT = 0.85;
-const BATCH_SIZE = 22;
+const DEFAULT_BATCH_SIZE = 22;
 const ALLOWED_TARGETS = new Set(['en', 'nl', 'de', 'fr', 'es', 'it', 'pt', 'zh', 'ja', 'ko', 'ar']);
 
 const LANG_NAMES: Record<string, string> = {
@@ -87,6 +93,7 @@ type CliOptions = {
   output: string;
   languages: string[];
   limit: number | null;
+  batchSize: number;
   dryRun: boolean;
 };
 
@@ -95,6 +102,7 @@ function parseArgs(argv: string[]): CliOptions {
   let output = '';
   let languages: string[] = ['es', 'pt', 'nl', 'de', 'fr', 'it'];
   let limit: number | null = null;
+  let batchSize = DEFAULT_BATCH_SIZE;
   let dryRun = false;
 
   for (let i = 2; i < argv.length; i++) {
@@ -109,6 +117,7 @@ Required:
 Optional:
   --languages es,pt,nl,de,fr,it   Target ISO codes (comma-separated, no spaces recommended)
   --limit <n>                     Max source rows after dedupe/sort (default: all)
+  --batch-size <n>               Names per initial chunk (default: ${DEFAULT_BATCH_SIZE}; try 10 or 5 if omit-heavy)
   --dry-run                       No OpenAI calls; print planned work only
 
 Env:
@@ -132,7 +141,14 @@ Env:
         .map((s) => s.trim().toLowerCase())
         .filter(Boolean);
     } else if (a === '--limit') limit = Math.max(0, parseInt(next(), 10));
-    else if (a === '--dry-run') dryRun = true;
+    else if (a === '--batch-size') {
+      const n = parseInt(next(), 10);
+      if (!Number.isFinite(n) || n < 1 || n > 120) {
+        console.error('--batch-size must be between 1 and 120');
+        process.exit(1);
+      }
+      batchSize = n;
+    } else if (a === '--dry-run') dryRun = true;
     else {
       console.error(`Unknown arg: ${a}`);
       process.exit(1);
@@ -156,7 +172,7 @@ Env:
     process.exit(1);
   }
 
-  return { input, output, languages, limit, dryRun };
+  return { input, output, languages, limit, batchSize, dryRun };
 }
 
 function stripBom(s: string): string {
@@ -302,10 +318,15 @@ async function sleep(ms: number): Promise<void> {
 
 type TranslationJson = { translations?: { id?: string; meaning?: string }[] };
 
-async function translateBatchOpenAI(
-  targetLang: string,
-  batch: InputRow[],
-): Promise<Map<string, string>> {
+function logOmittedRows(targetLang: string, context: string, omitted: InputRow[]): void {
+  console.warn(`[omit] ${context} lang=${targetLang}: ${omitted.length} id(s) missing from model JSON:`);
+  for (const r of omitted) {
+    console.warn(`       id=${r.id}  name="${r.name}"`);
+  }
+}
+
+/** One HTTP round-trip; returns partial map (may omit ids). Retries only on transport/HTTP/parse errors. */
+async function fetchTranslationsPartialMap(targetLang: string, batch: InputRow[]): Promise<Map<string, string>> {
   const apiKey = process.env.OPENAI_API_KEY;
   const model = process.env.OPENAI_MODEL ?? 'gpt-4o-mini';
   if (!apiKey) {
@@ -376,19 +397,81 @@ Rules:
         const m = row.meaning?.trim();
         if (id && m) out.set(id, m);
       }
-
-      const missing = batch.filter((r) => !out.has(r.id));
-      if (missing.length > 0) {
-        throw new Error(`Model omitted ${missing.length} id(s), retrying`);
-      }
-
       return out;
     } catch (e) {
       lastErr = e;
-      await sleep(400 * attempt);
+      await sleep(350 * attempt);
     }
   }
   throw lastErr instanceof Error ? lastErr : new Error(String(lastErr));
+}
+
+function mergeMaps(into: Map<string, string>, from: Map<string, string>): void {
+  for (const [k, v] of from) into.set(k, v);
+}
+
+function omittedRows(chunk: InputRow[], map: Map<string, string>): InputRow[] {
+  return chunk.filter((r) => !map.has(r.id));
+}
+
+/**
+ * Returns translations for every row in `chunk`. Retries once on omission, then bisects remaining rows.
+ * Aborts the process only if a **single-row** chunk still fails after `singleRowAttempts` tries.
+ */
+async function translateChunkRobust(
+  targetLang: string,
+  chunk: InputRow[],
+  contextLabel: string,
+): Promise<Map<string, string>> {
+  if (chunk.length === 0) return new Map();
+
+  const combined = new Map<string, string>();
+
+  if (chunk.length === 1) {
+    const row = chunk[0];
+    const singleRowAttempts = 6;
+    for (let attempt = 1; attempt <= singleRowAttempts; attempt++) {
+      const m = await fetchTranslationsPartialMap(targetLang, chunk);
+      mergeMaps(combined, m);
+      if (combined.has(row.id)) return combined;
+      console.warn(
+        `[omit] single-row retry ${attempt}/${singleRowAttempts} lang=${targetLang} id=${row.id} name="${row.name}"`,
+      );
+      await sleep(400 * attempt);
+    }
+    console.error(
+      `[fatal] Cannot obtain translation for single-row chunk lang=${targetLang} id=${row.id} name="${row.name}"`,
+    );
+    process.exit(1);
+  }
+
+  let m = await fetchTranslationsPartialMap(targetLang, chunk);
+  mergeMaps(combined, m);
+  let omitted = omittedRows(chunk, combined);
+
+  if (omitted.length > 0) {
+    logOmittedRows(targetLang, `${contextLabel} (after 1st request)`, omitted);
+    const mRetry = await fetchTranslationsPartialMap(targetLang, chunk);
+    mergeMaps(combined, mRetry);
+    omitted = omittedRows(chunk, combined);
+  }
+
+  if (omitted.length > 0) {
+    logOmittedRows(targetLang, `${contextLabel} (after 2nd request — splitting)`, omitted);
+    const mid = Math.ceil(omitted.length / 2);
+    const left = omitted.slice(0, mid);
+    const right = omitted.slice(mid);
+    mergeMaps(combined, await translateChunkRobust(targetLang, left, `${contextLabel}.L`));
+    mergeMaps(combined, await translateChunkRobust(targetLang, right, `${contextLabel}.R`));
+  }
+
+  const still = omittedRows(chunk, combined);
+  if (still.length > 0) {
+    logOmittedRows(targetLang, `${contextLabel} (unexpected gap)`, still);
+    process.exit(1);
+  }
+
+  return combined;
 }
 
 async function main(): Promise<void> {
@@ -402,6 +485,7 @@ async function main(): Promise<void> {
   const rows = parseInputCsv(opts.input);
   const capped = opts.limit != null ? rows.slice(0, opts.limit) : rows;
   console.log(`Loaded ${rows.length} unique source ids (${capped.length} after --limit).`);
+  console.log(`Batch size (initial chunk): ${opts.batchSize}`);
 
   ensureOutputHeader(opts.output);
   const done = loadExistingOutputKeys(opts.output);
@@ -419,8 +503,8 @@ async function main(): Promise<void> {
     );
 
     const batches: InputRow[][] = [];
-    for (let i = 0; i < todo.length; i += BATCH_SIZE) {
-      batches.push(todo.slice(i, i + BATCH_SIZE));
+    for (let i = 0; i < todo.length; i += opts.batchSize) {
+      batches.push(todo.slice(i, i + opts.batchSize));
     }
 
     for (let bi = 0; bi < batches.length; bi++) {
@@ -432,12 +516,12 @@ async function main(): Promise<void> {
         continue;
       }
 
-      console.log(`  Calling OpenAI ${lang} batch ${bi + 1}/${batches.length} (${batch.length} names)...`);
-      const translated = await translateBatchOpenAI(lang, batch);
+      console.log(`  OpenAI ${lang} batch ${bi + 1}/${batches.length} (${batch.length} names)...`);
+      const translated = await translateChunkRobust(lang, batch, `batch ${bi + 1}/${batches.length}`);
       for (const r of batch) {
         const m = translated.get(r.id);
         if (!m) {
-          console.error(`Missing translation for id=${r.id} — aborting so you can resume cleanly.`);
+          console.error(`Internal error: missing translation after robust merge id=${r.id}`);
           process.exit(1);
         }
         appendOutputRow(opts.output, { name_id: r.id, language_code: lang, meaning: m });
