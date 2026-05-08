@@ -154,8 +154,8 @@ export default function CountryScreen({ navigation, route }: Props) {
         {!fromSettings && (
           <View style={styles.residenceRow}>
             <View style={styles.residenceCopy}>
-              <Text style={styles.residenceTitle}>Use this as residence country</Text>
-              <Text style={styles.residenceSubtitle}>Used for pricing and currency</Text>
+              <Text style={styles.residenceTitle}>{t('country.residence.title')}</Text>
+              <Text style={styles.residenceSubtitle}>{t('country.residence.subtitle')}</Text>
             </View>
             <Switch
               value={useAsResidenceCountry}

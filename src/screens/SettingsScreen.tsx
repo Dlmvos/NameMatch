@@ -32,7 +32,7 @@ const PRIVACY_POLICY_URL = 'https://babinom.com/privacy/';
 const SUPPORT_URL = 'https://babinom.com/support/';
 
 export default function SettingsScreen() {
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
   const tr = t;
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
@@ -131,7 +131,9 @@ export default function SettingsScreen() {
   };
 
   const openExternalUrl = (url: string) => {
-    Linking.openURL(url).catch((err: any) => {
+    const separator = url.includes('?') ? '&' : '?';
+    const localizedUrl = `${url}${separator}lang=${language}`;
+    Linking.openURL(localizedUrl).catch((err: any) => {
       Alert.alert(tr('common.error'), err?.message ?? url);
     });
   };

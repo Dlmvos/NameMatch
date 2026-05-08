@@ -50,6 +50,9 @@ export default function MatchCelebration({ name, onDismiss, onViewMatches }: Mat
   const ringScale1 = useRef(new Animated.Value(0.6)).current;
   const ringScale2 = useRef(new Animated.Value(0.5)).current;
   const ringScale3 = useRef(new Animated.Value(0.4)).current;
+  const heartScale = useRef(new Animated.Value(1)).current;
+  const shimmerPos = useRef(new Animated.Value(-1)).current;
+  const oneTextFade = useRef(new Animated.Value(0)).current;
 
   const genderKey = String(name?.gender || '').toLowerCase();
   const localizedMeaning = getLocalizedNameMeaning(name, language);
@@ -57,7 +60,7 @@ export default function MatchCelebration({ name, onDismiss, onViewMatches }: Mat
   const handleShare = async () => {
     try {
       await Share.share({
-        message: `We matched on ${name.name} ❤️ Try Babinom`,
+        message: t('match.shareMessage', { name: name.name }),
       });
     } catch (_) {}
   };
@@ -99,11 +102,10 @@ export default function MatchCelebration({ name, onDismiss, onViewMatches }: Mat
   ).current;
 
   useEffect(() => {
-    // Premium tactile: warm satisfying pulse
+    // Layered tactile: thump → tap → whisper for emotional depth
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setTimeout(() => {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }, 200);
+    setTimeout(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light), 180);
+    setTimeout(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light), 400);
 
     // Fade in backdrop
     Animated.timing(fadeAnim, {
@@ -154,21 +156,82 @@ export default function MatchCelebration({ name, onDismiss, onViewMatches }: Mat
       Animated.spring(ringScale3, { toValue: 1, tension: 16, friction: 16, delay: 200, useNativeDriver: true }),
     ]).start();
 
-    // Glow pulse: slow breathing rhythm
+    // Glow pulse: slow breathing rhythm — intensified range for warmth
     Animated.loop(
       Animated.sequence([
         Animated.timing(glowPulse, {
-          toValue: 0.35,
-          duration: 2600,
+          toValue: 0.48,
+          duration: 2200,
           easing: Easing.inOut(Easing.ease),
           useNativeDriver: true,
         }),
         Animated.timing(glowPulse, {
-          toValue: 0.15,
-          duration: 2600,
+          toValue: 0.12,
+          duration: 2800,
           easing: Easing.inOut(Easing.ease),
           useNativeDriver: true,
         }),
+      ]),
+    ).start();
+
+    // Name glow: subtle opacity pulse that makes the name feel alive
+    Animated.loop(
+      Animated.sequence([
+        Animated.delay(1400),
+        Animated.timing(shimmerPos, {
+          toValue: 1,
+          duration: 1600,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(shimmerPos, {
+          toValue: 0,
+          duration: 1600,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.delay(3000),
+      ]),
+    ).start();
+
+    // "The one" tagline: delayed gentle fade
+    Animated.timing(oneTextFade, {
+      toValue: 1,
+      duration: 800,
+      delay: 900,
+      easing: Easing.out(Easing.ease),
+      useNativeDriver: true,
+    }).start();
+
+    // Heartbeat: gentle scale pulse, starts after name reveal
+    Animated.loop(
+      Animated.sequence([
+        Animated.delay(1600),
+        Animated.timing(heartScale, {
+          toValue: 1.18,
+          duration: 280,
+          easing: Easing.out(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(heartScale, {
+          toValue: 1,
+          duration: 200,
+          easing: Easing.in(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(heartScale, {
+          toValue: 1.12,
+          duration: 240,
+          easing: Easing.out(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(heartScale, {
+          toValue: 1,
+          duration: 300,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.delay(2400),
       ]),
     ).start();
 
@@ -207,7 +270,7 @@ export default function MatchCelebration({ name, onDismiss, onViewMatches }: Mat
         ]),
       ).start();
     });
-  }, [fadeAnim, glowPulse, nameReveal, nameScale, ringScale1, ringScale2, ringScale3, scaleAnim, sparkles]);
+  }, [fadeAnim, glowPulse, heartScale, nameReveal, nameScale, oneTextFade, ringScale1, ringScale2, ringScale3, scaleAnim, shimmerPos, sparkles]);
 
   return (
     <Modal transparent animationType="none" visible statusBarTranslucent>
@@ -275,9 +338,9 @@ export default function MatchCelebration({ name, onDismiss, onViewMatches }: Mat
           {t('match.subtitle')}
         </Text>
 
-        <View style={styles.partnerAvatars} accessibilityLabel="You and your partner both liked this name">
+        <View style={styles.partnerAvatars} accessibilityLabel={t('match.partnerAvatarsA11y')}>
           <View style={[styles.partnerAvatar, { borderColor: theme.accent }]}>
-            <Text style={styles.partnerAvatarText}>You</Text>
+            <Text style={styles.partnerAvatarText}>{t('match.avatarYou')}</Text>
           </View>
           <View style={[styles.partnerAvatar, styles.partnerAvatarOverlap, { borderColor: theme.accent }]}>
             <Text style={styles.partnerAvatarText}>♥</Text>
@@ -286,6 +349,20 @@ export default function MatchCelebration({ name, onDismiss, onViewMatches }: Mat
 
         {/* The name — hero, centered, large */}
         <Animated.View style={[styles.nameArea, { opacity: nameReveal, transform: [{ scale: nameScale }] }]}>
+          {/* Warm glow halo behind name — breathes subtly */}
+          <Animated.View
+            pointerEvents="none"
+            style={[
+              styles.nameGlow,
+              {
+                backgroundColor: theme.glow,
+                opacity: shimmerPos.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [0, 0.55],
+                }),
+              },
+            ]}
+          />
           <Text
             style={styles.nameText}
             numberOfLines={2}
@@ -294,9 +371,9 @@ export default function MatchCelebration({ name, onDismiss, onViewMatches }: Mat
           >
             {name.name}
           </Text>
-          <Text style={[styles.oneText, { color: theme.accent }]}>
-            This could be the one
-          </Text>
+          <Animated.Text style={[styles.oneText, { color: theme.accent, opacity: oneTextFade }]}>
+            {t('match.theOne')}
+          </Animated.Text>
 
           {/* Origin + meaning below name */}
           {(() => {
@@ -312,8 +389,8 @@ export default function MatchCelebration({ name, onDismiss, onViewMatches }: Mat
           )}
         </Animated.View>
 
-        {/* Heart pulse — emotional anchor, not a button */}
-        <Animated.View style={[styles.heartPulse, { opacity: nameReveal }]}>
+        {/* Heart pulse — emotional anchor with heartbeat */}
+        <Animated.View style={[styles.heartPulse, { opacity: nameReveal, transform: [{ scale: heartScale }] }]}>
           <View style={[styles.heartOuter, { backgroundColor: theme.ring }]}>
             <View style={[styles.heartInner, { backgroundColor: theme.ring }]}>
               <Text style={[styles.heartIcon, { color: theme.accent }]}>&#x2665;</Text>
@@ -456,6 +533,14 @@ const styles = StyleSheet.create({
   nameArea: {
     alignItems: 'center',
     marginBottom: SPACING.lg,
+  },
+  nameGlow: {
+    position: 'absolute',
+    width: 200,
+    height: 60,
+    borderRadius: 30,
+    top: -4,
+    alignSelf: 'center',
   },
   nameText: {
     fontSize: 56,

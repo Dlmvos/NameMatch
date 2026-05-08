@@ -16,6 +16,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useAuth } from '../context/AuthContext';
+import { useTranslation } from '../i18n/I18nProvider';
 import { RootStackParamList } from '../types';
 import { COLORS, FONTS, RADIUS, SPACING, SHADOWS } from '../theme';
 
@@ -23,6 +24,7 @@ type Props = NativeStackScreenProps<RootStackParamList, 'Auth'>;
 
 export default function AuthScreen({ navigation, route }: Props) {
   const { signUp, signIn } = useAuth();
+  const { t } = useTranslation();
   const [mode, setMode] = useState<'login' | 'signup'>(route.params.mode);
   const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');
@@ -47,19 +49,19 @@ export default function AuthScreen({ navigation, route }: Props) {
 
     if (!email || !password) {
       shake();
-      Alert.alert('Oops!', 'Please fill in all fields.');
+      Alert.alert(t('auth.alert.oops'), t('auth.alert.fillFields'));
       return;
     }
 
     if (mode === 'signup' && !displayName) {
       shake();
-      Alert.alert('Oops!', 'Please enter your name.');
+      Alert.alert(t('auth.alert.oops'), t('auth.alert.enterName'));
       return;
     }
 
     if (password.length < 6) {
       shake();
-      Alert.alert('Oops!', 'Password must be at least 6 characters.');
+      Alert.alert(t('auth.alert.oops'), t('auth.alert.passwordLength'));
       return;
     }
 
@@ -70,11 +72,11 @@ export default function AuthScreen({ navigation, route }: Props) {
         await signUp(email.trim(), password, displayName.trim());
 
         Alert.alert(
-          'Check your email',
-          'Your account was created. Please verify your email address before signing in.',
+          t('auth.alert.checkEmail'),
+          t('auth.alert.verifyEmail'),
           [
             {
-              text: 'OK',
+              text: t('common.ok'),
               onPress: () => {
                 setMode('login');
                 setPassword('');
@@ -88,8 +90,8 @@ export default function AuthScreen({ navigation, route }: Props) {
     } catch (err: any) {
       shake();
       Alert.alert(
-        mode === 'signup' ? 'Sign Up Failed' : 'Login Failed',
-        err?.message ?? 'Something went wrong. Please try again.'
+        mode === 'signup' ? t('auth.alert.signupFailed') : t('auth.alert.loginFailed'),
+        err?.message ?? t('auth.alert.genericError')
       );
     } finally {
       setIsLoading(false);
@@ -125,19 +127,19 @@ export default function AuthScreen({ navigation, route }: Props) {
       >
         <Text style={styles.emoji}>{mode === 'signup' ? '👶' : '💕'}</Text>
         <Text style={styles.title}>
-          {mode === 'signup' ? 'Create Account' : 'Welcome Back'}
+          {mode === 'signup' ? t('auth.title.signup') : t('auth.title.login')}
         </Text>
         <Text style={styles.subtitle}>
           {mode === 'signup'
-            ? 'Join Babinom and start your journey'
-            : 'Ready to find more matches?'}
+            ? t('auth.subtitle.signup')
+            : t('auth.subtitle.login')}
         </Text>
 
         <Animated.View style={[styles.form, { transform: [{ translateX: shakeAnim }] }]}>
           {mode === 'signup' && (
             <InputField
               icon="person-outline"
-              placeholder="Your first name"
+              placeholder={t('auth.placeholder.name')}
               value={displayName}
               onChangeText={setDisplayName}
               autoCapitalize="words"
@@ -146,7 +148,7 @@ export default function AuthScreen({ navigation, route }: Props) {
 
           <InputField
             icon="mail-outline"
-            placeholder="Email address"
+            placeholder={t('auth.placeholder.email')}
             value={email}
             onChangeText={setEmail}
             keyboardType="email-address"
@@ -156,7 +158,7 @@ export default function AuthScreen({ navigation, route }: Props) {
           <View style={styles.passwordWrapper}>
             <InputField
               icon="lock-closed-outline"
-              placeholder="Password"
+              placeholder={t('auth.placeholder.password')}
               value={password}
               onChangeText={setPassword}
               secureTextEntry={!showPassword}
@@ -187,16 +189,16 @@ export default function AuthScreen({ navigation, route }: Props) {
             end={{ x: 1, y: 0 }}
           >
             <Text style={styles.submitText}>
-              {isLoading ? 'Please wait...' : mode === 'signup' ? 'Create Account' : 'Sign In'}
+              {isLoading ? t('auth.button.loading') : mode === 'signup' ? t('auth.button.signup') : t('auth.button.login')}
             </Text>
           </LinearGradient>
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.toggleBtn} onPress={toggleMode} disabled={isLoading}>
           <Text style={styles.toggleText}>
-            {mode === 'signup' ? 'Already have an account? ' : "Don't have an account? "}
+            {mode === 'signup' ? t('auth.toggle.hasAccount') : t('auth.toggle.noAccount')}
             <Text style={styles.toggleLink}>
-              {mode === 'signup' ? 'Sign In' : 'Sign Up'}
+              {mode === 'signup' ? t('auth.toggle.login') : t('auth.toggle.signup')}
             </Text>
           </Text>
         </TouchableOpacity>

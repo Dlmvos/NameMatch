@@ -522,7 +522,7 @@ function MatchCard({
           <Ionicons name="heart" size={14} color={colors.match.primary} style={styles.heartIcon} />
         </View>
         <View style={styles.matchedTogetherBadge}>
-          <Text style={styles.matchedTogetherText}>You both liked this</Text>
+          <Text style={styles.matchedTogetherText}>{t('matches.bothLiked')}</Text>
         </View>
         <View style={styles.originRow}>
           {preview ? (
