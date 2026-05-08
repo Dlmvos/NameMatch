@@ -79,6 +79,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   /** Latest profile for stable callbacks (avoids stale reads without widening useCallback deps). */
   const profileRef = useRef<Profile | null>(null);
   profileRef.current = profile;
+  /** Set after hydratePremiumFromRevenueCat is defined — used by cold-boot RC reconcile. */
+  const hydratePremiumFromRcRef = useRef<
+    (customerInfoSeed?: CustomerInfo) => Promise<boolean>
+  >(() => Promise.resolve(false));
 
   const ensureProfile = useCallback(async (authUser: User) => {
     return ProfileService.ensureProfile(
@@ -159,6 +163,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             console.error('[AuthContext] RevenueCat logIn failed after getSession:', err);
           });
           fetchProfile(bootUser)
+            .then((loaded) => {
+              if (!loaded) return;
+              if (activeAuthUserIdRef.current !== bootUser.id) return;
+              if (loaded.purchased_packs?.includes(PREMIUM_COUPLE_PACK_KEY)) return;
+              void (async () => {
+                try {
+                  const info = await PurchaseService.getCustomerInfo();
+                  if (!PurchaseService.hasPremiumEntitlement(info)) return;
+                  if (activeAuthUserIdRef.current !== bootUser.id) return;
+                  await hydratePremiumFromRcRef.current(info);
+                } catch {
+                  /* transient RevenueCat errors during cold boot — ignore */
+                }
+              })();
+            })
             .catch((err) => {
               console.error('[AuthContext] fetchProfile failed after getSession:', err);
               setStartupError('Could not load your profile. Please try again.');
@@ -391,6 +410,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     },
     [user, fetchProfile],
   );
+  hydratePremiumFromRcRef.current = hydratePremiumFromRevenueCat;
 
   const restorePurchases = useCallback(async (): Promise<boolean> => {
     if (!user) throw new Error('Not authenticated');

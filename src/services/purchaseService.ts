@@ -330,7 +330,29 @@ export const PurchaseService = {
     if (!canUsePurchases('restorePurchases')) {
       throw purchasesUnavailableError('restorePurchases');
     }
-    return Purchases.restorePurchases();
+    const customerInfo = await Purchases.restorePurchases();
+    if (hasPremiumEntitlement(customerInfo)) {
+      console.log('[PurchaseService] restorePurchases → entitlement active immediately');
+      return customerInfo;
+    }
+    // Entitlement may lag behind the StoreKit transaction on RevenueCat's
+    // backend.  Re-fetch up to 3 times with short back-off before giving up.
+    console.warn('[PurchaseService] restorePurchases → entitlement NOT active on initial customerInfo, retrying…');
+    const delays = [1000, 2000, 3000];
+    for (const ms of delays) {
+      await new Promise((r) => setTimeout(r, ms));
+      try {
+        const fresh = await Purchases.getCustomerInfo();
+        if (hasPremiumEntitlement(fresh)) {
+          console.log(`[PurchaseService] restorePurchases → entitlement active after ${ms}ms retry`);
+          return fresh;
+        }
+      } catch {
+        // Transient fetch failure — continue retrying.
+      }
+    }
+    console.warn('[PurchaseService] restorePurchases → entitlement still missing after retries, returning original customerInfo');
+    return customerInfo;
   },
 
   async checkEntitlement(): Promise<boolean> {
