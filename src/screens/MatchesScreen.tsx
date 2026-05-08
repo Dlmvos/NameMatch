@@ -34,19 +34,6 @@ import { AnalyticsService } from '../services/AnalyticsService';
 
 type ScreenTab = 'matches' | 'likes';
 
-async function shareSingleMatch(
-  match: Match,
-): Promise<void> {
-  const name = match.baby_names;
-  if (!name) return;
-  try {
-    AnalyticsService.track('match_shared', { name: name.name });
-    await Share.share({
-      message: `We matched on ${name.name} ❤️ Try Babinom`,
-    });
-  } catch (_) {}
-}
-
 const NOTES_STORAGE_KEY = 'namenest:match_notes';
 // Replaced by shared cleanOriginForDisplay from nameMeaningDisplay
 
@@ -96,6 +83,20 @@ export default function MatchesScreen() {
         (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
       ),
     [rawDisplayedMatches],
+  );
+
+  const handleShareMatch = useCallback(
+    async (match: Match) => {
+      const babyName = match.baby_names;
+      if (!babyName) return;
+      try {
+        AnalyticsService.track('match_shared', { name: babyName.name });
+        await Share.share({
+          message: t('match.shareMessage', { name: babyName.name }),
+        });
+      } catch (_) {}
+    },
+    [t],
   );
 
   // ── Custom name modal state ──
@@ -413,7 +414,7 @@ export default function MatchesScreen() {
                 rank={index + 1}
                 note={notes[item.id]}
                 onNotePress={() => openNote(item.id)}
-                onShareMatch={() => shareSingleMatch(item)}
+                onShareMatch={() => handleShareMatch(item)}
               />
             )}
             ListFooterComponent={
@@ -489,7 +490,11 @@ function MatchCard({
   const genderEmoji =
     name.gender === 'boy' ? '💙' : name.gender === 'girl' ? '💗' : '💜';
   const genderLabel =
-    name.gender === 'boy' ? 'Boy' : name.gender === 'girl' ? 'Girl' : 'Neutral';
+    name.gender === 'boy'
+      ? t('swipe.card.gender.boy')
+      : name.gender === 'girl'
+        ? t('swipe.card.gender.girl')
+        : t('swipe.card.gender.neutral');
   const origin = cleanOriginForDisplay(name.origin);
   const localizedMeaning = getLocalizedNameMeaning(name, language);
   const preview = [genderLabel, origin].filter(Boolean).join(' • ');

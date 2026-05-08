@@ -1,6 +1,7 @@
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { colors, FONTS, RADIUS, SHADOWS, SPACING } from '../theme';
+import { trStatic } from '../i18n/staticTranslate';
 
 type Props = {
   children: React.ReactNode;
@@ -34,12 +35,10 @@ export default class ErrorBoundary extends React.Component<Props, State> {
       <View style={styles.container}>
         <View style={[styles.card, SHADOWS.card]}>
           <Text style={styles.emoji}>🌸</Text>
-          <Text style={styles.title}>Something went wrong</Text>
-          <Text style={styles.body}>
-            Babinom hit a small hiccup. Try again to return to your names.
-          </Text>
+          <Text style={styles.title}>{trStatic('error.title')}</Text>
+          <Text style={styles.body}>{trStatic('error.body')}</Text>
           <TouchableOpacity style={[styles.button, SHADOWS.button]} onPress={this.handleRetry} activeOpacity={0.85}>
-            <Text style={styles.buttonText}>Try again</Text>
+            <Text style={styles.buttonText}>{trStatic('error.retry')}</Text>
           </TouchableOpacity>
         </View>
       </View>

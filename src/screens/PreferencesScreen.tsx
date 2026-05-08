@@ -73,7 +73,7 @@ export default function PreferencesScreen({ navigation }: Props) {
 
   const handleContinue = async () => {
     if (!selected) {
-      Alert.alert('Almost there!', 'Please select a preference to continue.');
+      Alert.alert(t('preferences.alert.almostTitle'), t('preferences.alert.almostBody'));
       return;
     }
     setIsLoading(true);
@@ -81,13 +81,17 @@ export default function PreferencesScreen({ navigation }: Props) {
       await Promise.race([
         updateProfile({ gender_preference: selected }),
         new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error('Saving took too long. Please try again.')), SAVE_TIMEOUT_MS)
+          setTimeout(() => reject(new Error('__PREFERENCE_SAVE_TIMEOUT__')), SAVE_TIMEOUT_MS),
         ),
       ]);
       didAutoForward.current = true; // prevent auto-forward effect from also firing
       navigation.replace('Country');
     } catch (err: any) {
-      Alert.alert('Error', err.message ?? 'Something went wrong.');
+      const body =
+        err?.message === '__PREFERENCE_SAVE_TIMEOUT__'
+          ? t('preferences.alert.timeout')
+          : err?.message ?? t('common.genericError');
+      Alert.alert(t('common.error'), body);
     } finally {
       setIsLoading(false);
     }

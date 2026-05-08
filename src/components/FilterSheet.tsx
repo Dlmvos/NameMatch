@@ -34,20 +34,20 @@ const TREND_OPTIONS: { key: NameTrend; labelKey: string; emoji: string }[] = [
 ];
 
 type QuickChip =
-  | { key: 'modern' | 'classic'; label: string; trend: NameTrend }
-  | { key: 'short'; label: string; length: NameLength }
-  | { key: NameStyleTag; label: string; styleTag: NameStyleTag };
+  | { key: 'modern' | 'classic'; trend: NameTrend }
+  | { key: 'short'; length: NameLength }
+  | { key: NameStyleTag; styleTag: NameStyleTag };
 
 const QUICK_CHIPS: QuickChip[] = [
-  { key: 'modern', label: 'Modern', trend: 'rising' },
-  { key: 'classic', label: 'Classic', trend: 'classic' },
-  { key: 'short', label: 'Short', length: 'short' },
-  { key: 'unique', label: 'Unique', styleTag: 'unique' },
-  { key: 'international', label: 'International', styleTag: 'international' },
-  { key: 'spanish', label: 'Spanish', styleTag: 'spanish' },
-  { key: 'dutch', label: 'Dutch', styleTag: 'dutch' },
-  { key: 'soft', label: 'Soft', styleTag: 'soft' },
-  { key: 'strong', label: 'Strong', styleTag: 'strong' },
+  { key: 'modern', trend: 'rising' },
+  { key: 'classic', trend: 'classic' },
+  { key: 'short', length: 'short' },
+  { key: 'unique', styleTag: 'unique' },
+  { key: 'international', styleTag: 'international' },
+  { key: 'spanish', styleTag: 'spanish' },
+  { key: 'dutch', styleTag: 'dutch' },
+  { key: 'soft', styleTag: 'soft' },
+  { key: 'strong', styleTag: 'strong' },
 ];
 
 const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
@@ -226,8 +226,8 @@ export default function FilterSheet({
 
         <ScrollView showsVerticalScrollIndicator={false}>
           {/* Style / culture */}
-          <Text style={styles.sectionLabel}>STYLE / CULTURE</Text>
-          <Text style={styles.sectionHint}>Combine chips to shape the deck without typing.</Text>
+          <Text style={styles.sectionLabel}>{t('filter.section.style')}</Text>
+          <Text style={styles.sectionHint}>{t('filter.section.styleHint')}</Text>
           <View style={!isPremium ? styles.lockedClusterWrap : undefined}>
             {!isPremium ? (
               <View pointerEvents="none" style={[StyleSheet.absoluteFillObject, styles.lockedFrostOverlay]} />
@@ -253,7 +253,7 @@ export default function FilterSheet({
                       active && styles.filterChipTextActive,
                     ]}
                   >
-                    {chip.label}
+                    {t(`filter.chip.${chip.key}`)}
                   </Text>
                   {!isPremium ? (
                     <Ionicons name="lock-closed-outline" size={13} color={'rgba(100,106,126,0.78)'} />
@@ -386,7 +386,9 @@ export default function FilterSheet({
                 setShowAllLetters((prev) => !prev);
               }}
             >
-              <Text style={styles.moreLetterText}>{showAllLetters ? 'Less' : 'More'}</Text>
+              <Text style={styles.moreLetterText}>
+                {showAllLetters ? t('filter.letters.less') : t('filter.letters.more')}
+              </Text>
               {!isPremium ? (
                 <Ionicons name="lock-closed-outline" size={10} color={colors.neutral.gray} />
               ) : null}

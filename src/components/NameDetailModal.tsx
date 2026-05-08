@@ -22,46 +22,39 @@ function deriveCharacterTags(name: BabyName, trend?: string): string[] {
   const len = name.name.length;
   const origin = (name.origin ?? '').toLowerCase();
 
-  // Length-based
-  if (len <= 4) tags.push('Modern');
-  else if (len >= 8) tags.push('Elegant');
+  if (len <= 4) tags.push('character.modern');
+  else if (len >= 8) tags.push('character.elegant');
 
-  // Trend-based
-  if (trend === 'rising') tags.push('Trending');
-  else if (trend === 'classic') tags.push('Timeless');
+  if (trend === 'rising') tags.push('character.trending');
+  else if (trend === 'classic') tags.push('character.timeless');
 
-  // Origin-based personality
-  if (/latin|roman|greek|italian/i.test(origin)) tags.push('Classical');
-  if (/french|spanish|portuguese/i.test(origin)) tags.push('Romantic');
-  if (/norse|nordic|scandinavian|viking|celtic|irish|gaelic/i.test(origin)) tags.push('Strong');
-  if (/arabic|persian|hebrew/i.test(origin)) tags.push('Noble');
-  if (/japanese|chinese|korean/i.test(origin)) tags.push('Graceful');
-  if (/african|nigerian|kenyan|south african/i.test(origin)) tags.push('Spirited');
+  if (/latin|roman|greek|italian/i.test(origin)) tags.push('character.classical');
+  if (/french|spanish|portuguese/i.test(origin)) tags.push('character.romantic');
+  if (/norse|nordic|scandinavian|viking|celtic|irish|gaelic/i.test(origin)) tags.push('character.strong');
+  if (/arabic|persian|hebrew/i.test(origin)) tags.push('character.noble');
+  if (/japanese|chinese|korean/i.test(origin)) tags.push('character.graceful');
+  if (/african|nigerian|kenyan|south african/i.test(origin)) tags.push('character.spirited');
 
-  // Rarity-based
   const rank = name.popularity_rank;
-  if (rank && rank > 50) tags.push('Rare');
-  else if (rank && rank <= 5) tags.push('Beloved');
+  if (rank && rank > 50) tags.push('character.rare');
+  else if (rank && rank <= 5) tags.push('character.beloved');
 
-  // Gender softness
   const g = (name.gender ?? '').toLowerCase();
   if (g.includes('girl') || g.includes('fem')) {
-    if (!tags.includes('Elegant') && !tags.includes('Strong')) tags.push('Graceful');
+    const hasElegantOrStrong = tags.includes('character.elegant') || tags.includes('character.strong');
+    if (!hasElegantOrStrong) tags.push('character.graceful');
   }
 
-  // Cap at 3 unique tags
   return [...new Set(tags)].slice(0, 3);
 }
 
-// ── Popularity tier from rank ──
-
-function popularityTier(rank?: number): { label: string; level: number } {
-  if (!rank) return { label: '', level: 0 };
-  if (rank <= 5) return { label: 'Very Popular', level: 5 };
-  if (rank <= 15) return { label: 'Popular', level: 4 };
-  if (rank <= 30) return { label: 'Well Known', level: 3 };
-  if (rank <= 50) return { label: 'Uncommon', level: 2 };
-  return { label: 'Rare', level: 1 };
+function popularityTier(rank?: number): { key: string; level: number } {
+  if (!rank) return { key: '', level: 0 };
+  if (rank <= 5) return { key: 'popularity.detail.veryPopular', level: 5 };
+  if (rank <= 15) return { key: 'popularity.detail.popular', level: 4 };
+  if (rank <= 30) return { key: 'popularity.detail.wellKnown', level: 3 };
+  if (rank <= 50) return { key: 'popularity.detail.uncommon', level: 2 };
+  return { key: 'popularity.detail.rare', level: 1 };
 }
 
 // ── Palette ──
@@ -88,7 +81,7 @@ interface NameDetailModalProps {
 }
 
 export default function NameDetailModal({ name, visible, onClose }: NameDetailModalProps) {
-  const { language } = useTranslation();
+  const { language, t } = useTranslation();
 
   const detail = useMemo(() => {
     if (!name) return null;
@@ -182,7 +175,7 @@ export default function NameDetailModal({ name, visible, onClose }: NameDetailMo
           {/* Meaning section */}
           {!!detail.meaning && (
             <View style={s.section}>
-              <Text style={s.sectionLabel}>MEANING</Text>
+              <Text style={s.sectionLabel}>{t('nameDetail.section.meaning')}</Text>
               <Text style={s.meaningText}>&ldquo;{detail.meaning}&rdquo;</Text>
             </View>
           )}
@@ -190,7 +183,7 @@ export default function NameDetailModal({ name, visible, onClose }: NameDetailMo
           {/* Popularity section */}
           {detail.popularity.level > 0 && (
             <View style={s.section}>
-              <Text style={s.sectionLabel}>POPULARITY</Text>
+              <Text style={s.sectionLabel}>{t('nameDetail.section.popularity')}</Text>
               <View style={s.popularityRow}>
                 <View style={s.popularityBar}>
                   <View
@@ -200,10 +193,10 @@ export default function NameDetailModal({ name, visible, onClose }: NameDetailMo
                     ]}
                   />
                 </View>
-                <Text style={s.popularityLabel}>{detail.popularity.label}</Text>
+                <Text style={s.popularityLabel}>{t(detail.popularity.key)}</Text>
               </View>
               {!!detail.rank && (
-                <Text style={s.rankText}>Rank #{detail.rank}</Text>
+                <Text style={s.rankText}>{t('nameDetail.rank', { rank: detail.rank })}</Text>
               )}
             </View>
           )}
@@ -211,11 +204,11 @@ export default function NameDetailModal({ name, visible, onClose }: NameDetailMo
           {/* Character tags */}
           {detail.characterTags.length > 0 && (
             <View style={s.section}>
-              <Text style={s.sectionLabel}>CHARACTER</Text>
+              <Text style={s.sectionLabel}>{t('nameDetail.section.character')}</Text>
               <View style={s.tagsRow}>
-                {detail.characterTags.map((tag) => (
-                  <View key={tag} style={s.tag}>
-                    <Text style={s.tagText}>{tag}</Text>
+                {detail.characterTags.map((tagKey) => (
+                  <View key={tagKey} style={s.tag}>
+                    <Text style={s.tagText}>{t(tagKey)}</Text>
                   </View>
                 ))}
               </View>
@@ -225,7 +218,7 @@ export default function NameDetailModal({ name, visible, onClose }: NameDetailMo
           {/* Similar names */}
           {detail.similarNames.length > 0 && (
             <View style={s.section}>
-              <Text style={s.sectionLabel}>YOU MIGHT ALSO LIKE</Text>
+              <Text style={s.sectionLabel}>{t('nameDetail.section.similar')}</Text>
               <View style={s.tagsRow}>
                 {detail.similarNames.slice(0, 4).map((n) => (
                   <View key={n} style={s.similarTag}>

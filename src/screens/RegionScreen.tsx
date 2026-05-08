@@ -115,9 +115,7 @@ export default function RegionScreen({ navigation }: Props) {
         </View>
 
         <View style={[styles.premiumPreview, SHADOWS.card]}>
-          <Text style={styles.premiumPreviewTitle}>
-            Unlock more names, deeper meanings, and smarter matches
-          </Text>
+          <Text style={styles.premiumPreviewTitle}>{t('region.premiumPreview.title')}</Text>
           <View style={styles.lockedNameRow}>
             {['Aurelia', 'Mateo', 'Noor'].map((name) => (
               <View key={name} style={styles.lockedNameCard}>
@@ -131,7 +129,7 @@ export default function RegionScreen({ navigation }: Props) {
             onPress={() => navigation.navigate('Paywall')}
             activeOpacity={0.85}
           >
-            <Text style={styles.premiumPreviewCtaText}>See Premium</Text>
+            <Text style={styles.premiumPreviewCtaText}>{t('region.premiumPreview.cta')}</Text>
           </TouchableOpacity>
         </View>
 

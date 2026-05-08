@@ -3,8 +3,6 @@ PODS:
     - ExpoModulesCore
   - EXConstants (18.0.13):
     - ExpoModulesCore
-  - EXInAppPurchases (14.5.0):
-    - ExpoModulesCore
   - EXJSONUtils (0.15.0)
   - EXManifests (1.0.11):
     - ExpoModulesCore
@@ -2247,7 +2245,6 @@ PODS:
 DEPENDENCIES:
   - EXApplication (from `../node_modules/expo-application/ios`)
   - EXConstants (from `../node_modules/expo-constants/ios`)
-  - EXInAppPurchases (from `../node_modules/expo-in-app-purchases/ios`)
   - EXJSONUtils (from `../node_modules/expo-json-utils/ios`)
   - EXManifests (from `../node_modules/expo-manifests/ios`)
   - EXNotifications (from `../node_modules/expo-notifications/ios`)
@@ -2356,8 +2353,6 @@ EXTERNAL SOURCES:
     :path: "../node_modules/expo-application/ios"
   EXConstants:
     :path: "../node_modules/expo-constants/ios"
-  EXInAppPurchases:
-    :path: "../node_modules/expo-in-app-purchases/ios"
   EXJSONUtils:
     :path: "../node_modules/expo-json-utils/ios"
   EXManifests:
@@ -2555,7 +2550,6 @@ EXTERNAL SOURCES:
 SPEC CHECKSUMS:
   EXApplication: 1e98d4b1dccdf30627f92917f4b2c5a53c330e5f
   EXConstants: fce59a631a06c4151602843667f7cfe35f81e271
-  EXInAppPurchases: 44558a44dca7293a3040e3cce135cc0b4e39dc81
   EXJSONUtils: 1d3e4590438c3ee593684186007028a14b3686cd
   EXManifests: 378c7742de02a8605093b1c82b5774d8f9875cec
   EXNotifications: c67e92b9fdfe785ff9dbdc5f4c0ff935de357da7

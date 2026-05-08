@@ -17,6 +17,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import Constants from 'expo-constants';
 import { useAuth } from '../context/AuthContext';
 import { useApp } from '../context/AppContext';
 import { REGION_OPTIONS, GenderPreference, Region, RootStackParamList } from '../types';
@@ -373,7 +374,7 @@ export default function SettingsScreen() {
               </View>
               <Text style={styles.rowLabel}>{tr('settings.version')}</Text>
             </View>
-            <Text style={styles.rowValue}>1.0.0</Text>
+            <Text style={styles.rowValue}>{Constants.expoConfig?.version ?? ''}</Text>
           </View>
         </SettingsSection>
 

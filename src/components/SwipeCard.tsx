@@ -45,25 +45,27 @@ const STACK_OFFSET = [0,    6,    14,   22];
 const STACK_MAX_INDEX = STACK_SCALE.length - 1;
 
 /** Light-touch swipe labels — only elevated tiers; unknown / common bands stay unbadged. */
-function swipeRarityLabel(rarity: NameRarity | undefined): string | null {
+function swipeRarityKey(rarity: NameRarity | undefined): string | null {
   if (!rarity || rarity.tier === 'unknown') return null;
   switch (rarity.tier) {
     case 'uncommon':
-      return 'Uncommon';
+      return 'rarity.uncommon';
     case 'rare':
-      return 'Rare';
+      return 'rarity.rare';
     case 'very_rare':
-      return 'Very rare';
+      return 'rarity.veryRare';
     default:
       return null;
   }
 }
 
-function swipePopularityLabel(popularityRank: number | undefined): string | null {
+function swipePopularitySpec(
+  popularityRank: number | undefined,
+): { key: string; vars?: Record<string, string | number> } | null {
   if (!popularityRank || !Number.isFinite(popularityRank)) return null;
-  if (popularityRank <= 50) return 'Top 50';
-  if (popularityRank <= 100) return 'Top 100';
-  return `#${popularityRank}`;
+  if (popularityRank <= 50) return { key: 'popularity.top50', vars: { rank: popularityRank } };
+  if (popularityRank <= 100) return { key: 'popularity.top100', vars: { rank: popularityRank } };
+  return { key: 'popularity.rankOnly', vars: { rank: popularityRank } };
 }
 
 interface SwipeCardProps {
@@ -427,13 +429,13 @@ function CardContent({
     : '';
   const trendBg = getTrendBg(trend);
   const trendFg = getTrendFg(trend);
-  const rarityLabel = swipeRarityLabel(name.rarity);
+  const rarityKey = swipeRarityKey(name.rarity);
   const popularityRank = name.popularity_rank ?? enrichment.popularity_rank;
-  const popularityLabel = swipePopularityLabel(popularityRank);
+  const popularitySpec = swipePopularitySpec(popularityRank);
   const metadataLabel = metadataKey ? t(metadataKey) : null;
   const showMetadataLabel =
     !!metadataLabel &&
-    !(metadataKey === 'swipe.next.popularChoice' && !!popularityLabel);
+    !(metadataKey === 'swipe.next.popularChoice' && !!popularitySpec);
   const categoryLabel = showMetadataLabel ? metadataLabel : trendLabel || null;
   const categorySource: 'metadata' | 'trend' | null = showMetadataLabel
     ? 'metadata'
@@ -442,17 +444,21 @@ function CardContent({
       : null;
   const rightChipQueue: Array<
     | { kind: 'category'; label: string; source: 'metadata' | 'trend' }
-    | { kind: 'popularity'; label: string }
-    | { kind: 'rarity'; label: string }
+    | { kind: 'popularity'; i18nKey: string; vars?: Record<string, string | number> }
+    | { kind: 'rarity'; i18nKey: string }
   > = [];
   if (categoryLabel && categorySource) {
     rightChipQueue.push({ kind: 'category', label: categoryLabel, source: categorySource });
   }
-  if (popularityLabel) {
-    rightChipQueue.push({ kind: 'popularity', label: popularityLabel });
+  if (popularitySpec) {
+    rightChipQueue.push({
+      kind: 'popularity',
+      i18nKey: popularitySpec.key,
+      vars: popularitySpec.vars,
+    });
   }
-  if (rarityLabel) {
-    rightChipQueue.push({ kind: 'rarity', label: rarityLabel });
+  if (rarityKey) {
+    rightChipQueue.push({ kind: 'rarity', i18nKey: rarityKey });
   }
   const rightChips = rightChipQueue.slice(0, 2);
   const pronunciation = enrichment.pronunciation ?? name.pronunciation;
@@ -498,14 +504,14 @@ function CardContent({
               }
               if (chip.kind === 'popularity') {
                 return (
-                  <View key={`${chip.kind}:${chip.label}`} style={styles.popularityBadge}>
-                    <Text style={styles.popularityBadgeText}>{chip.label}</Text>
+                  <View key={`${chip.kind}:${chip.i18nKey}`} style={styles.popularityBadge}>
+                    <Text style={styles.popularityBadgeText}>{t(chip.i18nKey, chip.vars)}</Text>
                   </View>
                 );
               }
               return (
-                <View key={`${chip.kind}:${chip.label}`} style={styles.rarityBadge}>
-                  <Text style={styles.rarityBadgeText}>{chip.label}</Text>
+                <View key={`${chip.kind}:${chip.i18nKey}`} style={styles.rarityBadge}>
+                  <Text style={styles.rarityBadgeText}>{t(chip.i18nKey)}</Text>
                 </View>
               );
             })}

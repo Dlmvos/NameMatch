@@ -12,6 +12,7 @@ import { RoomProvider, useRoomState } from '../context/RoomContext';
 import { SwipeDeckProvider } from '../context/SwipeDeckContext';
 import { I18nProvider } from '../i18n/I18nProvider';
 import { useTranslation } from '../i18n/I18nProvider';
+import { trStatic } from '../i18n/staticTranslate';
 import { COLORS } from '../theme';
 
 import WelcomeScreen from '../screens/WelcomeScreen';
@@ -45,7 +46,7 @@ function StartupErrorView({ message, onRetry }: { message: string; onRetry: () =
     <View style={styles.loading}>
       <Text style={styles.startupErrorText}>{message}</Text>
       <TouchableOpacity style={styles.retryButton} onPress={onRetry} activeOpacity={0.85}>
-        <Text style={styles.retryButtonText}>Try again</Text>
+        <Text style={styles.retryButtonText}>{trStatic('error.retry')}</Text>
       </TouchableOpacity>
     </View>
   );
