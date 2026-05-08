@@ -19,6 +19,9 @@
       "bundleIdentifier": "com.daanvos.namenest",
       "infoPlist": {
         "CFBundleDisplayName": "Babinom"
+      },
+      "config": {
+        "usesNonExemptEncryption": false
       }
     },
     "android": {
