@@ -9,10 +9,11 @@
 --   directly via PostgREST, which is an entitlement-bypass risk.
 --
 -- WHAT THIS DOES:
---   1. Adds a BEFORE UPDATE OF premium_packs trigger that rejects writes
---      coming from the authenticated / anon roles. All existing room UPDATE
---      policies are intentionally left untouched — updates that do not
---      change premium_packs continue to behave exactly as before (including
+--   1. Adds BEFORE INSERT / BEFORE UPDATE OF premium_packs triggers that reject
+--      writes coming from the authenticated / anon roles when premium_packs would
+--      carry entitlement packs (non-empty on INSERT; changed value on UPDATE).
+--      All existing room UPDATE policies are intentionally left untouched — updates
+--      that do not change premium_packs continue to behave exactly as before (including
 --      the "Joiner can claim empty user2 slot" flow).
 --   2. Adds SECURITY DEFINER RPC grant_room_premium(p_room_id, p_premium_packs)
 --      that performs the privileged write after verifying:
@@ -46,7 +47,19 @@ language plpgsql
 set search_path = ''
 as $$
 begin
-  if NEW.premium_packs is distinct from OLD.premium_packs
+  if TG_OP = 'INSERT' then
+    if current_user in ('authenticated', 'anon')
+       and NEW.premium_packs is distinct from '{}'::text[]
+    then
+      raise exception
+        'rooms.premium_packs is read-only for clients; use grant_room_premium()'
+        using errcode = '42501';  -- insufficient_privilege
+    end if;
+    return NEW;
+  end if;
+
+  if TG_OP = 'UPDATE'
+     and NEW.premium_packs is distinct from OLD.premium_packs
      and current_user in ('authenticated', 'anon')
   then
     raise exception
@@ -58,6 +71,13 @@ end;
 $$;
 
 drop trigger if exists rooms_guard_premium_packs on public.rooms;
+drop trigger if exists rooms_guard_premium_packs_insert on public.rooms;
+
+create trigger rooms_guard_premium_packs_insert
+  before insert on public.rooms
+  for each row
+  execute function public.rooms_guard_premium_packs();
+
 create trigger rooms_guard_premium_packs
   before update of premium_packs on public.rooms
   for each row
