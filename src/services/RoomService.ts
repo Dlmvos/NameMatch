@@ -159,12 +159,10 @@ export const RoomService = {
       return currentRoom;
     }
 
-    const { data, error } = await supabase
-      .from('rooms')
-      .update({ premium_packs: nextPacks })
-      .eq('id', roomId)
-      .select('*')
-      .single();
+    const { data, error } = await supabase.rpc('grant_room_premium', {
+      p_room_id: roomId,
+      p_premium_packs: additions,
+    });
 
     if (error) throw error;
     return data as Room;
