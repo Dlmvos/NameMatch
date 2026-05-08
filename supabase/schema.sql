@@ -64,11 +64,19 @@ create policy "Users can insert own profile"
 create or replace function public.handle_new_user()
 returns trigger as $$
 begin
-  insert into public.profiles (id, display_name)
-  values (new.id, new.raw_user_meta_data->>'display_name');
+  insert into public.profiles (
+    id,
+    display_name,
+    free_swipes_last_refill_utc_date
+  )
+  values (
+    new.id,
+    new.raw_user_meta_data->>'display_name',
+    (timezone('utc', now()))::date
+  );
   return new;
 end;
-$$ language plpgsql security definer;
+$$ language plpgsql security definer set search_path = '';
 
 create trigger on_auth_user_created
   after insert on auth.users
@@ -116,9 +124,6 @@ create policy "Joiner can claim empty user2 slot"
   )
   with check (
     user2_id = auth.uid()
-    AND user1_id = (select r.user1_id from public.rooms r where r.id = id)
-    AND code = (select r.code from public.rooms r where r.id = id)
-    AND is_active = (select r.is_active from public.rooms r where r.id = id)
   );
 
 -- Function to generate a unique 6-char room code
@@ -246,6 +251,7 @@ create table public.purchases (
 
 -- RLS
 alter table public.purchases enable row level security;
+alter table public.purchases force row level security;
 
 create policy "Users can view own purchases"
   on public.purchases for select using (auth.uid() = user_id);
@@ -434,7 +440,7 @@ begin
 
   return false;
 end;
-$$ language plpgsql security definer;
+$$ language plpgsql security definer set search_path = '';
 
 -- ============================================================
 -- REALTIME: Enable real-time for matches and rooms
@@ -536,6 +542,7 @@ create table if not exists public.premium_meaning_translations (
 );
 
 alter table public.premium_meaning_translations enable row level security;
+alter table public.premium_meaning_translations force row level security;
 
 -- Same entitlement bar as premium `baby_names`: authenticated user with at least one purchased pack.
 drop policy if exists "premium_meaning_translations read by entitlement" on public.premium_meaning_translations;
@@ -637,6 +644,17 @@ alter table public.baby_names
 
 create index if not exists idx_baby_names_canonical_name_id
   on public.baby_names(canonical_name_id);
+
+-- Per-row catalog meaning metadata (imports/scripts); referenced by baby_names_with_meaning.
+alter table public.baby_names
+  add column if not exists meaning_source text,
+  add column if not exists meaning_confidence numeric,
+  add column if not exists meaning_verified boolean not null default false,
+  add column if not exists meaning_language text;
+
+create index if not exists idx_baby_names_missing_meaning_priority
+  on public.baby_names (country, popularity_rank)
+  where meaning is null or btrim(meaning) = '';
 
 create index if not exists idx_canonical_name_meanings_lookup
   on public.canonical_name_meanings(canonical_name_id, meaning_language, gender_scope, meaning_verified, meaning_confidence);

@@ -194,7 +194,8 @@ export interface Purchase {
   package_type: PackageType;
   package_key: string;
   stripe_payment_intent_id: string | null;
-  amount_cents: number;
+  stripe_customer_id: string | null;
+  amount_cents: number | null;
   currency: string;
   status: 'pending' | 'succeeded' | 'failed';
   created_at: string;
