@@ -25,23 +25,17 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useAuth } from '../context/AuthContext';
 import { useApp } from '../context/AppContext';
 import { useTranslation } from '../i18n/I18nProvider';
+import { getLocalizedCountryName } from '../i18n/display';
 import { RootStackParamList } from '../types';
 import { COUNTRY_OPTIONS, CountryOption } from '../data/countries';
 import { colors, COLORS, FONTS, RADIUS, SPACING, SHADOWS } from '../theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Country'>;
 
-const countryToI18nKey = (name: string): string =>
-  name
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '_')
-    .replace(/^_+|_+$/g, '');
-
 export default function CountryScreen({ navigation, route }: Props) {
   const { t } = useTranslation();
   const { updateProfile } = useAuth();
-  const { setCountryPreference, setResidenceCountry } = useApp();
+  const { setCountryPreference, setResidenceCountry, effectiveLanguage } = useApp();
   const isResidenceMode = route.params?.source === 'settingsResidence';
   const fromSettings = route.params?.source === 'settings' || isResidenceMode;
 
@@ -50,11 +44,8 @@ export default function CountryScreen({ navigation, route }: Props) {
   const [isLoading, setIsLoading] = useState(false);
   const [useAsResidenceCountry, setUseAsResidenceCountry] = useState(true);
 
-  const localizedCountryLabel = (c: CountryOption): string => {
-    const k = `country.${countryToI18nKey(c.name)}`;
-    const tr = t(k);
-    return tr === k ? c.name : tr;
-  };
+  const localizedCountryLabel = (c: CountryOption): string =>
+    getLocalizedCountryName(c.name, effectiveLanguage);
 
   // Filter countries by search query (match English + localized labels)
   const filtered = useMemo(() => {
@@ -64,7 +55,7 @@ export default function CountryScreen({ navigation, route }: Props) {
       const label = localizedCountryLabel(c).toLowerCase();
       return c.name.toLowerCase().includes(q) || label.includes(q);
     });
-  }, [query, t]);
+  }, [query, effectiveLanguage]);
 
   const handleContinue = async () => {
     if (!selected) {

@@ -20,7 +20,7 @@ import { useAuth } from '../context/AuthContext';
 import { useApp } from '../context/AppContext';
 import { useSwipeDeckActions } from '../context/SwipeDeckContext';
 import { useTranslation } from '../i18n/I18nProvider';
-import { translateCountryName } from '../i18n/display';
+import { getLocalizedCountryName } from '../i18n/display';
 import { formatLocalizedPrice, resolveCurrencyCode } from '../lib/currency';
 import { NamePack, PREMIUM_COUPLE_PACK_KEY } from '../types';
 import { FREE_SWIPE_BANK_CAP } from '../constants/freeSwipes';
@@ -57,6 +57,7 @@ export default function ShopScreen() {
     refreshUnlockedPacks,
     clearDevUnlockedPacks,
     residenceCountry,
+    effectiveLanguage,
   } = useApp();
   const { loadMoreNames } = useSwipeDeckActions();
   const isFocused = useIsFocused();
@@ -95,7 +96,7 @@ export default function ShopScreen() {
   const isPurchased = (_key: string) => isPremium;
 
   const getLocalizedCountryLabel = (countryName: string): string =>
-    translateCountryName(t, countryName, countryName);
+    getLocalizedCountryName(countryName, effectiveLanguage);
 
   const formatPrice = (amount: number): string => {
     const currency = resolveCurrencyCode(residenceCountry, profile?.region_preference);

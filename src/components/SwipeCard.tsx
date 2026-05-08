@@ -12,7 +12,7 @@ import {
 import * as Haptics from 'expo-haptics';
 import type { BabyName, NameRarity } from '../types';
 import { useTranslation } from '../i18n/I18nProvider';
-import { translateCountryName } from '../i18n/display';
+import { getLocalizedCountryName } from '../i18n/display';
 import { getLocalizedNameMeaning, cleanOriginForDisplay } from '../i18n/nameMeaningDisplay';
 import type { SwipeMetadataLabelKey } from '../lib/swipeMetadataLabel';
 import { colors, COLORS, FONTS, RADIUS, SPACING, SHADOWS } from '../theme';
@@ -465,11 +465,11 @@ function CardContent({
   const cleanedCountry = cleanOriginForDisplay(name.country);
   const cleanedOrigin = cleanOriginForDisplay(name.origin);
   const translatedCountry = cleanedCountry
-    ? translateCountryName(t, cleanedCountry, cleanedCountry)
+    ? getLocalizedCountryName(cleanedCountry, language)
     : '';
   const translatedOrigin = cleanedCountry
     ? translatedCountry
-    : translateCountryName(t, cleanedOrigin, cleanedOrigin);
+    : getLocalizedCountryName(cleanedOrigin, language);
   const regionKey =
     name.region === 'LATIN_AMERICA'
       ? 'region.latinAmerica'

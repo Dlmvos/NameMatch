@@ -23,17 +23,18 @@ import { useApp } from '../context/AppContext';
 import { REGION_OPTIONS, GenderPreference, Region, RootStackParamList } from '../types';
 import { SUPPORTED_LANGUAGE_OPTIONS } from '../services/languageService';
 import { useTranslation } from '../i18n/I18nProvider';
-import { translateCountryName } from '../i18n/display';
+import { getLocalizedCountryNameOr } from '../i18n/display';
 import { COLORS, FONTS, RADIUS, SPACING, SHADOWS } from '../theme';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useRoomActions, useRoomState } from '../context/RoomContext';
+import { appendLangToExternalUrl } from '../lib/appendLangToExternalUrl';
 
 const PRIVACY_POLICY_URL = 'https://babinom.com/privacy/';
 const SUPPORT_URL = 'https://babinom.com/support/';
 
 export default function SettingsScreen() {
-  const { t, language } = useTranslation();
+  const { t } = useTranslation();
   const tr = t;
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
@@ -136,8 +137,7 @@ export default function SettingsScreen() {
   };
 
   const openExternalUrl = (url: string) => {
-    const separator = url.includes('?') ? '&' : '?';
-    const localizedUrl = `${url}${separator}lang=${language}`;
+    const localizedUrl = appendLangToExternalUrl(url, effectiveLanguage);
     Linking.openURL(localizedUrl).catch((err: any) => {
       Alert.alert(tr('common.error'), err?.message ?? url);
     });
@@ -159,10 +159,10 @@ export default function SettingsScreen() {
       )
     : '';
   const translatedCountry = countryPreference
-    ? translateCountryName(tr, countryPreference, countryPreference)
+    ? getLocalizedCountryNameOr(countryPreference, effectiveLanguage, countryPreference)
     : tr('settings.notSet');
   const translatedResidenceCountry = residenceCountry
-    ? translateCountryName(tr, residenceCountry, residenceCountry)
+    ? getLocalizedCountryNameOr(residenceCountry, effectiveLanguage, residenceCountry)
     : tr('settings.notSet');
 
   return (
