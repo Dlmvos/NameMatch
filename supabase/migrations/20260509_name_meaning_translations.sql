@@ -11,7 +11,7 @@ begin;
 
 create table public.name_meaning_translations (
   id uuid primary key default gen_random_uuid(),
-  name_id uuid not null references public.baby_names(id) on delete cascade,
+  name_id text not null references public.baby_names(id) on delete cascade,
   language_code text not null
     check (language_code in ('en', 'nl', 'de', 'fr', 'es', 'it', 'pt', 'zh', 'ja', 'ko', 'ar')),
   meaning text not null,

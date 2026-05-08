@@ -140,7 +140,7 @@ $$ language plpgsql;
 -- BABY NAMES
 -- ============================================================
 create table public.baby_names (
-  id uuid primary key default uuid_generate_v4(),
+  id text primary key default uuid_generate_v4()::text,
   name text not null,
   meaning text,
   origin text,
@@ -162,7 +162,7 @@ create table public.swipes (
   id uuid primary key default uuid_generate_v4(),
   user_id uuid not null references public.profiles(id) on delete cascade,
   room_id uuid not null references public.rooms(id) on delete cascade,
-  name_id uuid not null references public.baby_names(id) on delete cascade,
+  name_id text not null references public.baby_names(id) on delete cascade,
   direction text not null check (direction in ('left', 'right')),
   created_at timestamptz not null default now(),
   unique(user_id, room_id, name_id)
@@ -197,7 +197,7 @@ create policy "Users can update their own swipes"
 create table public.matches (
   id uuid primary key default uuid_generate_v4(),
   room_id uuid not null references public.rooms(id) on delete cascade,
-  name_id uuid not null references public.baby_names(id) on delete cascade,
+  name_id text not null references public.baby_names(id) on delete cascade,
   created_at timestamptz not null default now(),
   unique(room_id, name_id)
 );
@@ -364,7 +364,7 @@ grant execute on function public.consume_free_swipe(integer) to authenticated;
 -- ============================================================
 create or replace function public.check_and_create_match(
   p_room_id uuid,
-  p_name_id uuid,
+  p_name_id text,
   p_user_id uuid
 )
 returns boolean as $$
@@ -561,7 +561,7 @@ create policy "premium_meaning_translations read by entitlement"
 -- CHECK lists every app UI locale; rollout priority for meanings: en, es, pt, nl, de, fr, it, then zh, ja, ko, ar (see NAME_MEANING_TRANSLATION_LAUNCH_PRIORITY in src/services/languageService.ts).
 create table if not exists public.name_meaning_translations (
   id uuid primary key default gen_random_uuid(),
-  name_id uuid not null references public.baby_names(id) on delete cascade,
+  name_id text not null references public.baby_names(id) on delete cascade,
   language_code text not null
     check (language_code in ('en', 'nl', 'de', 'fr', 'es', 'it', 'pt', 'zh', 'ja', 'ko', 'ar')),
   meaning text not null,

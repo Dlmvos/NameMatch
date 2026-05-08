@@ -47,7 +47,8 @@
     "extract:baby-names:br-hybrid-sources": "tsx scripts/extractBrazilHybridSourcesToCanonicalCsv.ts",
     "extract:baby-names:es-hybrid-sources": "tsx scripts/extractSpainHybridSourcesToCanonicalCsv.ts",
     "build:baby-name-meaning-enrichment": "tsx scripts/buildMeaningEnrichmentBatch.ts",
-    "report:name-meanings:coverage": "tsx scripts/reportCatalogMeaningTranslationCoverage.ts"
+    "report:name-meanings:coverage": "tsx scripts/reportCatalogMeaningTranslationCoverage.ts",
+    "batch:translate-name-meanings": "tsx scripts/batchTranslateCatalogMeanings.ts"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
