@@ -178,6 +178,12 @@ const EN: TranslationMap = {
   'paywall.couple.trustCopy': 'No second subscription for your partner—the same benefits for both of you.',
   'paywall.couple.footer':
     'Lifetime Premium for both parents. Free swipes also refresh daily while you decide.',
+  'paywall.legal.autoRenew':
+    'Monthly plan auto-renews at {{price}}/month until cancelled. Cancel anytime in Settings > Subscriptions at least 24 hours before each renewal. Payment is charged to your Apple ID at confirmation.',
+  'paywall.legal.lifetimeFooter': 'One-time purchase for both parents. Free swipes also refresh daily.',
+  'paywall.legal.monthlyFooter': 'Billed monthly for both parents. Free swipes also refresh daily.',
+  'paywall.legal.terms': 'Terms of Use',
+  'paywall.legal.privacy': 'Privacy Policy',
   'paywall.couple.feature.unlimitedSwipes': 'Unlimited swipes',
   'paywall.couple.feature.curatedNames': 'Shared with your partner',
   'paywall.couple.feature.advancedFilters': 'Advanced filters',
@@ -312,6 +318,7 @@ const EN: TranslationMap = {
   'settings.shareWithFriends': 'Share with Friends',
   'settings.shareAppMessage': 'Try Babinom — the baby-name matching app for couples.',
   'settings.privacyPolicy': 'Privacy Policy',
+  'settings.termsOfUse': 'Terms of Use',
   'settings.privacyPlaceholder': 'Add your privacy policy URL here.',
   'settings.helpSupport': 'Help & Support',
   'settings.helpPlaceholder': 'Add your support email or support page here.',
@@ -322,7 +329,8 @@ const EN: TranslationMap = {
   'settings.signOutConfirm': 'Are you sure you want to sign out?',
   'settings.deleteAccount': 'Delete Account',
   'settings.deleteAccountConfirmTitle': 'Are you sure?',
-  'settings.deleteAccountConfirmBody': 'This deletes all data permanently.',
+  'settings.deleteAccountConfirmBody':
+    "This permanently deletes your account, profile, matches, and all associated data. If you have an active subscription, cancel it first in your device's Settings > Subscriptions—it will not be cancelled automatically.",
   'settings.deleteAccountConfirmAction': 'Delete Account',
   'settings.deletingAccount': 'Deleting account…',
   'settings.footerMadeWithLove': 'Made with 💕 for expecting parents',
@@ -578,7 +586,8 @@ const TRANSLATIONS: Record<string, Partial<TranslationMap>> = {
     'shop.purchaseErrorPending': 'Je aankoop wacht op goedkeuring. Deze wordt automatisch geactiveerd na goedkeuring.',
     'settings.deleteAccount': 'Account verwijderen',
     'settings.deleteAccountConfirmTitle': 'Weet je het zeker?',
-    'settings.deleteAccountConfirmBody': 'Dit verwijdert al je gegevens permanent.',
+    'settings.deleteAccountConfirmBody':
+      'Hiermee worden je account, profiel, matches en alle bijbehorende gegevens permanent verwijderd. Als je een actief abonnement hebt, annuleer dit dan eerst via Instellingen > Abonnementen op je apparaat—het wordt niet automatisch opgezegd.',
     'settings.deleteAccountConfirmAction': 'Account verwijderen',
 
     'shop.restoreSuccessTitle': 'Welkom terug bij Premium',
@@ -710,6 +719,7 @@ const TRANSLATIONS: Record<string, Partial<TranslationMap>> = {
     'settings.rate': 'Beoordeel Babinom',
     'settings.shareWithFriends': 'Deel met vrienden',
     'settings.privacyPolicy': 'Privacybeleid',
+    'settings.termsOfUse': 'Gebruiksvoorwaarden',
     'settings.helpSupport': 'Hulp en ondersteuning',
     'settings.version': 'Versie',
     'settings.activeLanguage': 'Actief: {{code}}',
@@ -856,6 +866,14 @@ const TRANSLATIONS: Record<string, Partial<TranslationMap>> = {
     'paywall.couple.urgencyCopy': 'Eén aankoop, gedeeld door beide ouders.',
     'paywall.couple.trustCopy': 'Geen tweede abonnement voor je partner—dezelfde voordelen voor jullie allebei.',
     'paywall.couple.footer': 'Levenslang Premium voor beide ouders. Gratis swipes worden dagelijks aangevuld.',
+    'paywall.legal.autoRenew':
+      'Maandabonnement wordt automatisch verlengd voor {{price}}/maand tot je opzegt. Annuleer op elk moment via Instellingen > Abonnementen, minstens 24 uur voor verlenging. Betaling wordt in rekening gebracht bij je Apple ID bij bevestiging.',
+    'paywall.legal.lifetimeFooter':
+      'Eenmalige aankoop voor beide ouders. Gratis swipes worden dagelijks aangevuld.',
+    'paywall.legal.monthlyFooter':
+      'Maandelijks gefactureerd voor beide ouders. Gratis swipes worden dagelijks aangevuld.',
+    'paywall.legal.terms': 'Gebruiksvoorwaarden',
+    'paywall.legal.privacy': 'Privacybeleid',
     'paywall.couple.feature.unlimitedSwipes': 'Onbeperkt swipen',
     'paywall.couple.feature.curatedNames': 'Gedeeld met je partner',
     'paywall.couple.feature.advancedFilters': 'Geavanceerde filters',
@@ -983,7 +1001,8 @@ const TRANSLATIONS: Record<string, Partial<TranslationMap>> = {
     'shop.purchaseErrorPending': 'Dein Kauf wartet auf Genehmigung. Er wird nach Genehmigung automatisch aktiviert.',
     'settings.deleteAccount': 'Konto löschen',
     'settings.deleteAccountConfirmTitle': 'Bist du sicher?',
-    'settings.deleteAccountConfirmBody': 'Alle Daten werden dauerhaft gelöscht.',
+    'settings.deleteAccountConfirmBody':
+      'Hiermee worden je account, profiel, matches en alle bijbehorende gegevens permanent verwijderd. Als je een actief abonnement hebt, annuleer dit dan eerst via Instellingen > Abonnementen op je apparaat—het wordt niet automatisch opgezegd.',
     'settings.deleteAccountConfirmAction': 'Konto löschen',
 
     'shop.restoreSuccessTitle': 'Willkommen zurück bei Premium',
@@ -1114,6 +1133,7 @@ const TRANSLATIONS: Record<string, Partial<TranslationMap>> = {
     'settings.rate': 'Babinom bewerten',
     'settings.shareWithFriends': 'Mit Freunden teilen',
     'settings.privacyPolicy': 'Datenschutz',
+    'settings.termsOfUse': 'Nutzungsbedingungen',
     'settings.helpSupport': 'Hilfe & Support',
     'settings.version': 'Version',
     'settings.activeLanguage': 'Aktiv: {{code}}',
@@ -1260,6 +1280,14 @@ const TRANSLATIONS: Record<string, Partial<TranslationMap>> = {
     'paywall.couple.urgencyCopy': 'Ein Kauf, geteilt von beiden Elternteilen.',
     'paywall.couple.trustCopy': 'Kein zweites Abo für den Partner—dieselben Vorteile für euch beide.',
     'paywall.couple.footer': 'Lebenslanges Premium für beide Eltern. Gratis-Swipes werden täglich aufgefüllt.',
+    'paywall.legal.autoRenew':
+      'Monatsabo verlängert sich automatisch für {{price}}/Monat bis zur Kündigung. Jederzeit kündbar unter Einstellungen > Abonnements, mindestens 24 Stunden vor Verlängerung. Zahlung wird bei Bestätigung über deine Apple ID abgebucht.',
+    'paywall.legal.lifetimeFooter':
+      'Einmaliger Kauf für beide Elternteile. Gratis-Swipes werden täglich aufgefüllt.',
+    'paywall.legal.monthlyFooter':
+      'Monatliche Abrechnung für beide Elternteile. Gratis-Swipes werden täglich aufgefüllt.',
+    'paywall.legal.terms': 'Nutzungsbedingungen',
+    'paywall.legal.privacy': 'Datenschutzerklärung',
     'paywall.couple.feature.unlimitedSwipes': 'Unbegrenzt swipen',
     'paywall.couple.feature.curatedNames': 'Mit deinem Partner geteilt',
     'paywall.couple.feature.advancedFilters': 'Erweiterte Filter',
@@ -1379,15 +1407,22 @@ const TRANSLATIONS: Record<string, Partial<TranslationMap>> = {
     'filter.chip.strong': 'Kraftvoll',
   },
   fr: {
-    'shop.purchaseErrorProductUnavailable': 'Ce produit n’est pas disponible pour le moment. Veuillez réessayer plus tard.',
-    'shop.purchaseErrorStoreProblem': 'L’App Store n’a pas pu traiter cet achat. Vérifiez votre moyen de paiement et réessayez.',
-    'shop.purchaseErrorNotAllowed': 'Les achats ne sont pas autorisés sur cet appareil. Vérifiez les paramètres de votre appareil.',
-    'shop.purchaseErrorAlreadyOwned': 'Vous possédez déjà ce produit. Essayez de restaurer vos achats.',
-    'shop.purchaseErrorNetwork': 'Une erreur réseau est survenue. Vérifiez votre connexion et réessayez.',
-    'shop.purchaseErrorPending': 'Votre achat est en attente d’approbation. Il sera activé automatiquement une fois approuvé.',
+    'shop.purchaseErrorProductUnavailable':
+      "Ce produit n'est pas disponible pour le moment. Veuillez réessayer plus tard.",
+    'shop.purchaseErrorStoreProblem':
+      "L'App Store n'a pas pu traiter cet achat. Vérifiez votre moyen de paiement et réessayez.",
+    'shop.purchaseErrorNotAllowed':
+      'Les achats ne sont pas autorisés sur cet appareil. Vérifiez les paramètres de votre appareil.',
+    'shop.purchaseErrorAlreadyOwned':
+      'Vous possédez déjà ce produit. Essayez de restaurer vos achats.',
+    'shop.purchaseErrorNetwork':
+      'Une erreur réseau est survenue. Vérifiez votre connexion et réessayez.',
+    'shop.purchaseErrorPending':
+      "Votre achat est en attente d'approbation. Il sera activé automatiquement une fois approuvé.",
     'settings.deleteAccount': 'Supprimer le compte',
     'settings.deleteAccountConfirmTitle': 'Êtes-vous sûr ?',
-    'settings.deleteAccountConfirmBody': 'Cela supprime toutes les données de manière permanente.',
+    'settings.deleteAccountConfirmBody':
+      "Cela supprime définitivement votre compte, profil, matchs et toutes les données associées. Si vous avez un abonnement actif, annulez-le d'abord dans Réglages > Abonnements sur votre appareil—il ne sera pas annulé automatiquement.",
     'settings.deleteAccountConfirmAction': 'Supprimer le compte',
 
     'shop.restoreSuccessTitle': 'Bon retour en Premium',
@@ -1396,8 +1431,8 @@ const TRANSLATIONS: Record<string, Partial<TranslationMap>> = {
     'shop.restoreReadyBody': 'Votre accès Premium est prêt.',
     'shop.restoreNoneTitle': 'Aucun achat trouvé',
     'shop.restoreNoneBody':
-      'Nous n’avons trouvé aucun abonnement Premium actif pour ce compte de boutique. Si vous vous êtes abonné sur un autre appareil, connectez-vous avec le même compte Apple ou Google et réessayez.',
-    'shop.purchaseSuccessTitle': 'C’est bon',
+      "Nous n'avons trouvé aucun abonnement Premium actif pour ce compte de boutique. Si vous vous êtes abonné sur un autre appareil, connectez-vous avec le même compte Apple ou Google et réessayez.",
+    'shop.purchaseSuccessTitle': "C'est bon",
     'shop.purchaseSuccessBody': 'Vous êtes parés — continuez à explorer des noms ensemble.',
 
     'auth.title.signup': 'Créer un compte',
@@ -1529,6 +1564,7 @@ const TRANSLATIONS: Record<string, Partial<TranslationMap>> = {
     'settings.rate': 'Noter Babinom',
     'settings.shareWithFriends': 'Partager avec des amis',
     'settings.privacyPolicy': 'Politique de confidentialite',
+    'settings.termsOfUse': 'Conditions d\'utilisation',
     'settings.helpSupport': 'Aide et support',
     'settings.version': 'Version',
     'settings.notSet': 'Non defini',
@@ -1645,6 +1681,14 @@ const TRANSLATIONS: Record<string, Partial<TranslationMap>> = {
     'paywall.couple.urgencyCopy': 'Un achat, partagé entre les deux parents.',
     'paywall.couple.trustCopy': 'Pas d abonnement separe pour votre partenaire—les memes avantages pour vous deux.',
     'paywall.couple.footer': 'Premium à vie pour les deux parents. Swipes gratuits rechargés chaque jour.',
+    'paywall.legal.autoRenew':
+      "L'abonnement mensuel se renouvelle automatiquement à {{price}}/mois jusqu'à résiliation. Annulez à tout moment dans Réglages > Abonnements, au moins 24 h avant le renouvellement. Le paiement est prélevé sur votre identifiant Apple lors de la confirmation.",
+    'paywall.legal.lifetimeFooter':
+      'Achat unique pour les deux parents. Les swipes gratuits se rechargent chaque jour.',
+    'paywall.legal.monthlyFooter':
+      'Facturation mensuelle pour les deux parents. Les swipes gratuits se rechargent chaque jour.',
+    'paywall.legal.terms': "Conditions d'utilisation",
+    'paywall.legal.privacy': 'Politique de confidentialité',
     'paywall.couple.feature.unlimitedSwipes': 'Swipes illimites',
     'paywall.couple.feature.curatedNames': 'Partage avec votre partenaire',
     'paywall.couple.feature.advancedFilters': 'Filtres avances',
@@ -1730,11 +1774,11 @@ const TRANSLATIONS: Record<string, Partial<TranslationMap>> = {
 
     'preferences.alert.almostTitle': 'Encore un petit effort !',
     'preferences.alert.almostBody': 'Choisissez une préférence pour continuer.',
-    'preferences.alert.timeout': 'L’enregistrement prend trop de temps. Réessayez.',
-    'common.genericError': 'Une erreur s’est produite. Réessayez.',
-    'error.title': 'Une erreur s’est produite',
+    'preferences.alert.timeout': "L'enregistrement prend trop de temps. Réessayez.",
+    'common.genericError': "Une erreur s'est produite. Réessayez.",
+    'error.title': "Une erreur s'est produite",
     'error.body':
-      'Réessayez. Si cela continue, redémarrez l’application et reprenez où vous en étiez.',
+      "Réessayez. Si cela continue, redémarrez l'application et reprenez où vous en étiez.",
     'error.retry': 'Réessayer',
     'region.premiumPreview.title':
       'Plus de collections de prénoms, des sens plus riches et une découverte pensée pour les couples',
@@ -1791,7 +1835,8 @@ const TRANSLATIONS: Record<string, Partial<TranslationMap>> = {
     'shop.purchaseErrorPending': 'Tu compra está pendiente de aprobación. Se activará automáticamente una vez aprobada.',
     'settings.deleteAccount': 'Eliminar cuenta',
     'settings.deleteAccountConfirmTitle': '¿Estás seguro?',
-    'settings.deleteAccountConfirmBody': 'Esto elimina todos los datos de forma permanente.',
+    'settings.deleteAccountConfirmBody':
+      'Hiermit werden dein Konto, Profil, Matches und alle zugehörigen Daten unwiderruflich gelöscht. Falls du ein aktives Abo hast, kündige es zuerst unter Einstellungen > Abonnements auf deinem Gerät—es wird nicht automatisch gekündigt.',
     'settings.deleteAccountConfirmAction': 'Eliminar cuenta',
 
     'shop.restoreSuccessTitle': 'Bienvenido de nuevo a Premium',
@@ -1875,6 +1920,14 @@ const TRANSLATIONS: Record<string, Partial<TranslationMap>> = {
     'paywall.couple.urgencyCopy': 'Una compra, compartida entre ambos padres.',
     'paywall.couple.trustCopy': 'Sin segunda suscripcion—vuestra pareja obtiene los mismos beneficios.',
     'paywall.couple.footer': 'Premium de por vida para ambos padres. Swipes gratis cada día.',
+    'paywall.legal.autoRenew':
+      'El plan mensual se renueva automáticamente a {{price}}/mes hasta que lo canceles. Cancela en cualquier momento en Ajustes > Suscripciones, al menos 24 horas antes de la renovación. El pago se carga a tu Apple ID en el momento de la confirmación.',
+    'paywall.legal.lifetimeFooter':
+      'Compra única para ambos padres. Los swipes gratis se recargan a diario.',
+    'paywall.legal.monthlyFooter':
+      'Facturación mensual para ambos padres. Los swipes gratis se recargan a diario.',
+    'paywall.legal.terms': 'Condiciones de uso',
+    'paywall.legal.privacy': 'Política de privacidad',
     'paywall.couple.feature.unlimitedSwipes': 'Swipes ilimitados',
     'paywall.couple.feature.curatedNames': 'Compartido con tu pareja',
     'paywall.couple.feature.advancedFilters': 'Filtros avanzados',
@@ -1961,6 +2014,7 @@ const TRANSLATIONS: Record<string, Partial<TranslationMap>> = {
     'settings.rate': 'Calificar Babinom',
     'settings.shareWithFriends': 'Compartir con amigos',
     'settings.privacyPolicy': 'Politica de privacidad',
+    'settings.termsOfUse': 'Condiciones de uso',
     'settings.helpSupport': 'Ayuda y soporte',
     'settings.version': 'Version',
     'settings.notSet': 'Sin configurar',
@@ -2205,15 +2259,22 @@ const TRANSLATIONS: Record<string, Partial<TranslationMap>> = {
     'filter.chip.strong': 'Fuerte',
   },
   it: {
-    'shop.purchaseErrorProductUnavailable': 'Questo prodotto non è attualmente disponibile. Riprova più tardi.',
-    'shop.purchaseErrorStoreProblem': 'L’App Store non è riuscito a elaborare questo acquisto. Controlla il metodo di pagamento e riprova.',
-    'shop.purchaseErrorNotAllowed': 'Gli acquisti non sono consentiti su questo dispositivo. Controlla le impostazioni del dispositivo.',
-    'shop.purchaseErrorAlreadyOwned': 'Possiedi già questo prodotto. Prova a ripristinare i tuoi acquisti.',
-    'shop.purchaseErrorNetwork': 'Si è verificato un errore di rete. Controlla la connessione e riprova.',
-    'shop.purchaseErrorPending': 'Il tuo acquisto è in attesa di approvazione. Verrà attivato automaticamente una volta approvato.',
+    'shop.purchaseErrorProductUnavailable':
+      'Questo prodotto non è attualmente disponibile. Riprova più tardi.',
+    'shop.purchaseErrorStoreProblem':
+      "L'App Store non è riuscito a elaborare questo acquisto. Controlla il metodo di pagamento e riprova.",
+    'shop.purchaseErrorNotAllowed':
+      'Gli acquisti non sono consentiti su questo dispositivo. Controlla le impostazioni del dispositivo.',
+    'shop.purchaseErrorAlreadyOwned':
+      'Possiedi già questo prodotto. Prova a ripristinare i tuoi acquisti.',
+    'shop.purchaseErrorNetwork':
+      'Si è verificato un errore di rete. Controlla la connessione e riprova.',
+    'shop.purchaseErrorPending':
+      'Il tuo acquisto è in attesa di approvazione. Verrà attivato automaticamente una volta approvato.',
     'settings.deleteAccount': 'Elimina account',
     'settings.deleteAccountConfirmTitle': 'Sei sicuro?',
-    'settings.deleteAccountConfirmBody': 'Questo elimina tutti i dati in modo permanente.',
+    'settings.deleteAccountConfirmBody':
+      'Questo elimina definitivamente il tuo account, profilo, match e tutti i dati associati. Se hai un abbonamento attivo, annullalo prima in Impostazioni > Abbonamenti del tuo dispositivo—non verrà annullato automaticamente.',
     'settings.deleteAccountConfirmAction': 'Elimina account',
 
     'shop.restoreSuccessTitle': 'Bentornato in Premium',
@@ -2355,6 +2416,7 @@ const TRANSLATIONS: Record<string, Partial<TranslationMap>> = {
     'settings.rate': 'Valuta Babinom',
     'settings.shareWithFriends': 'Condividi con amici',
     'settings.privacyPolicy': 'Informativa privacy',
+    'settings.termsOfUse': 'Termini di utilizzo',
     'settings.helpSupport': 'Aiuto e supporto',
     'settings.version': 'Versione',
     'settings.notSet': 'Non impostato',
@@ -2471,6 +2533,14 @@ const TRANSLATIONS: Record<string, Partial<TranslationMap>> = {
     'paywall.couple.urgencyCopy': 'Un acquisto, condiviso tra entrambi i genitori.',
     'paywall.couple.trustCopy': 'Nessun abbonamento separato per il partner—gli stessi vantaggi per entrambi.',
     'paywall.couple.footer': 'Premium a vita per entrambi i genitori. Swipe gratuiti ricaricati ogni giorno.',
+    'paywall.legal.autoRenew':
+      "L'abbonamento mensile si rinnova automaticamente a {{price}}/mese fino alla cancellazione. Annulla in qualsiasi momento in Impostazioni > Abbonamenti, almeno 24 ore prima del rinnovo. Il pagamento viene addebitato sul tuo Apple ID al momento della conferma.",
+    'paywall.legal.lifetimeFooter':
+      'Acquisto unico per entrambi i genitori. Gli swipe gratuiti si ricaricano ogni giorno.',
+    'paywall.legal.monthlyFooter':
+      'Fatturazione mensile per entrambi i genitori. Gli swipe gratuiti si ricaricano ogni giorno.',
+    'paywall.legal.terms': 'Termini di utilizzo',
+    'paywall.legal.privacy': 'Informativa sulla privacy',
     'paywall.couple.feature.unlimitedSwipes': 'Swipe illimitati',
     'paywall.couple.feature.curatedNames': 'Condiviso con il tuo partner',
     'paywall.couple.feature.advancedFilters': 'Filtri avanzati',
@@ -2560,7 +2630,7 @@ const TRANSLATIONS: Record<string, Partial<TranslationMap>> = {
     'common.genericError': 'Qualcosa è andato storto. Riprova.',
     'error.title': 'Qualcosa è andato storto',
     'error.body':
-      'Riprova. Se succede ancora, riavvia l’app e continua da dove eri rimasto.',
+      "Riprova. Se succede ancora, riavvia l'app e continua da dove eri rimasto.",
     'error.retry': 'Riprova',
     'region.premiumPreview.title':
       'Più raccolte di nomi, significati più ricchi e una scoperta pensata per le coppie',
@@ -2617,7 +2687,8 @@ const TRANSLATIONS: Record<string, Partial<TranslationMap>> = {
     'shop.purchaseErrorPending': 'Sua compra está aguardando aprovação. Será ativada automaticamente após a aprovação.',
     'settings.deleteAccount': 'Excluir conta',
     'settings.deleteAccountConfirmTitle': 'Tem certeza?',
-    'settings.deleteAccountConfirmBody': 'Isso exclui todos os dados permanentemente.',
+    'settings.deleteAccountConfirmBody':
+      'Isto elimina permanentemente a sua conta, perfil, correspondências e todos os dados associados. Se tiver uma subscrição ativa, cancele-a primeiro em Definições > Subscrições no seu dispositivo—não será cancelada automaticamente.',
     'settings.deleteAccountConfirmAction': 'Excluir conta',
 
     'shop.restoreSuccessTitle': 'Bem-vindo de volta ao Premium',
@@ -2759,6 +2830,7 @@ const TRANSLATIONS: Record<string, Partial<TranslationMap>> = {
     'settings.rate': 'Avaliar Babinom',
     'settings.shareWithFriends': 'Compartilhar com amigos',
     'settings.privacyPolicy': 'Politica de privacidade',
+    'settings.termsOfUse': 'Termos de utilização',
     'settings.helpSupport': 'Ajuda e suporte',
     'settings.version': 'Versao',
     'settings.notSet': 'Nao definido',
@@ -2875,6 +2947,14 @@ const TRANSLATIONS: Record<string, Partial<TranslationMap>> = {
     'paywall.couple.urgencyCopy': 'Uma compra, compartilhada entre ambos os pais.',
     'paywall.couple.trustCopy': 'Sem segunda assinatura para o parceiro—os mesmos beneficios para os dois.',
     'paywall.couple.footer': 'Premium vitalício para ambos os pais. Swipes grátis recarregados diariamente.',
+    'paywall.legal.autoRenew':
+      'O plano mensal renova-se automaticamente a {{price}}/mês até ser cancelado. Cancele a qualquer momento em Definições > Subscrições, pelo menos 24 horas antes da renovação. O pagamento é cobrado no seu Apple ID no momento da confirmação.',
+    'paywall.legal.lifetimeFooter':
+      'Compra única para ambos os pais. Os swipes grátis recarregam diariamente.',
+    'paywall.legal.monthlyFooter':
+      'Faturação mensal para ambos os pais. Os swipes grátis recarregam diariamente.',
+    'paywall.legal.terms': 'Termos de utilização',
+    'paywall.legal.privacy': 'Política de privacidade',
     'paywall.couple.feature.unlimitedSwipes': 'Swipes ilimitados',
     'paywall.couple.feature.curatedNames': 'Compartilhado com seu parceiro',
     'paywall.couple.feature.advancedFilters': 'Filtros avancados',
@@ -3021,7 +3101,8 @@ const TRANSLATIONS: Record<string, Partial<TranslationMap>> = {
     'shop.purchaseErrorPending': '您的购买正在等待批准，批准后将自动激活。',
     'settings.deleteAccount': '删除账户',
     'settings.deleteAccountConfirmTitle': '确定要删除吗？',
-    'settings.deleteAccountConfirmBody': '这将永久删除所有数据。',
+    'settings.deleteAccountConfirmBody':
+      '这将永久删除您的账户、个人资料、匹配及所有相关数据。如果您有活跃订阅，请先在设备的"设置 > 订阅"中取消——它不会自动取消。',
     'settings.deleteAccountConfirmAction': '删除账户',
 
     'shop.restoreSuccessTitle': '欢迎回到 Premium',
@@ -3078,6 +3159,7 @@ const TRANSLATIONS: Record<string, Partial<TranslationMap>> = {
     'settings.rate': '为 Babinom 评分',
     'settings.shareWithFriends': '分享给朋友',
     'settings.privacyPolicy': '隐私政策',
+    'settings.termsOfUse': '使用条款',
     'settings.helpSupport': '帮助与支持',
     'settings.version': '版本',
     'settings.notSet': '未设置',
@@ -3285,6 +3367,12 @@ const TRANSLATIONS: Record<string, Partial<TranslationMap>> = {
     'paywall.couple.urgencyCopy': '一次购买，两位家长共享。',
     'paywall.couple.trustCopy': '无需为伴侣单独订阅——双方享受相同权益。',
     'paywall.couple.footer': '两位家长终身高级版。免费滑动每日补充。',
+    'paywall.legal.autoRenew':
+      '月度计划以 {{price}}/月 自动续费，直到取消。请在续费前至少 24 小时在“设置 > 订阅”中取消。确认购买时将从 Apple ID 扣款。',
+    'paywall.legal.lifetimeFooter': '一次性购买，双方父母共享。免费滑动每日刷新。',
+    'paywall.legal.monthlyFooter': '按月计费，双方父母共享。免费滑动每日刷新。',
+    'paywall.legal.terms': '使用条款',
+    'paywall.legal.privacy': '隐私政策',
     'paywall.couple.feature.unlimitedSwipes': '无限滑动',
     'paywall.couple.feature.curatedNames': '与伴侣共享',
     'paywall.couple.feature.advancedFilters': '高级筛选',
@@ -3461,7 +3549,8 @@ const TRANSLATIONS: Record<string, Partial<TranslationMap>> = {
     'shop.purchaseErrorPending': '購入は承認待ちです。承認後に自動的に有効になります。',
     'settings.deleteAccount': 'アカウントを削除',
     'settings.deleteAccountConfirmTitle': '本当に削除しますか？',
-    'settings.deleteAccountConfirmBody': 'すべてのデータが完全に削除されます。',
+    'settings.deleteAccountConfirmBody':
+      'Esto elimina permanentemente tu cuenta, perfil, coincidencias y todos los datos asociados. Si tienes una suscripción activa, cancélala primero en Ajustes > Suscripciones de tu dispositivo—no se cancelará automáticamente.',
     'settings.deleteAccountConfirmAction': 'アカウントを削除',
 
     'shop.restoreSuccessTitle': 'Premiumへおかえりなさい',
@@ -3616,6 +3705,7 @@ const TRANSLATIONS: Record<string, Partial<TranslationMap>> = {
     'settings.rate': 'Babinom を評価',
     'settings.shareWithFriends': '友達と共有',
     'settings.privacyPolicy': 'プライバシーポリシー',
+    'settings.termsOfUse': '利用規約',
     'settings.helpSupport': 'ヘルプとサポート',
     'settings.version': 'バージョン',
     'settings.notSet': '未設定',
@@ -3731,6 +3821,12 @@ const TRANSLATIONS: Record<string, Partial<TranslationMap>> = {
     'paywall.couple.urgencyCopy': 'お支払い一回、お二人で共有。',
     'paywall.couple.trustCopy': 'パートナー様向けの別途課金はありません——同じ内容を共有します。',
     'paywall.couple.footer': 'お二人のための永久プレミアム。無料スワイプは毎日補充されます。',
+    'paywall.legal.autoRenew':
+      '月額プランは {{price}}/月 で自動更新されます。更新の少なくとも24時間前までに「設定 > サブスクリプション」からいつでも解約できます。購入確定時にApple IDに請求されます。',
+    'paywall.legal.lifetimeFooter': '両親共有の買い切り。無料スワイプは毎日補充されます。',
+    'paywall.legal.monthlyFooter': '両親共有の月額課金。無料スワイプは毎日補充されます。',
+    'paywall.legal.terms': '利用規約',
+    'paywall.legal.privacy': 'プライバシーポリシー',
     'paywall.couple.feature.unlimitedSwipes': '無制限スワイプ',
     'paywall.couple.feature.curatedNames': 'パートナーと共有',
     'paywall.couple.feature.advancedFilters': '高度なフィルター',
@@ -3863,7 +3959,8 @@ const TRANSLATIONS: Record<string, Partial<TranslationMap>> = {
     'shop.purchaseErrorPending': '구매가 승인 대기 중입니다. 승인 후 자동으로 활성화됩니다.',
     'settings.deleteAccount': '계정 삭제',
     'settings.deleteAccountConfirmTitle': '정말 삭제하시겠습니까?',
-    'settings.deleteAccountConfirmBody': '모든 데이터가 영구적으로 삭제됩니다.',
+    'settings.deleteAccountConfirmBody':
+      '계정, 프로필, 매치 및 모든 관련 데이터가 영구적으로 삭제됩니다. 활성 구독이 있는 경우, 먼저 기기의 설정 > 구독에서 취소하세요—자동으로 취소되지 않습니다.',
     'settings.deleteAccountConfirmAction': '계정 삭제',
 
     'shop.restoreSuccessTitle': 'Premium에 다시 오신 걸 환영합니다',
@@ -4004,6 +4101,7 @@ const TRANSLATIONS: Record<string, Partial<TranslationMap>> = {
     'settings.rate': 'Babinom 평가하기',
     'settings.shareWithFriends': '친구와 공유',
     'settings.privacyPolicy': '개인정보 처리방침',
+    'settings.termsOfUse': '이용 약관',
     'settings.helpSupport': '도움말 및 지원',
     'settings.version': '버전',
     'settings.notSet': '설정 안됨',
@@ -4027,6 +4125,12 @@ const TRANSLATIONS: Record<string, Partial<TranslationMap>> = {
     'paywall.couple.urgencyCopy': '한 번의 결제, 두 부모가 함께 공유.',
     'paywall.couple.trustCopy': '파트너를 위한 별도 구독 없이——같은 혜택을 함께 누리세요.',
     'paywall.couple.footer': '두 분을 위한 평생 프리미엄. 무료 스와이프는 매일 충전돼요.',
+    'paywall.legal.autoRenew':
+      '월간 플랜은 {{price}}/월로 자동 갱신됩니다. 갱신 최소 24시간 전에 설정 > 구독에서 언제든 취소할 수 있습니다. 구매 확인 시 Apple ID로 청구됩니다.',
+    'paywall.legal.lifetimeFooter': '부모 모두를 위한 일회성 구매. 무료 스와이프는 매일 충전됩니다.',
+    'paywall.legal.monthlyFooter': '부모 모두를 위한 월간 청구. 무료 스와이프는 매일 충전됩니다.',
+    'paywall.legal.terms': '이용 약관',
+    'paywall.legal.privacy': '개인정보 처리방침',
     'paywall.couple.feature.unlimitedSwipes': '무제한 스와이프',
     'paywall.couple.feature.curatedNames': '파트너와 공유',
     'paywall.couple.feature.advancedFilters': '고급 필터',
@@ -4239,7 +4343,8 @@ const TRANSLATIONS: Record<string, Partial<TranslationMap>> = {
     'shop.purchaseErrorPending': 'عملية الشراء في انتظار الموافقة. سيتم تفعيلها تلقائيًا بعد الموافقة.',
     'settings.deleteAccount': 'حذف الحساب',
     'settings.deleteAccountConfirmTitle': 'هل أنت متأكد؟',
-    'settings.deleteAccountConfirmBody': 'سيؤدي هذا إلى حذف جميع البيانات نهائياً.',
+    'settings.deleteAccountConfirmBody':
+      'سيؤدي ذلك إلى حذف حسابك وملفك الشخصي وتطابقاتك وجميع البيانات المرتبطة نهائياً. إذا كان لديك اشتراك نشط، فقم بإلغائه أولاً من الإعدادات > الاشتراكات على جهازك—لن يتم الإلغاء تلقائياً.',
     'settings.deleteAccountConfirmAction': 'حذف الحساب',
 
     'shop.restoreSuccessTitle': 'مرحباً بعودتك إلى Premium',
@@ -4394,6 +4499,7 @@ const TRANSLATIONS: Record<string, Partial<TranslationMap>> = {
     'settings.rate': 'قيّم Babinom',
     'settings.shareWithFriends': 'شارك مع الاصدقاء',
     'settings.privacyPolicy': 'سياسة الخصوصية',
+    'settings.termsOfUse': 'شروط الاستخدام',
     'settings.helpSupport': 'المساعدة والدعم',
     'settings.version': 'الاصدار',
     'settings.notSet': 'غير مضبوط',
@@ -4508,6 +4614,13 @@ const TRANSLATIONS: Record<string, Partial<TranslationMap>> = {
     'paywall.couple.urgencyCopy': 'دفعة واحدة، مشتركة بين الوالدين.',
     'paywall.couple.trustCopy': 'لا اشتراك منفصل لشريكك—نفس المزايا لكما.',
     'paywall.couple.footer': 'Premium مدى الحياة لكلا الوالدين. سحبات مجانية تتجدد يومياً.',
+    'paywall.legal.autoRenew':
+      'يتجدد الاشتراك الشهري تلقائيًا بسعر {{price}}/شهر حتى الإلغاء. ألغِ في أي وقت من الإعدادات > الاشتراكات قبل 24 ساعة على الأقل من التجديد. يتم الخصم من Apple ID عند التأكيد.',
+    'paywall.legal.lifetimeFooter':
+      'شراء لمرة واحدة لكلا الوالدين. التمريرات المجانية تُجدد يوميًا.',
+    'paywall.legal.monthlyFooter': 'فوترة شهرية لكلا الوالدين. التمريرات المجانية تُجدد يوميًا.',
+    'paywall.legal.terms': 'شروط الاستخدام',
+    'paywall.legal.privacy': 'سياسة الخصوصية',
     'paywall.couple.feature.unlimitedSwipes': 'سحبات غير محدودة',
     'paywall.couple.feature.curatedNames': 'مشترك مع شريكك',
     'paywall.couple.feature.advancedFilters': 'فلاتر متقدمة',

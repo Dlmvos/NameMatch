@@ -37,11 +37,10 @@ import {
 import { AnalyticsService } from '../services/AnalyticsService';
 import type { BabyName, RootStackParamList } from '../types';
 import { colors, COLORS, FONTS, RADIUS, SHADOWS, SPACING } from '../theme';
+import { CURATED_UNLOCKS_LEGACY_KEY, curatedUnlocksStorageKey } from '../lib/accountScopedStorage';
 
 /** Slice depth: keep one extra card mounted under the stack so the next name is already rendered before it surfaces. */
 const VISIBLE_CARDS = 4;
-/** Legacy AsyncStorage bucket for curated swipe recommendations (formerly mislabeled `AI_*`). */
-const CURATED_RECOMMENDATION_UNLOCKS_STORAGE_KEY = 'AI_PACK_UNLOCKS';
 const DEV_PAYWALL_INTERVAL = 10;
 const DEBUG_SWIPE_SCREEN = false;
 const DEV_PREVIEW_MATCH: BabyName = {
@@ -126,7 +125,7 @@ export default function SwipeScreen() {
   const { countryPreference, residenceCountry, effectiveUnlockedPacks, effectiveLanguage } = useApp();
   const { room } = useRoomState();
   const { latestMatch, dismissLatestMatch, pendingMilestone, dismissMilestone } = useMatchState();
-  const { profile } = useAuth();
+  const { profile, user } = useAuth();
   const isFocused = useIsFocused();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const isSwipingRef = useRef(false);
@@ -619,9 +618,21 @@ export default function SwipeScreen() {
                 activeOpacity={0.9}
                 onPress={async () => {
                   if (suggestedPack) {
-                    const existingRaw = await AsyncStorage.getItem(CURATED_RECOMMENDATION_UNLOCKS_STORAGE_KEY).catch(
-                      () => null,
-                    );
+                    const storageKey = user?.id ? curatedUnlocksStorageKey(user.id) : null;
+                    if (!storageKey) {
+                      setShowPackModal(false);
+                      navigation.navigate('MainTabs', { screen: 'Shop' });
+                      return;
+                    }
+                    let existingRaw = await AsyncStorage.getItem(storageKey).catch(() => null);
+                    if (!existingRaw) {
+                      const legacyRaw = await AsyncStorage.getItem(CURATED_UNLOCKS_LEGACY_KEY).catch(() => null);
+                      if (legacyRaw) {
+                        await AsyncStorage.setItem(storageKey, legacyRaw).catch(() => {});
+                        await AsyncStorage.removeItem(CURATED_UNLOCKS_LEGACY_KEY).catch(() => {});
+                        existingRaw = legacyRaw;
+                      }
+                    }
                     let existing: Record<string, unknown> = {};
                     if (existingRaw) {
                       try {
@@ -638,10 +649,7 @@ export default function SwipeScreen() {
                       packNames: suggestedPack.packNames.map((n) => n.name),
                       unlockedAt: Date.now(),
                     };
-                    await AsyncStorage.setItem(
-                      CURATED_RECOMMENDATION_UNLOCKS_STORAGE_KEY,
-                      JSON.stringify(existing),
-                    ).catch(() => {});
+                    await AsyncStorage.setItem(storageKey, JSON.stringify(existing)).catch(() => {});
                   }
                   setShowPackModal(false);
                   navigation.navigate('MainTabs', { screen: 'Shop' });

@@ -27,6 +27,7 @@ import { CustomNameService } from '../services/CustomNameService';
 import { SwipeService, LikedName } from '../services/SwipeService';
 import NameDetailModal from '../components/NameDetailModal';
 import { ensureNameNestStorageMigration } from '../lib/storageBrandMigration';
+import { MATCH_NOTES_LEGACY_KEY, matchNotesStorageKey } from '../lib/accountScopedStorage';
 import { Match, BabyName, Gender, Region, MainTabParamList } from '../types';
 import { colors, COLORS, FONTS, RADIUS, SPACING, SHADOWS } from '../theme';
 import { DEV_PREVIEW } from '../config/devPreview';
@@ -34,7 +35,6 @@ import { AnalyticsService } from '../services/AnalyticsService';
 
 type ScreenTab = 'matches' | 'likes';
 
-const NOTES_STORAGE_KEY = 'namenest:match_notes';
 // Replaced by shared cleanOriginForDisplay from nameMeaningDisplay
 
 const DEV_SAMPLE_MATCHES: Match[] = __DEV__
@@ -213,19 +213,45 @@ export default function MatchesScreen() {
     );
   }, [user?.id, roomId, t]);
 
-  // Load saved notes
+  // Load saved notes (per authenticated user; migrate legacy global key once if needed)
   useEffect(() => {
+    if (!user?.id) {
+      setNotes({});
+      return;
+    }
+    const uid = user.id;
+    let cancelled = false;
     ensureNameNestStorageMigration()
-      .then(() => AsyncStorage.getItem(NOTES_STORAGE_KEY))
-      .then((raw) => { if (raw) setNotes(JSON.parse(raw)); })
+      .then(async () => {
+        const scopedKey = matchNotesStorageKey(uid);
+        let raw = await AsyncStorage.getItem(scopedKey).catch(() => null);
+        if (!raw) {
+          const legacyRaw = await AsyncStorage.getItem(MATCH_NOTES_LEGACY_KEY).catch(() => null);
+          if (legacyRaw) {
+            await AsyncStorage.setItem(scopedKey, legacyRaw).catch(() => {});
+            await AsyncStorage.removeItem(MATCH_NOTES_LEGACY_KEY).catch(() => {});
+            raw = legacyRaw;
+          }
+        }
+        if (cancelled || !raw) return;
+        try {
+          const parsed = JSON.parse(raw) as Record<string, string>;
+          setNotes(parsed && typeof parsed === 'object' ? parsed : {});
+        } catch {
+          setNotes({});
+        }
+      })
       .catch(() => {});
-  }, []);
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id]);
 
   const saveNote = async () => {
-    if (!editingMatchId) return;
+    if (!editingMatchId || !user?.id) return;
     const updated = { ...notes, [editingMatchId]: draftNote };
     setNotes(updated);
-    await AsyncStorage.setItem(NOTES_STORAGE_KEY, JSON.stringify(updated));
+    await AsyncStorage.setItem(matchNotesStorageKey(user.id), JSON.stringify(updated));
     setEditingMatchId(null);
   };
 

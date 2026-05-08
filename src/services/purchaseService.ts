@@ -122,6 +122,33 @@ export function hasPremiumEntitlement(customerInfo: CustomerInfo): boolean {
   return Boolean(customerInfo.entitlements.active[ENTITLEMENT_ID]);
 }
 
+/** RevenueCat entitlement can lag purchase/restore responses; re-fetch after 1s / 2s / 3s. */
+async function resolveCustomerInfoWithPremiumBackoff(
+  label: string,
+  initialCustomerInfo: CustomerInfo,
+): Promise<CustomerInfo> {
+  if (hasPremiumEntitlement(initialCustomerInfo)) {
+    if (__DEV__) console.log(`[PurchaseService] ${label} → entitlement active immediately`);
+    return initialCustomerInfo;
+  }
+  console.warn(`[PurchaseService] ${label} → entitlement NOT active on initial customerInfo, retrying…`);
+  const delays = [1000, 2000, 3000];
+  for (const ms of delays) {
+    await new Promise((r) => setTimeout(r, ms));
+    try {
+      const fresh = await Purchases.getCustomerInfo();
+      if (hasPremiumEntitlement(fresh)) {
+        if (__DEV__) console.log(`[PurchaseService] ${label} → entitlement active after ${ms}ms retry`);
+        return fresh;
+      }
+    } catch {
+      // Transient fetch failure — continue retrying.
+    }
+  }
+  console.warn(`[PurchaseService] ${label} → entitlement still missing after retries, returning original customerInfo`);
+  return initialCustomerInfo;
+}
+
 function pickLifetimeFromOffering(offering: PurchasesOffering | null): PurchasesPackage | null {
   if (!offering) return null;
   return (
@@ -184,6 +211,7 @@ function resolveLegacyPremiumPackage(offerings: PurchasesOfferings): PurchasesPa
 }
 
 function logPkg(label: string, pkg: PurchasesPackage | null): void {
+  if (!__DEV__) return;
   if (!pkg) {
     console.log(`[PurchaseService] ${label}: null`);
     return;
@@ -288,38 +316,20 @@ export const PurchaseService = {
       selectedPackage ??
       (await this.getPremiumPackage());
     logPkg('purchasePremium → package to purchase', premiumPackage);
-    console.log(
-      `[PurchaseService] purchasePremium → selectedPackage was ${selectedPackage ? 'provided' : 'resolved via getPremiumPackage()'}`,
-    );
+    if (__DEV__) {
+      console.log(
+        `[PurchaseService] purchasePremium → selectedPackage was ${selectedPackage ? 'provided' : 'resolved via getPremiumPackage()'}`,
+      );
+    }
     try {
       const { customerInfo } = await Purchases.purchasePackage(premiumPackage);
-      console.log('[PurchaseService] purchasePremium → success');
-      if (hasPremiumEntitlement(customerInfo)) {
-        console.log('[PurchaseService] purchasePremium → entitlement active immediately');
-        return { success: true, customerInfo };
-      }
-      // Entitlement may lag behind the StoreKit transaction on RevenueCat's
-      // backend.  Re-fetch up to 3 times with short back-off before giving up.
-      console.warn('[PurchaseService] purchasePremium → entitlement NOT active on initial customerInfo, retrying…');
-      const delays = [1000, 2000, 3000];
-      for (const ms of delays) {
-        await new Promise((r) => setTimeout(r, ms));
-        try {
-          const fresh = await Purchases.getCustomerInfo();
-          if (hasPremiumEntitlement(fresh)) {
-            console.log(`[PurchaseService] purchasePremium → entitlement active after ${ms}ms retry`);
-            return { success: true, customerInfo: fresh };
-          }
-        } catch {
-          // Transient fetch failure — continue retrying.
-        }
-      }
-      console.warn('[PurchaseService] purchasePremium → entitlement still missing after retries, returning original customerInfo');
-      return { success: true, customerInfo };
+      if (__DEV__) console.log('[PurchaseService] purchasePremium → success');
+      const resolved = await resolveCustomerInfoWithPremiumBackoff('purchasePremium', customerInfo);
+      return { success: true, customerInfo: resolved };
     } catch (err) {
       logPurchaseError('purchasePremium', err);
       if (isPurchaseCancelled(err)) {
-        console.log('[PurchaseService] purchasePremium → cancelled by user');
+        if (__DEV__) console.log('[PurchaseService] purchasePremium → cancelled by user');
         return { success: false, cancelled: true };
       }
       throw err;
@@ -331,28 +341,7 @@ export const PurchaseService = {
       throw purchasesUnavailableError('restorePurchases');
     }
     const customerInfo = await Purchases.restorePurchases();
-    if (hasPremiumEntitlement(customerInfo)) {
-      console.log('[PurchaseService] restorePurchases → entitlement active immediately');
-      return customerInfo;
-    }
-    // Entitlement may lag behind the StoreKit transaction on RevenueCat's
-    // backend.  Re-fetch up to 3 times with short back-off before giving up.
-    console.warn('[PurchaseService] restorePurchases → entitlement NOT active on initial customerInfo, retrying…');
-    const delays = [1000, 2000, 3000];
-    for (const ms of delays) {
-      await new Promise((r) => setTimeout(r, ms));
-      try {
-        const fresh = await Purchases.getCustomerInfo();
-        if (hasPremiumEntitlement(fresh)) {
-          console.log(`[PurchaseService] restorePurchases → entitlement active after ${ms}ms retry`);
-          return fresh;
-        }
-      } catch {
-        // Transient fetch failure — continue retrying.
-      }
-    }
-    console.warn('[PurchaseService] restorePurchases → entitlement still missing after retries, returning original customerInfo');
-    return customerInfo;
+    return await resolveCustomerInfoWithPremiumBackoff('restorePurchases', customerInfo);
   },
 
   async checkEntitlement(): Promise<boolean> {
@@ -376,16 +365,16 @@ export const PurchaseService = {
       throw purchasesUnavailableError('getPremiumOfferingPackages');
     }
     const offerings = await Purchases.getOfferings();
-    console.log(
-      `[PurchaseService] getPremiumOfferingPackages → current offering: ${offerings.current?.identifier ?? 'null'}, ` +
-        `total offerings: ${Object.keys(offerings.all).length}`,
-    );
-    for (const [key, off] of Object.entries(offerings.all)) {
+    if (__DEV__) {
       console.log(
-        `[PurchaseService]   offering "${key}": ${off.availablePackages.length} packages`,
+        `[PurchaseService] getPremiumOfferingPackages → current offering: ${offerings.current?.identifier ?? 'null'}, ` +
+          `total offerings: ${Object.keys(offerings.all).length}`,
       );
-      for (const pkg of off.availablePackages) {
-        logPkg(`    pkg`, pkg);
+      for (const [key, off] of Object.entries(offerings.all)) {
+        console.log(`[PurchaseService]   offering "${key}": ${off.availablePackages.length} packages`);
+        for (const pkg of off.availablePackages) {
+          logPkg(`    pkg`, pkg);
+        }
       }
     }
     const { lifetime, monthly } = resolvePremiumSlots(offerings);

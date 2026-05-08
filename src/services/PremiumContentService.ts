@@ -200,39 +200,35 @@ async function fetchRegionCountryBalancedPublicRows(
   gender: 'boy' | 'girl' | 'both',
 ): Promise<BabyName[]> {
   const countries = countriesForRegion(region);
+  const countryNames = countries.map((country) => country.name);
   if (__DEV__) {
     console.log('[PremiumContentService] region-balanced supplement: countries configured', {
       region,
       limit,
       gender,
-      countries: countries.map((country) => country.name),
+      countries: countryNames,
       spainConfigured: countries.some((country) => country.name === 'Spain'),
     });
   }
-  if (countries.length === 0) return [];
+  if (countryNames.length === 0) return [];
 
-  const countryProbes = await Promise.all(
-    countries.map(async (country) => {
-      const rows = await fetchPublicRowsForRegionCountry(region, country.name, 1, gender);
-      return { country: country.name, count: rows.length };
-    }),
+  const rankedByCountry = await Promise.all(
+    countryNames.map((country) => fetchPublicRowsForRegionCountry(region, country, limit, gender)),
   );
-  const activeCountries = countryProbes
-    .filter((probe) => probe.count > 0)
-    .map((probe) => probe.country);
+
+  const activeCountries = countryNames.filter((_, idx) => rankedByCountry[idx].length > 0);
 
   if (__DEV__) {
-    const spainProbe = countryProbes.find((probe) => probe.country === 'Spain');
-    console.log('[PremiumContentService] region-balanced supplement: country probes', {
+    console.log('[PremiumContentService] region-balanced supplement: country fetch counts', {
       region,
-      probeCounts: countryProbes.reduce<Record<string, number>>((acc, probe) => {
-        acc[probe.country] = probe.count;
+      rowCounts: countryNames.reduce<Record<string, number>>((acc, country, idx) => {
+        acc[country] = rankedByCountry[idx].length;
         return acc;
       }, {}),
       activeCountries,
       spainStatus: {
         configured: countries.some((country) => country.name === 'Spain'),
-        probeCount: spainProbe?.count ?? null,
+        fetchCount: rankedByCountry[countryNames.indexOf('Spain')]?.length ?? null,
         active: activeCountries.includes('Spain'),
       },
     });
@@ -242,11 +238,11 @@ async function fetchRegionCountryBalancedPublicRows(
 
   const basePer = Math.floor(limit / activeCountries.length);
   const remainder = limit % activeCountries.length;
-  const slices = await Promise.all(
-    activeCountries.map((country, i) =>
-      fetchPublicRowsForRegionCountry(region, country, basePer + (i < remainder ? 1 : 0), gender),
-    ),
-  );
+  const slices = activeCountries.map((country, activeIdx) => {
+    const idx = countryNames.indexOf(country);
+    const cap = basePer + (activeIdx < remainder ? 1 : 0);
+    return rankedByCountry[idx].slice(0, cap);
+  });
 
   const out = interleavePublicSupplementSlices(slices, limit);
   if (__DEV__) {

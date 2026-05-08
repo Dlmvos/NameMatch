@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -93,11 +93,13 @@ export default function PaywallScreen({ navigation }: Props) {
     AnalyticsService.track('purchase_started');
     setIsBusy(true);
     try {
-      console.log(
-        `[PaywallScreen] handlePurchase → selectedPremium id=${selectedPremium?.identifier ?? 'null'} ` +
-          `type=${selectedPremium?.packageType ?? 'null'} ` +
-          `product=${selectedPremium?.product?.identifier ?? 'null'}`,
-      );
+      if (__DEV__) {
+        console.log(
+          `[PaywallScreen] handlePurchase → selectedPremium id=${selectedPremium?.identifier ?? 'null'} ` +
+            `type=${selectedPremium?.packageType ?? 'null'} ` +
+            `product=${selectedPremium?.product?.identifier ?? 'null'}`,
+        );
+      }
       const result = await PurchaseService.purchasePremium(selectedPremium ?? undefined);
       if (!result.success) {
         AnalyticsService.track('purchase_failed', { reason: 'purchase_not_successful' });
@@ -263,8 +265,17 @@ export default function PaywallScreen({ navigation }: Props) {
         </TouchableOpacity>
 
         <Text style={styles.footerText}>
-          {t('paywall.couple.footer')}
+          {showDualOffers && selectedPremium && !isSamePackage(selectedPremium, lifetimePkg)
+            ? t('paywall.legal.monthlyFooter')
+            : t('paywall.legal.lifetimeFooter')}
         </Text>
+
+        {showDualOffers && selectedPremium && !isSamePackage(selectedPremium, lifetimePkg) && (
+          <Text style={styles.legalText}>
+            {t('paywall.legal.autoRenew', { price: selectedPremium?.product.priceString ?? '' })}
+          </Text>
+        )}
+
         <TouchableOpacity
           style={[styles.restoreLink, isBusy && styles.disabledButton]}
           onPress={handleRestore}
@@ -273,6 +284,16 @@ export default function PaywallScreen({ navigation }: Props) {
         >
           <Text style={styles.restoreLinkText}>{t('shop.restorePurchases')}</Text>
         </TouchableOpacity>
+
+        <View style={styles.legalLinks}>
+          <TouchableOpacity onPress={() => Linking.openURL('https://babinom.com/terms/')}>
+            <Text style={styles.legalLinkText}>{t('paywall.legal.terms')}</Text>
+          </TouchableOpacity>
+          <Text style={styles.legalSeparator}>{'  •  '}</Text>
+          <TouchableOpacity onPress={() => Linking.openURL('https://babinom.com/privacy/')}>
+            <Text style={styles.legalLinkText}>{t('paywall.legal.privacy')}</Text>
+          </TouchableOpacity>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -507,5 +528,29 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     color: colors.match?.primary || colors.swipe.primary,
+  },
+  legalText: {
+    fontSize: 11,
+    lineHeight: 16,
+    color: colors.neutral.gray,
+    textAlign: 'center',
+    marginTop: 12,
+    paddingHorizontal: 8,
+  },
+  legalLinks: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 12,
+    marginBottom: 8,
+  },
+  legalLinkText: {
+    fontSize: 12,
+    color: colors.match?.primary || colors.swipe.primary,
+    textDecorationLine: 'underline',
+  },
+  legalSeparator: {
+    fontSize: 12,
+    color: colors.neutral.gray,
   },
 });

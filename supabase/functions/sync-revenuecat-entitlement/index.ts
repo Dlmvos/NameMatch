@@ -10,6 +10,16 @@ function isEntitlementActive(entitlement: any): boolean {
   return expiresDate === null || new Date(expiresDate).getTime() > Date.now();
 }
 
+function mergePremiumPack(packs: string[] | null | undefined): string[] {
+  const base = [...(packs ?? [])];
+  if (base.includes(PREMIUM_PACK)) return base;
+  return [...base, PREMIUM_PACK];
+}
+
+function withoutPremiumPack(packs: string[] | null | undefined): string[] {
+  return (packs ?? []).filter((p) => p !== PREMIUM_PACK);
+}
+
 serve(async (req) => {
   if (req.method !== 'POST') {
     return new Response('Method not allowed', { status: 405 });
@@ -52,18 +62,62 @@ serve(async (req) => {
 
     const revenueCatPayload = await rcResponse.json();
     const entitlement = revenueCatPayload.subscriber?.entitlements?.[ENTITLEMENT_ID];
-    if (!isEntitlementActive(entitlement)) {
+    const active = isEntitlementActive(entitlement);
+
+    const serviceClient = createClient(supabaseUrl, serviceRoleKey);
+    const { data: profile, error: profileReadError } = await serviceClient
+      .from('profiles')
+      .select('purchased_packs')
+      .eq('id', userId)
+      .maybeSingle();
+
+    if (profileReadError) {
+      console.error('[sync-revenuecat-entitlement] profile read error', profileReadError.message);
+      return new Response('Database error', { status: 500 });
+    }
+
+    const existing = profile?.purchased_packs ?? [];
+
+    if (!active) {
+      const next = withoutPremiumPack(existing);
+      if (next.length === existing.length) {
+        console.log('[sync-revenuecat-entitlement] inactive: no premium pack to remove, skip write');
+        return new Response(JSON.stringify({ ok: true, active: false }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        });
+      }
+      const { error } = await serviceClient
+        .from('profiles')
+        .update({
+          purchased_packs: next,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', userId);
+      if (error) {
+        console.error('[sync-revenuecat-entitlement] profile update error', error.message);
+        return new Response('Database error', { status: 500 });
+      }
+      console.log('[sync-revenuecat-entitlement] inactive: removed premium pack, preserved other packs');
       return new Response(JSON.stringify({ ok: true, active: false }), {
         status: 200,
         headers: { 'content-type': 'application/json' },
       });
     }
 
-    const serviceClient = createClient(supabaseUrl, serviceRoleKey);
+    const next = mergePremiumPack(existing);
+    if (next.length === existing.length) {
+      console.log('[sync-revenuecat-entitlement] active: premium pack already present, skip write');
+      return new Response(JSON.stringify({ ok: true, active: true }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+
     const { error } = await serviceClient
       .from('profiles')
       .update({
-        purchased_packs: [PREMIUM_PACK],
+        purchased_packs: next,
         updated_at: new Date().toISOString(),
       })
       .eq('id', userId);
@@ -73,6 +127,7 @@ serve(async (req) => {
       return new Response('Database error', { status: 500 });
     }
 
+    console.log('[sync-revenuecat-entitlement] active: merged premium pack into purchased_packs');
     return new Response(JSON.stringify({ ok: true, active: true }), {
       status: 200,
       headers: { 'content-type': 'application/json' },

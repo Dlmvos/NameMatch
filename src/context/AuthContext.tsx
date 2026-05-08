@@ -15,6 +15,7 @@ import {
 import { Profile, PREMIUM_COUPLE_PACK_KEY } from '../types';
 import { ProfileService } from '../services/ProfileService';
 import { PurchaseService } from '../services/purchaseService';
+import { prepareLocalStorageForSignOut } from '../lib/accountScopedStorage';
 
 // ──────────────────────────────────────────────────────────
 // Types
@@ -206,6 +207,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const prevUserId = activeAuthUserIdRef.current;
         activeAuthUserIdRef.current = nextUser?.id ?? null;
 
+        if (prevUserId && (!nextUser || nextUser.id !== prevUserId)) {
+          void prepareLocalStorageForSignOut(prevUserId);
+        }
+
         if (event === 'SIGNED_IN' && nextUser) {
           PurchaseService.logIn(nextUser.id).catch((err) => {
             console.error('[AuthContext] RevenueCat logIn failed:', err);
@@ -365,13 +370,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const hydratePremiumFromRevenueCat = useCallback(
     async (customerInfoSeed?: CustomerInfo): Promise<boolean> => {
       if (!user) return false;
-      console.log('[AuthContext] hydratePremiumFromRevenueCat → start');
+      if (__DEV__) console.log('[AuthContext] hydratePremiumFromRevenueCat → start');
       let info: CustomerInfo | null = null;
       try {
         info = await PurchaseService.getCustomerInfo();
-        console.log(
-          `[AuthContext] hydratePremiumFromRevenueCat → fresh entitlement: ${PurchaseService.hasPremiumEntitlement(info)}`,
-        );
+        if (__DEV__) {
+          console.log(
+            `[AuthContext] hydratePremiumFromRevenueCat → fresh entitlement: ${PurchaseService.hasPremiumEntitlement(info)}`,
+          );
+        }
       } catch {
         console.warn('[AuthContext] hydratePremiumFromRevenueCat → getCustomerInfo failed, using seed');
         info = customerInfoSeed ?? null;
@@ -380,7 +387,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // seed — the purchase just succeeded so the seed is likely more current
       // than a delayed backend read.
       if (info && !PurchaseService.hasPremiumEntitlement(info) && customerInfoSeed && PurchaseService.hasPremiumEntitlement(customerInfoSeed)) {
-        console.log('[AuthContext] hydratePremiumFromRevenueCat → fresh missing entitlement, seed has it → using seed');
+        if (__DEV__) {
+          console.log('[AuthContext] hydratePremiumFromRevenueCat → fresh missing entitlement, seed has it → using seed');
+        }
         info = customerInfoSeed;
       }
       if (!info || !PurchaseService.hasPremiumEntitlement(info)) {
@@ -389,16 +398,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       try {
         await PurchaseService.syncRevenueCatEntitlement();
-        console.log('[AuthContext] hydratePremiumFromRevenueCat → sync edge function succeeded');
+        if (__DEV__) console.log('[AuthContext] hydratePremiumFromRevenueCat → sync edge function succeeded');
       } catch (err: any) {
         console.warn('[AuthContext] syncRevenueCatEntitlement failed:', err?.message ?? err);
       }
       const updated = await fetchProfile(user);
-      console.log(
-        `[AuthContext] hydratePremiumFromRevenueCat → profile.purchased_packs: ${JSON.stringify(updated?.purchased_packs ?? [])}`,
-      );
+      if (__DEV__) {
+        console.log(
+          `[AuthContext] hydratePremiumFromRevenueCat → profile.purchased_packs: ${JSON.stringify(updated?.purchased_packs ?? [])}`,
+        );
+      }
       if (updated && !updated.purchased_packs?.includes(PREMIUM_COUPLE_PACK_KEY)) {
-        console.log('[AuthContext] hydratePremiumFromRevenueCat → optimistic patch: adding PREMIUM_COUPLE');
+        if (__DEV__) console.log('[AuthContext] hydratePremiumFromRevenueCat → optimistic patch: adding PREMIUM_COUPLE');
         setProfile({
           ...updated,
           purchased_packs: Array.from(
@@ -430,6 +441,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // FK cascades handle profiles → swipes, purchases, rooms (owner) → matches.
     const { error } = await supabase.rpc('delete_own_account');
     if (error) throw new Error(error.message ?? 'Could not delete account.');
+
+    await prepareLocalStorageForSignOut(user.id).catch(() => {});
 
     await PurchaseService.logOut().catch(() => {
       /* best-effort */

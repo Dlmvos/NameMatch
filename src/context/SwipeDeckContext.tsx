@@ -17,6 +17,7 @@ import { resolveBabyNameMeaningFields } from '../i18n/nameMeaningDisplay';
 import { countryWeightingService } from '../services/CountryWeightingService';
 import { useApp } from './AppContext';
 import { userPreferenceLearningService } from '../services/UserPreferenceLearningService';
+import { normalizeLanguageTagToBase } from '../services/languageService';
 
 function nameGenderDedupeKey(n: BabyName): string {
   return `${n.name.trim().toLowerCase()}|${n.gender}`;
@@ -236,39 +237,56 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
     namesToSwipeRef.current = namesToSwipe;
   }, [namesToSwipe]);
 
-  const swipeDeckMeaningKey = useMemo(
-    () =>
-      `${effectiveLanguage}|${user?.id ?? 'anon'}|${namesToSwipe.map((n) => n.id).sort().join(',')}`,
-    [effectiveLanguage, user?.id, namesToSwipe],
-  );
+  /** Catalog rows from `name_meaning_translations`; string | null = fetched (null = no row). */
+  const catalogMeaningByLangIdRef = useRef<Map<string, string | null>>(new Map());
 
   useEffect(() => {
     let cancelled = false;
-    const snapshot = namesToSwipeRef.current;
+    const snapshot = namesToSwipe;
     if (!snapshot.length) return;
 
+    const langNorm = normalizeLanguageTagToBase(effectiveLanguage);
+    const uuidIds = [...new Set(snapshot.filter((n) => UUID_LIKE_ID.test(n.id)).map((n) => n.id))];
+    const cache = catalogMeaningByLangIdRef.current;
+    const missing = uuidIds.filter((id) => !cache.has(`${langNorm}|${id}`));
+
+    const applyCatalogMeaningsFromCache = (prev: BabyName[]): BabyName[] =>
+      prev.map((n) => {
+        if (!UUID_LIKE_ID.test(n.id)) {
+          return resolveBabyNameMeaningFields(n, undefined, effectiveLanguage);
+        }
+        const entry = cache.get(`${langNorm}|${n.id}`);
+        const catalogTranslation = typeof entry === 'string' ? entry : undefined;
+        return resolveBabyNameMeaningFields(n, catalogTranslation, effectiveLanguage);
+      });
+
+    if (missing.length === 0) {
+      // Same language + all UUID rows already fetched — skip network. Re-merge only when deck has
+      // raw rows (e.g. filter rebuild) so we do not rewrite state on every swipe.
+      const needsLocalMerge = snapshot.some((n) => n.meaningLanguage == null);
+      if (!needsLocalMerge) return;
+      setNamesToSwipe(applyCatalogMeaningsFromCache);
+      return;
+    }
+
     void (async () => {
-      const uuidIds = [...new Set(snapshot.filter((n) => UUID_LIKE_ID.test(n.id)).map((n) => n.id))];
-      const map =
-        user?.id && uuidIds.length > 0
-          ? await fetchCatalogNameMeaningTranslationsByNameIds(uuidIds, effectiveLanguage)
-          : new Map<string, string>();
+      const map = user?.id
+        ? await fetchCatalogNameMeaningTranslationsByNameIds(missing, effectiveLanguage)
+        : new Map<string, string>();
       if (cancelled) return;
-      setNamesToSwipe((prev) =>
-        prev.map((n) =>
-          resolveBabyNameMeaningFields(
-            n,
-            UUID_LIKE_ID.test(n.id) ? map.get(n.id) : undefined,
-            effectiveLanguage,
-          ),
-        ),
-      );
+
+      for (const id of missing) {
+        const raw = map.get(id)?.trim();
+        cache.set(`${langNorm}|${id}`, raw && raw.length > 0 ? raw : null);
+      }
+
+      setNamesToSwipe((prev) => applyCatalogMeaningsFromCache(prev));
     })();
 
     return () => {
       cancelled = true;
     };
-  }, [swipeDeckMeaningKey, effectiveLanguage, user?.id]);
+  }, [namesToSwipe, effectiveLanguage, user?.id]);
 
   useEffect(() => {
     freeSwipesRemainingRef.current = profile?.free_swipes_remaining ?? 0;

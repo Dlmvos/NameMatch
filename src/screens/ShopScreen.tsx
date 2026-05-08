@@ -9,6 +9,7 @@ import {
   Alert,
   Modal,
   TextInput,
+  Linking,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -28,9 +29,11 @@ import { COUNTRY_OPTIONS } from '../data/countries';
 import { COLORS, FONTS, RADIUS, SPACING, SHADOWS } from '../theme';
 import { PurchaseService, classifyPurchaseError } from '../services/purchaseService';
 import { DEV_PREVIEW } from '../config/devPreview';
+import {
+  CURATED_UNLOCKS_LEGACY_KEY,
+  curatedUnlocksStorageKey,
+} from '../lib/accountScopedStorage';
 
-/** Legacy bucket name; stores curated swipe-to-shop recommendations keyed by pack id. */
-const CURATED_RECOMMENDATION_UNLOCKS_STORAGE_KEY = 'AI_PACK_UNLOCKS';
 const DEV_UNLOCKED_PACKS_KEY = 'NAMEMATCH_DEV_UNLOCKED_PACKS';
 const CURATED_RECOMMENDATION_ACCESS_MS = 24 * 60 * 60 * 1000;
 
@@ -51,7 +54,7 @@ function curatedPackLabelSuffix(packType: string): string {
 
 export default function ShopScreen() {
   const { t, language } = useTranslation();
-  const { profile, hydratePremiumFromRevenueCat, restorePurchases } = useAuth();
+  const { profile, user, hydratePremiumFromRevenueCat, restorePurchases } = useAuth();
   const {
     effectiveUnlockedPacks,
     refreshUnlockedPacks,
@@ -196,7 +199,20 @@ export default function ShopScreen() {
         if (mounted) setPremiumOffersHydrated(true);
       });
     const loadUnlocks = async () => {
-      const raw = await AsyncStorage.getItem(CURATED_RECOMMENDATION_UNLOCKS_STORAGE_KEY).catch(() => null);
+      if (!user?.id) {
+        if (mounted) setCuratedUnlocks({});
+        return;
+      }
+      const scopedKey = curatedUnlocksStorageKey(user.id);
+      let raw = await AsyncStorage.getItem(scopedKey).catch(() => null);
+      if (!raw) {
+        const legacyRaw = await AsyncStorage.getItem(CURATED_UNLOCKS_LEGACY_KEY).catch(() => null);
+        if (legacyRaw) {
+          await AsyncStorage.setItem(scopedKey, legacyRaw).catch(() => {});
+          await AsyncStorage.removeItem(CURATED_UNLOCKS_LEGACY_KEY).catch(() => {});
+          raw = legacyRaw;
+        }
+      }
       let parsed: Record<string, CuratedUnlockPack> = {};
       if (raw) {
         try {
@@ -214,9 +230,7 @@ export default function ShopScreen() {
       );
 
       if (Object.keys(active).length !== Object.keys(parsed).length) {
-        await AsyncStorage.setItem(CURATED_RECOMMENDATION_UNLOCKS_STORAGE_KEY, JSON.stringify(active)).catch(
-          () => {},
-        );
+        await AsyncStorage.setItem(scopedKey, JSON.stringify(active)).catch(() => {});
       }
 
       if (mounted) {
@@ -230,11 +244,17 @@ export default function ShopScreen() {
       mounted = false;
       clearInterval(timer);
     };
-  }, []);
+  }, [user?.id]);
 
   useEffect(() => {
     if (!isFocused) return;
-    AsyncStorage.getItem(CURATED_RECOMMENDATION_UNLOCKS_STORAGE_KEY)
+    if (!user?.id) {
+      setCuratedUnlocks({});
+      void refreshUnlockedPacks();
+      return;
+    }
+    const scopedKey = curatedUnlocksStorageKey(user.id);
+    AsyncStorage.getItem(scopedKey)
       .then((raw) => {
         if (!raw) {
           setCuratedUnlocks({});
@@ -249,9 +269,11 @@ export default function ShopScreen() {
       })
       .catch(() => {});
     void refreshUnlockedPacks();
-  }, [isFocused, refreshUnlockedPacks]);
+  }, [isFocused, refreshUnlockedPacks, user?.id]);
 
   useEffect(() => {
+    if (!user?.id) return;
+    const scopedKey = curatedUnlocksStorageKey(user.id);
     const active = Object.fromEntries(
       Object.entries(curatedUnlocks).filter(
         ([, pack]) => nowMs - pack.unlockedAt < CURATED_RECOMMENDATION_ACCESS_MS,
@@ -259,9 +281,9 @@ export default function ShopScreen() {
     );
     if (Object.keys(active).length !== Object.keys(curatedUnlocks).length) {
       setCuratedUnlocks(active);
-      AsyncStorage.setItem(CURATED_RECOMMENDATION_UNLOCKS_STORAGE_KEY, JSON.stringify(active)).catch(() => {});
+      AsyncStorage.setItem(scopedKey, JSON.stringify(active)).catch(() => {});
     }
-  }, [curatedUnlocks, nowMs]);
+  }, [curatedUnlocks, nowMs, user?.id]);
 
   const createCountryPack = (countryName: string, flag: string, countryLabel: string): NamePack => ({
     key: `COUNTRY_${countryName.replace(/\s+/g, '_').toUpperCase()}`,
@@ -296,12 +318,14 @@ export default function ShopScreen() {
     }
     try {
       const pkgToSend = pack.key === PREMIUM_COUPLE_PACK_KEY ? premiumSelectedPkg ?? undefined : undefined;
-      console.log(
-        `[ShopScreen] handlePurchase → pack.key=${pack.key}, ` +
-          `premiumSelectedPkg id=${premiumSelectedPkg?.identifier ?? 'null'} ` +
-          `type=${premiumSelectedPkg?.packageType ?? 'null'} ` +
-          `product=${premiumSelectedPkg?.product?.identifier ?? 'null'}`,
-      );
+      if (__DEV__) {
+        console.log(
+          `[ShopScreen] handlePurchase → pack.key=${pack.key}, ` +
+            `premiumSelectedPkg id=${premiumSelectedPkg?.identifier ?? 'null'} ` +
+            `type=${premiumSelectedPkg?.packageType ?? 'null'} ` +
+            `product=${premiumSelectedPkg?.product?.identifier ?? 'null'}`,
+        );
+      }
       const result = await PurchaseService.purchasePremium(pkgToSend);
       if (!result.success) return;
       if (!PurchaseService.hasPremiumEntitlement(result.customerInfo)) {
@@ -343,7 +367,8 @@ export default function ShopScreen() {
   const handleResetDevPremium = async () => {
     if (!__DEV__) return;
     await clearDevUnlockedPacks();
-    await AsyncStorage.removeItem(CURATED_RECOMMENDATION_UNLOCKS_STORAGE_KEY).catch(() => {});
+    await AsyncStorage.removeItem(CURATED_UNLOCKS_LEGACY_KEY).catch(() => {});
+    if (user?.id) await AsyncStorage.removeItem(curatedUnlocksStorageKey(user.id)).catch(() => {});
     setCuratedUnlocks({});
     loadMoreNames();
     Alert.alert('Dev premium reset');
@@ -501,6 +526,29 @@ export default function ShopScreen() {
             >
               <Text style={styles.restoreBtnText}>{t('shop.restorePurchases')}</Text>
             </TouchableOpacity>
+
+            <Text style={styles.legalFooterText}>
+              {dualPremiumOffers && premiumSelectedPkg && premiumSelectedPkg.identifier !== premiumLifetimePkg?.identifier
+                ? t('paywall.legal.monthlyFooter')
+                : t('paywall.legal.lifetimeFooter')}
+            </Text>
+
+            {dualPremiumOffers && premiumSelectedPkg && premiumSelectedPkg.identifier !== premiumLifetimePkg?.identifier && (
+              <Text style={styles.legalAutoRenewText}>
+                {t('paywall.legal.autoRenew', { price: premiumSelectedPkg?.product.priceString ?? '' })}
+              </Text>
+            )}
+
+            <View style={styles.legalLinksRow}>
+              <TouchableOpacity onPress={() => Linking.openURL('https://babinom.com/terms/')}>
+                <Text style={styles.legalLinkText}>{t('paywall.legal.terms')}</Text>
+              </TouchableOpacity>
+              <Text style={styles.legalSepText}>{'  •  '}</Text>
+              <TouchableOpacity onPress={() => Linking.openURL('https://babinom.com/privacy/')}>
+                <Text style={styles.legalLinkText}>{t('paywall.legal.privacy')}</Text>
+              </TouchableOpacity>
+            </View>
+
             {__DEV__ ? (
               <TouchableOpacity
                 style={styles.devResetBtn}
@@ -899,6 +947,37 @@ const styles = StyleSheet.create({
     fontSize: FONTS.sizes.sm,
     fontWeight: '700',
     color: colors.onboarding.primary,
+  },
+  legalFooterText: {
+    fontSize: 11,
+    lineHeight: 16,
+    color: COLORS.textMuted,
+    textAlign: 'center',
+    marginTop: SPACING.sm,
+  },
+  legalAutoRenewText: {
+    fontSize: 11,
+    lineHeight: 16,
+    color: COLORS.textMuted,
+    textAlign: 'center',
+    marginTop: SPACING.xs,
+    paddingHorizontal: SPACING.sm,
+  },
+  legalLinksRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: SPACING.sm,
+    marginBottom: SPACING.xs,
+  },
+  legalLinkText: {
+    fontSize: 12,
+    color: colors.onboarding.primary,
+    textDecorationLine: 'underline',
+  },
+  legalSepText: {
+    fontSize: 12,
+    color: COLORS.textMuted,
   },
   devResetBtn: {
     alignItems: 'center',
