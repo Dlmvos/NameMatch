@@ -93,6 +93,11 @@ export default function PaywallScreen({ navigation }: Props) {
     AnalyticsService.track('purchase_started');
     setIsBusy(true);
     try {
+      console.log(
+        `[PaywallScreen] handlePurchase → selectedPremium id=${selectedPremium?.identifier ?? 'null'} ` +
+          `type=${selectedPremium?.packageType ?? 'null'} ` +
+          `product=${selectedPremium?.product?.identifier ?? 'null'}`,
+      );
       const result = await PurchaseService.purchasePremium(selectedPremium ?? undefined);
       if (!result.success) {
         AnalyticsService.track('purchase_failed', { reason: 'purchase_not_successful' });
@@ -108,6 +113,12 @@ export default function PaywallScreen({ navigation }: Props) {
       Alert.alert(t('shop.purchaseSuccessTitle'), t('shop.purchaseSuccessBody'));
       navigateAfterPremiumVerified();
     } catch (err: any) {
+      console.error('[PaywallScreen] handlePurchase error:', JSON.stringify({
+        code: err?.code,
+        message: err?.message,
+        underlyingErrorMessage: err?.underlyingErrorMessage,
+        userCancelled: err?.userCancelled,
+      }));
       AnalyticsService.track('purchase_failed', { reason: err?.message ?? 'unknown' });
       Alert.alert(t('common.error'), err?.message ?? t('shop.purchaseError'));
     } finally {

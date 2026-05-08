@@ -182,6 +182,31 @@ function resolveLegacyPremiumPackage(offerings: PurchasesOfferings): PurchasesPa
   );
 }
 
+function logPkg(label: string, pkg: PurchasesPackage | null): void {
+  if (!pkg) {
+    console.log(`[PurchaseService] ${label}: null`);
+    return;
+  }
+  console.log(
+    `[PurchaseService] ${label}: id=${pkg.identifier} type=${pkg.packageType} ` +
+      `product=${pkg.product.identifier} title=${pkg.product.title} price=${pkg.product.priceString}`,
+  );
+}
+
+function logPurchaseError(method: string, err: unknown): void {
+  const e = err as Record<string, unknown> | undefined;
+  console.error(
+    `[PurchaseService] ${method} error:`,
+    JSON.stringify({
+      code: e?.code,
+      message: e?.message,
+      underlyingErrorMessage: e?.underlyingErrorMessage,
+      userCancelled: e?.userCancelled,
+      readableErrorCode: e?.readableErrorCode,
+    }),
+  );
+}
+
 function isPurchaseCancelled(err: unknown): boolean {
   const maybeError = err as { code?: string; userCancelled?: boolean | null };
   return (
@@ -235,11 +260,18 @@ export const PurchaseService = {
     const premiumPackage =
       selectedPackage ??
       (await this.getPremiumPackage());
+    logPkg('purchasePremium → package to purchase', premiumPackage);
+    console.log(
+      `[PurchaseService] purchasePremium → selectedPackage was ${selectedPackage ? 'provided' : 'resolved via getPremiumPackage()'}`,
+    );
     try {
       const { customerInfo } = await Purchases.purchasePackage(premiumPackage);
+      console.log('[PurchaseService] purchasePremium → success');
       return { success: true, customerInfo };
     } catch (err) {
+      logPurchaseError('purchasePremium', err);
       if (isPurchaseCancelled(err)) {
+        console.log('[PurchaseService] purchasePremium → cancelled by user');
         return { success: false, cancelled: true };
       }
       throw err;
@@ -274,11 +306,26 @@ export const PurchaseService = {
       throw purchasesUnavailableError('getPremiumOfferingPackages');
     }
     const offerings = await Purchases.getOfferings();
+    console.log(
+      `[PurchaseService] getPremiumOfferingPackages → current offering: ${offerings.current?.identifier ?? 'null'}, ` +
+        `total offerings: ${Object.keys(offerings.all).length}`,
+    );
+    for (const [key, off] of Object.entries(offerings.all)) {
+      console.log(
+        `[PurchaseService]   offering "${key}": ${off.availablePackages.length} packages`,
+      );
+      for (const pkg of off.availablePackages) {
+        logPkg(`    pkg`, pkg);
+      }
+    }
     const { lifetime, monthly } = resolvePremiumSlots(offerings);
+    logPkg('resolved lifetime', lifetime);
+    logPkg('resolved monthly', monthly);
 
     let legacy: PurchasesPackage | null = null;
     if (!lifetime && !monthly) {
       legacy = resolveLegacyPremiumPackage(offerings);
+      logPkg('resolved legacy (fallback)', legacy);
     }
 
     return { lifetime, monthly, legacy };

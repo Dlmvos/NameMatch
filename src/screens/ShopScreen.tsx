@@ -294,9 +294,14 @@ export default function ShopScreen() {
       return;
     }
     try {
-      const result = await PurchaseService.purchasePremium(
-        pack.key === PREMIUM_COUPLE_PACK_KEY ? premiumSelectedPkg ?? undefined : undefined,
+      const pkgToSend = pack.key === PREMIUM_COUPLE_PACK_KEY ? premiumSelectedPkg ?? undefined : undefined;
+      console.log(
+        `[ShopScreen] handlePurchase → pack.key=${pack.key}, ` +
+          `premiumSelectedPkg id=${premiumSelectedPkg?.identifier ?? 'null'} ` +
+          `type=${premiumSelectedPkg?.packageType ?? 'null'} ` +
+          `product=${premiumSelectedPkg?.product?.identifier ?? 'null'}`,
       );
+      const result = await PurchaseService.purchasePremium(pkgToSend);
       if (!result.success) return;
       if (!PurchaseService.hasPremiumEntitlement(result.customerInfo)) {
         Alert.alert(t('common.error'), t('shop.purchaseError'));
@@ -307,7 +312,14 @@ export default function ShopScreen() {
       loadMoreNames();
       Alert.alert(t('shop.purchaseSuccessTitle'), t('shop.purchaseSuccessBody'));
     } catch (err: any) {
-      Alert.alert(t('common.error'), err?.message ?? t('shop.purchaseError'));
+      const msg = err?.message ?? t('shop.purchaseError');
+      console.error('[ShopScreen] handlePurchase error:', JSON.stringify({
+        code: err?.code,
+        message: err?.message,
+        underlyingErrorMessage: err?.underlyingErrorMessage,
+        userCancelled: err?.userCancelled,
+      }));
+      Alert.alert(t('common.error'), msg);
     }
   };
 
