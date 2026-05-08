@@ -1,12 +1,12 @@
--- Audited drift fixes: single canonical check_and_create_matchh(uuid, text, uuid) matching baby_names.name_id text;
+-- Audited drift fixes: single canonical check_and_create_match(uuid, text, uuid) matching baby_names.name_id text;
 -- new-user profile stamp avoids same-day refill double-grant semantics.
 
 begin;
 
-drop function if exists public.check_and_create_matchh(uuid, uuid, uuid);
-drop function if exists public.check_and_create_matchh(uuid, text, uuid);
+drop function if exists public.check_and_create_match(uuid, uuid, uuid);
+drop function if exists public.check_and_create_match(uuid, text, uuid);
 
-create or replace function public.check_and_create_matchh(
+create or replace function public.check_and_create_match(
   p_room_id uuid,
   p_name_id text,
   p_user_id uuid
@@ -73,9 +73,9 @@ begin
 end;
 $$ language plpgsql security definer set search_path = '';
 
-revoke execute on function public.check_and_create_matchh(uuid, text, uuid) from public;
-revoke execute on function public.check_and_create_matchh(uuid, text, uuid) from anon;
-grant execute on function public.check_and_create_matchh(uuid, text, uuid) to authenticated;
+revoke execute on function public.check_and_create_match(uuid, text, uuid) from public;
+revoke execute on function public.check_and_create_match(uuid, text, uuid) from anon;
+grant execute on function public.check_and_create_match(uuid, text, uuid) to authenticated;
 
 create or replace function public.handle_new_user()
 returns trigger as $$
