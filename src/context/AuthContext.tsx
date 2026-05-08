@@ -170,8 +170,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               if (loaded.purchased_packs?.includes(PREMIUM_COUPLE_PACK_KEY)) return;
               void (async () => {
                 try {
-                  const info = await PurchaseService.getCustomerInfo();
+                  const info = await PurchaseService.getCustomerInfoWithPremiumPropagation();
                   if (!PurchaseService.hasPremiumEntitlement(info)) return;
+                  if (activeAuthUserIdRef.current !== bootUser.id) return;
+                  await new Promise<void>((r) => setTimeout(r, 0));
                   if (activeAuthUserIdRef.current !== bootUser.id) return;
                   await hydratePremiumFromRcRef.current(info);
                 } catch {

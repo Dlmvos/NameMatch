@@ -307,6 +307,15 @@ export const PurchaseService = {
     return await Purchases.getCustomerInfo();
   },
 
+  /** Single fetch plus 1s/2s/3s getCustomerInfo retries when premium_couple is not yet active (same as purchase/restore). */
+  async getCustomerInfoWithPremiumPropagation(): Promise<CustomerInfo> {
+    if (!canUsePurchases('getCustomerInfo')) {
+      throw purchasesUnavailableError('getCustomerInfo');
+    }
+    const initial = await Purchases.getCustomerInfo();
+    return resolveCustomerInfoWithPremiumBackoff('getCustomerInfo', initial);
+  },
+
   async purchasePremium(selectedPackage?: PurchasesPackage): Promise<PurchaseSuccess | PurchaseCancelled> {
     if (!canUsePurchases('purchasePremium')) {
       if (!__DEV__) throw purchasesUnavailableError('purchasePremium');

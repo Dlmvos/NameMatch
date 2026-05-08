@@ -237,7 +237,10 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
     namesToSwipeRef.current = namesToSwipe;
   }, [namesToSwipe]);
 
-  /** Catalog rows from `name_meaning_translations`; string | null = fetched (null = no row). */
+  /**
+   * In-memory cache for `name_meaning_translations`: key `${normalizedLang}|${nameId}` → trimmed text or
+   * `null` (known absent). Survives deck truncation/swiping so we never repeat network for the same id+language.
+   */
   const catalogMeaningByLangIdRef = useRef<Map<string, string | null>>(new Map());
 
   useEffect(() => {
@@ -246,26 +249,26 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
     if (!snapshot.length) return;
 
     const langNorm = normalizeLanguageTagToBase(effectiveLanguage);
-    const uuidIds = [...new Set(snapshot.filter((n) => UUID_LIKE_ID.test(n.id)).map((n) => n.id))];
     const cache = catalogMeaningByLangIdRef.current;
-    const missing = uuidIds.filter((id) => !cache.has(`${langNorm}|${id}`));
+    const cacheKey = (nameId: string) => `${langNorm}|${nameId}`;
+
+    const uuidIds = [...new Set(snapshot.filter((n) => UUID_LIKE_ID.test(n.id)).map((n) => n.id))];
+    const missing = uuidIds.filter((id) => !cache.has(cacheKey(id)));
 
     const applyCatalogMeaningsFromCache = (prev: BabyName[]): BabyName[] =>
       prev.map((n) => {
         if (!UUID_LIKE_ID.test(n.id)) {
           return resolveBabyNameMeaningFields(n, undefined, effectiveLanguage);
         }
-        const entry = cache.get(`${langNorm}|${n.id}`);
+        const entry = cache.get(cacheKey(n.id));
         const catalogTranslation = typeof entry === 'string' ? entry : undefined;
         return resolveBabyNameMeaningFields(n, catalogTranslation, effectiveLanguage);
       });
 
     if (missing.length === 0) {
-      // Same language + all UUID rows already fetched — skip network. Re-merge only when deck has
-      // raw rows (e.g. filter rebuild) so we do not rewrite state on every swipe.
       const needsLocalMerge = snapshot.some((n) => n.meaningLanguage == null);
       if (!needsLocalMerge) return;
-      setNamesToSwipe(applyCatalogMeaningsFromCache);
+      setNamesToSwipe((prev) => applyCatalogMeaningsFromCache(prev));
       return;
     }
 
@@ -273,13 +276,16 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
       const map = user?.id
         ? await fetchCatalogNameMeaningTranslationsByNameIds(missing, effectiveLanguage)
         : new Map<string, string>();
-      if (cancelled) return;
 
+      // Always merge fetch results into the cache. Swiping triggers effect cleanup (`cancelled`);
+      // if we skipped caching here, those UUIDs would stay "missing" and the next run would refetch
+      // the whole visible deck again (launch-risk amplification on slow networks).
       for (const id of missing) {
         const raw = map.get(id)?.trim();
-        cache.set(`${langNorm}|${id}`, raw && raw.length > 0 ? raw : null);
+        cache.set(cacheKey(id), raw && raw.length > 0 ? raw : null);
       }
 
+      if (cancelled) return;
       setNamesToSwipe((prev) => applyCatalogMeaningsFromCache(prev));
     })();
 
