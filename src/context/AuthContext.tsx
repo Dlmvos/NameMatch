@@ -219,9 +219,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           });
         }
         if (event === 'SIGNED_OUT') {
-          PurchaseService.logOut().catch((err) => {
-            console.error('[AuthContext] RevenueCat logOut failed:', err);
-          });
+          PurchaseService.logOut().catch(() => {});
         }
 
         // Only show the full loading spinner when the user identity actually changes
@@ -240,6 +238,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setUser(nextUser);
 
           if (nextUser) {
+            setProfile(null);
             const authUser = nextUser;
             setTimeout(() => {
               void (async () => {
@@ -299,6 +298,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signOut = async () => {
+    setProfile((prev) =>
+      prev
+        ? {
+            ...prev,
+            purchased_packs: (prev.purchased_packs ?? []).filter((p) => p !== PREMIUM_COUPLE_PACK_KEY),
+          }
+        : prev,
+    );
+    await PurchaseService.logOut().catch(() => {});
     const { error } = await supabase.auth.signOut();
     if (error) throw error;
   };
@@ -444,6 +452,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { error } = await supabase.rpc('delete_own_account');
     if (error) throw new Error(error.message ?? 'Could not delete account.');
 
+    setProfile(null);
     await prepareLocalStorageForSignOut(user.id).catch(() => {});
 
     await PurchaseService.logOut().catch(() => {

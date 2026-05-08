@@ -80,6 +80,8 @@ export function RoomProvider({ children }: { children: React.ReactNode }) {
 
   const matchSubscriptionRef = useRef<ReturnType<typeof RoomService.subscribeToMatches> | null>(null);
   const roomSubscriptionRef = useRef<ReturnType<typeof RoomService.subscribeToRoom> | null>(null);
+  /** Bumps on each room bootstrap so delayed getRoom() cannot apply after room_id / effect generation changes. */
+  const roomHydrationGenerationRef = useRef(0);
   const clearMatchSubscription = () => {
     matchSubscriptionRef.current?.unsubscribe();
     matchSubscriptionRef.current = null;
@@ -105,6 +107,8 @@ export function RoomProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
+    const loadGen = ++roomHydrationGenerationRef.current;
+
     const load = async () => {
       try {
         setIsLoadingRoom(true);
@@ -113,13 +117,16 @@ export function RoomProvider({ children }: { children: React.ReactNode }) {
           RoomService.getRoom(roomId),
           RoomService.getMatches(roomId),
         ]);
-        if (cancelled) return;
+        if (cancelled || loadGen !== roomHydrationGenerationRef.current) return;
+        if (loadedRoom && loadedRoom.id !== roomId) return;
 
-        setRoom(loadedRoom);
         const hydratedMatches = await hydrateMatchesWithCatalogMeanings(
           loadedMatches,
           effectiveLanguageRef.current,
         );
+        if (cancelled || loadGen !== roomHydrationGenerationRef.current) return;
+
+        setRoom(loadedRoom);
         setMatches(hydratedMatches);
         setLatestMatch(null);
 
@@ -155,10 +162,11 @@ export function RoomProvider({ children }: { children: React.ReactNode }) {
           setRoom(nextRoom);
         });
         setTimeout(async () => {
-          if (cancelled) return;
+          if (cancelled || loadGen !== roomHydrationGenerationRef.current) return;
           try {
             const refreshedRoom = await RoomService.getRoom(roomId);
-            if (!cancelled && refreshedRoom) {
+            if (cancelled || loadGen !== roomHydrationGenerationRef.current) return;
+            if (refreshedRoom && refreshedRoom.id === roomId) {
               setRoom(refreshedRoom);
             }
           } catch (err: any) {
@@ -168,7 +176,7 @@ export function RoomProvider({ children }: { children: React.ReactNode }) {
           }
         }, 2000);
       } catch (err: any) {
-        if (cancelled) return;
+        if (cancelled || loadGen !== roomHydrationGenerationRef.current) return;
         console.error('[RoomContext] startup room hydration failed:', err?.message ?? err);
         clearMatchSubscription();
         clearRoomSubscription();
@@ -176,7 +184,7 @@ export function RoomProvider({ children }: { children: React.ReactNode }) {
         setMatches([]);
         setLatestMatch(null);
       } finally {
-        if (!cancelled) {
+        if (!cancelled && loadGen === roomHydrationGenerationRef.current) {
           setIsLoadingRoom(false);
           setIsRoomHydrated(true);
         }

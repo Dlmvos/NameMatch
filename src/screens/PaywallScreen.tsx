@@ -14,6 +14,25 @@ import { AnalyticsService } from '../services/AnalyticsService';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Paywall'>;
 
+function stackRegistersMainTabs(nav: Props['navigation']): boolean {
+  const state = nav.getState();
+  const routeNames = (state as { routeNames?: string[] } | undefined)?.routeNames;
+  return Array.isArray(routeNames) && routeNames.includes('MainTabs');
+}
+
+/** Avoid replace('MainTabs') when Paywall sits in onboarding stack (no MainTabs screen). */
+function exitPaywallAfterPremiumOrContinueFree(nav: Props['navigation']) {
+  if (stackRegistersMainTabs(nav)) {
+    nav.replace('MainTabs');
+    return;
+  }
+  if (nav.canGoBack()) {
+    nav.goBack();
+    return;
+  }
+  nav.navigate('Preferences');
+}
+
 function isSamePackage(a: PurchasesPackage | null, b: PurchasesPackage | null): boolean {
   if (!a || !b) return false;
   return a.identifier === b.identifier && a.product.identifier === b.product.identifier;
@@ -79,12 +98,12 @@ export default function PaywallScreen({ navigation }: Props) {
   })();
 
   const navigateAfterPremiumVerified = () => {
-    navigation.replace('MainTabs');
+    exitPaywallAfterPremiumOrContinueFree(navigation);
   };
 
   const handleContinueFree = () => {
     if (isBusy) return;
-    navigation.replace('MainTabs');
+    exitPaywallAfterPremiumOrContinueFree(navigation);
   };
 
   const handlePurchase = async () => {

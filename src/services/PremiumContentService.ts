@@ -44,6 +44,11 @@ const MAX_PUBLIC_DECK_SUPPLEMENT_LIMIT = 500;
 /** Regions fetched in parallel for WORLDWIDE supplement (equal caps + round-robin). */
 const WORLDWIDE_PUBLIC_SUPPLEMENT_REGIONS: Region[] = ['US', 'EU', 'LATIN_AMERICA'];
 
+/** Paged `.in('country', …)` reads for regional supplements (PostgREST row caps). */
+const REGIONAL_PUBLIC_SUPPLEMENT_PAGE_SIZE = 1000;
+/** Hard stop so a sparse catalog cannot page indefinitely. */
+const REGIONAL_PUBLIC_SUPPLEMENT_MAX_PAGES = 40;
+
 type BabyNamePremiumRow = {
   id: string;
   name: string;
@@ -144,26 +149,6 @@ function interleavePublicSupplementSlices(slices: BabyName[][], maxTotal: number
   return out;
 }
 
-async function fetchPublicRowsForRegionCountry(
-  region: Region,
-  country: string,
-  limit: number,
-  gender: 'boy' | 'girl' | 'both',
-): Promise<BabyName[]> {
-  if (limit <= 0) return [];
-  let q = supabase
-    .from('baby_names')
-    .select('id,name,meaning,origin,gender,country,region,is_worldwide,popularity_rank')
-    .eq('is_premium', false)
-    .eq('region', region)
-    .eq('country', country);
-  q = applyPublicSupplementGenderFilter(q, gender);
-  q = q.order('popularity_rank', { ascending: true, nullsFirst: false }).limit(limit);
-  const { data, error } = await q;
-  if (error) return [];
-  return ((data ?? []) as BabyNamePremiumRow[]).map((row) => mapRowToBabyName(row));
-}
-
 async function fetchWorldwideBalancedPublicRows(
   limit: number,
   gender: 'boy' | 'girl' | 'both',
@@ -212,9 +197,39 @@ async function fetchRegionCountryBalancedPublicRows(
   }
   if (countryNames.length === 0) return [];
 
-  const rankedByCountry = await Promise.all(
-    countryNames.map((country) => fetchPublicRowsForRegionCountry(region, country, limit, gender)),
-  );
+  const bucketCap = limit;
+  const buckets = new Map<string, BabyNamePremiumRow[]>();
+  for (const c of countryNames) buckets.set(c, []);
+
+  let from = 0;
+  for (let page = 0; page < REGIONAL_PUBLIC_SUPPLEMENT_MAX_PAGES; page++) {
+    let q = supabase
+      .from('baby_names')
+      .select('id,name,meaning,origin,gender,country,region,is_worldwide,popularity_rank')
+      .eq('is_premium', false)
+      .eq('region', region)
+      .in('country', countryNames);
+    q = applyPublicSupplementGenderFilter(q, gender);
+    q = q
+      .order('country', { ascending: true })
+      .order('popularity_rank', { ascending: true, nullsFirst: false })
+      .range(from, from + REGIONAL_PUBLIC_SUPPLEMENT_PAGE_SIZE - 1);
+    const { data, error } = await q;
+    if (error) break;
+    const rows = (data ?? []) as BabyNamePremiumRow[];
+    for (const row of rows) {
+      const c = row.country?.trim();
+      if (!c) continue;
+      const arr = buckets.get(c);
+      if (!arr || arr.length >= bucketCap) continue;
+      arr.push(row);
+    }
+    from += REGIONAL_PUBLIC_SUPPLEMENT_PAGE_SIZE;
+    if (rows.length < REGIONAL_PUBLIC_SUPPLEMENT_PAGE_SIZE) break;
+    if (countryNames.every((c) => (buckets.get(c)?.length ?? 0) >= bucketCap)) break;
+  }
+
+  const rankedByCountry = countryNames.map((c) => (buckets.get(c) ?? []).map((row) => mapRowToBabyName(row)));
 
   const activeCountries = countryNames.filter((_, idx) => rankedByCountry[idx].length > 0);
 

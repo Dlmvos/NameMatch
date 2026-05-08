@@ -297,7 +297,16 @@ export const PurchaseService = {
 
   async logOut(): Promise<void> {
     if (!canUsePurchases('logOut')) return;
-    await Purchases.logOut();
+    try {
+      await Purchases.logOut();
+    } catch {
+      // Still invalidate so a failed handoff does not leave the next session with cached entitlements.
+    }
+    try {
+      await Purchases.invalidateCustomerInfoCache();
+    } catch {
+      // Best-effort; never blocks sign-out.
+    }
   },
 
   async getCustomerInfo(): Promise<CustomerInfo> {
