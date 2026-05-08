@@ -562,6 +562,11 @@ const EN: TranslationMap = {
 const TRANSLATIONS: Record<string, Partial<TranslationMap>> = {
   en: EN,
   nl: {
+    'settings.deleteAccount': 'Account verwijderen',
+    'settings.deleteAccountConfirmTitle': 'Weet je het zeker?',
+    'settings.deleteAccountConfirmBody': 'Dit verwijdert al je gegevens permanent.',
+    'settings.deleteAccountConfirmAction': 'Account verwijderen',
+
     'shop.restoreSuccessTitle': 'Welkom terug bij Premium',
     'shop.restoreSuccessBody': 'Je Premium-toegang is hersteld. Ga verder waar je gebleven was.',
     'shop.restoreReadyTitle': 'Premium klaar',
@@ -946,6 +951,11 @@ const TRANSLATIONS: Record<string, Partial<TranslationMap>> = {
     'filter.chip.strong': 'Krachtig',
   },
   de: {
+    'settings.deleteAccount': 'Konto löschen',
+    'settings.deleteAccountConfirmTitle': 'Bist du sicher?',
+    'settings.deleteAccountConfirmBody': 'Alle Daten werden dauerhaft gelöscht.',
+    'settings.deleteAccountConfirmAction': 'Konto löschen',
+
     'shop.restoreSuccessTitle': 'Willkommen zurück bei Premium',
     'shop.restoreSuccessBody': 'Dein Premium-Zugang wurde wiederhergestellt. Mach weiter, wo du aufgehört hast.',
     'shop.restoreReadyTitle': 'Premium bereit',
@@ -1329,6 +1339,11 @@ const TRANSLATIONS: Record<string, Partial<TranslationMap>> = {
     'filter.chip.strong': 'Kraftvoll',
   },
   fr: {
+    'settings.deleteAccount': 'Supprimer le compte',
+    'settings.deleteAccountConfirmTitle': 'Êtes-vous sûr ?',
+    'settings.deleteAccountConfirmBody': 'Cela supprime toutes les données de manière permanente.',
+    'settings.deleteAccountConfirmAction': 'Supprimer le compte',
+
     'shop.restoreSuccessTitle': 'Bon retour en Premium',
     'shop.restoreSuccessBody': 'Votre accès Premium a été restauré. Reprenez là où vous en étiez.',
     'shop.restoreReadyTitle': 'Premium prêt',
@@ -1714,6 +1729,11 @@ const TRANSLATIONS: Record<string, Partial<TranslationMap>> = {
     'filter.chip.strong': 'Fort',
   },
   es: {
+    'settings.deleteAccount': 'Eliminar cuenta',
+    'settings.deleteAccountConfirmTitle': '¿Estás seguro?',
+    'settings.deleteAccountConfirmBody': 'Esto elimina todos los datos de forma permanente.',
+    'settings.deleteAccountConfirmAction': 'Eliminar cuenta',
+
     'shop.restoreSuccessTitle': 'Bienvenido de nuevo a Premium',
     'shop.restoreSuccessBody': 'Tu acceso Premium ha sido restaurado. Continúa donde lo dejaste.',
     'shop.restoreReadyTitle': 'Premium listo',
@@ -2115,6 +2135,11 @@ const TRANSLATIONS: Record<string, Partial<TranslationMap>> = {
     'filter.chip.strong': 'Fuerte',
   },
   it: {
+    'settings.deleteAccount': 'Elimina account',
+    'settings.deleteAccountConfirmTitle': 'Sei sicuro?',
+    'settings.deleteAccountConfirmBody': 'Questo elimina tutti i dati in modo permanente.',
+    'settings.deleteAccountConfirmAction': 'Elimina account',
+
     'shop.restoreSuccessTitle': 'Bentornato in Premium',
     'shop.restoreSuccessBody': 'Il tuo accesso Premium è stato ripristinato. Riprendi da dove avevi lasciato.',
     'shop.restoreReadyTitle': 'Premium attivo',
@@ -2500,6 +2525,11 @@ const TRANSLATIONS: Record<string, Partial<TranslationMap>> = {
     'filter.chip.strong': 'Forte',
   },
   pt: {
+    'settings.deleteAccount': 'Excluir conta',
+    'settings.deleteAccountConfirmTitle': 'Tem certeza?',
+    'settings.deleteAccountConfirmBody': 'Isso exclui todos os dados permanentemente.',
+    'settings.deleteAccountConfirmAction': 'Excluir conta',
+
     'shop.restoreSuccessTitle': 'Bem-vindo de volta ao Premium',
     'shop.restoreSuccessBody': 'Seu acesso Premium foi restaurado. Continue de onde parou.',
     'shop.restoreReadyTitle': 'Premium pronto',
@@ -2885,6 +2915,11 @@ const TRANSLATIONS: Record<string, Partial<TranslationMap>> = {
     'filter.chip.strong': 'Forte',
   },
   zh: {
+    'settings.deleteAccount': '删除账户',
+    'settings.deleteAccountConfirmTitle': '确定要删除吗？',
+    'settings.deleteAccountConfirmBody': '这将永久删除所有数据。',
+    'settings.deleteAccountConfirmAction': '删除账户',
+
     'shop.restoreSuccessTitle': '欢迎回到 Premium',
     'shop.restoreSuccessBody': '你的 Premium 权限已恢复。从上次中断的地方继续吧。',
     'shop.restoreReadyTitle': 'Premium 已就绪',
@@ -3312,6 +3347,11 @@ const TRANSLATIONS: Record<string, Partial<TranslationMap>> = {
     'filter.chip.strong': '有力',
   },
   ja: {
+    'settings.deleteAccount': 'アカウントを削除',
+    'settings.deleteAccountConfirmTitle': '本当に削除しますか？',
+    'settings.deleteAccountConfirmBody': 'すべてのデータが完全に削除されます。',
+    'settings.deleteAccountConfirmAction': 'アカウントを削除',
+
     'shop.restoreSuccessTitle': 'Premiumへおかえりなさい',
     'shop.restoreSuccessBody': 'Premiumアクセスが復元されました。続きからお楽しみください。',
     'shop.restoreReadyTitle': 'Premiumの準備ができました',
@@ -3695,6 +3735,11 @@ const TRANSLATIONS: Record<string, Partial<TranslationMap>> = {
     'filter.chip.strong': 'ストロング',
   },
   ko: {
+    'settings.deleteAccount': '계정 삭제',
+    'settings.deleteAccountConfirmTitle': '정말 삭제하시겠습니까?',
+    'settings.deleteAccountConfirmBody': '모든 데이터가 영구적으로 삭제됩니다.',
+    'settings.deleteAccountConfirmAction': '계정 삭제',
+
     'shop.restoreSuccessTitle': 'Premium에 다시 오신 걸 환영합니다',
     'shop.restoreSuccessBody': 'Premium 이용 권한이 복원되었습니다. 이전에 하던 곳에서 계속하세요.',
     'shop.restoreReadyTitle': 'Premium 준비 완료',
@@ -4052,6 +4097,11 @@ const TRANSLATIONS: Record<string, Partial<TranslationMap>> = {
     'filter.chip.strong': '강렬함',
   },
   ar: {
+    'settings.deleteAccount': 'حذف الحساب',
+    'settings.deleteAccountConfirmTitle': 'هل أنت متأكد؟',
+    'settings.deleteAccountConfirmBody': 'سيؤدي هذا إلى حذف جميع البيانات نهائياً.',
+    'settings.deleteAccountConfirmAction': 'حذف الحساب',
+
     'shop.restoreSuccessTitle': 'مرحباً بعودتك إلى Premium',
     'shop.restoreSuccessBody': 'تم استعادة وصولك إلى Premium. تابع من حيث توقفت.',
     'shop.restoreReadyTitle': 'Premium جاهز',
