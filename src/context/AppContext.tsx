@@ -255,9 +255,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     await AsyncStorage.setItem(LANGUAGE_PREF_KEY(user.id), language).catch(() => {});
   };
 
-  const deviceLanguage =
-    Intl.DateTimeFormat().resolvedOptions().locale?.split(/[-_]/)[0] ?? 'en';
-  const effectiveLanguage = getEffectiveLanguage(languagePreference, deviceLanguage);
+  const deviceLocaleTag =
+    Intl.DateTimeFormat().resolvedOptions().locale ?? 'en';
+  const effectiveLanguage = getEffectiveLanguage(languagePreference, deviceLocaleTag);
   const effectiveUnlockedPacks = useMemo(
     () => [
       ...new Set([

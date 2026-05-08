@@ -15,6 +15,7 @@ import { useTranslation } from '../i18n/I18nProvider';
 import { trStatic } from '../i18n/staticTranslate';
 import { COLORS } from '../theme';
 
+import { getEffectiveLanguage } from '../services/languageService';
 import WelcomeScreen from '../screens/WelcomeScreen';
 import AuthScreen from '../screens/AuthScreen';
 import PreferencesScreen from '../screens/PreferencesScreen';
@@ -282,10 +283,10 @@ export default function AppNavigator() {
     );
   }
 
-  const deviceLanguage =
-    Intl.DateTimeFormat().resolvedOptions().locale?.split(/[-_]/)[0] ?? 'en';
+  const deviceLocaleTag =
+    Intl.DateTimeFormat().resolvedOptions().locale ?? 'en';
   return (
-    <I18nProvider language={deviceLanguage}>
+    <I18nProvider language={getEffectiveLanguage(null, deviceLocaleTag)}>
       <NavigationContainer>
         <Stack.Navigator
           initialRouteName="Welcome"

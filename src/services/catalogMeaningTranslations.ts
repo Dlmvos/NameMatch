@@ -1,13 +1,10 @@
 import { resolveBabyNameMeaningFields } from '../i18n/nameMeaningDisplay';
 import { supabase } from '../lib/supabase';
+import { normalizeLanguageTagToBase } from './languageService';
 import type { BabyName, Match } from '../types';
 
 const UUID_LIKE_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const ID_CHUNK = 120;
-
-function normalizeLang(language: string): string {
-  return String(language ?? '').trim().split(/[-_]/)[0]?.toLowerCase() ?? '';
-}
 
 /**
  * Batch-load catalog meanings from `public.name_meaning_translations` (authenticated SELECT).
@@ -16,7 +13,7 @@ export async function fetchCatalogNameMeaningTranslationsByNameIds(
   nameIds: string[],
   language: string,
 ): Promise<Map<string, string>> {
-  const lang = normalizeLang(language);
+  const lang = normalizeLanguageTagToBase(language);
   const uuidIds = [...new Set(nameIds.filter((id) => UUID_LIKE_ID.test(id)))];
   if (uuidIds.length === 0 || !lang) return new Map();
 

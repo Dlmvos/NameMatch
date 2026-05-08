@@ -1,4 +1,5 @@
 import type { AppLanguage, BabyName } from '../types';
+import { normalizeLanguageTagToBase } from '../services/languageService';
 
 // ── Placeholder patterns that must never reach the UI ──
 const PLACEHOLDER_PATTERNS = [
@@ -23,7 +24,7 @@ export function pickBundledMeaningTranslation(
   language: AppLanguage | string,
 ): string | undefined {
   const exactLanguage = String(language ?? '').trim();
-  const normalizedLanguage = exactLanguage.split(/[-_]/)[0]?.toLowerCase() ?? '';
+  const normalizedLanguage = normalizeLanguageTagToBase(exactLanguage);
   const translatedExact = name.meaningTranslations?.[exactLanguage as AppLanguage]?.trim();
   const translatedNormalized = name.meaningTranslations?.[normalizedLanguage as AppLanguage]?.trim();
   for (const candidate of [translatedExact, translatedNormalized]) {
@@ -41,7 +42,7 @@ export function resolveBabyNameMeaningFields(
   catalogTranslation: string | undefined,
   language: AppLanguage | string,
 ): BabyName {
-  const normalizedLanguage = String(language ?? '').trim().split(/[-_]/)[0]?.toLowerCase() ?? '';
+  const normalizedLanguage = normalizeLanguageTagToBase(String(language ?? ''));
   const cat =
     catalogTranslation?.trim() && !isPlaceholder(catalogTranslation)
       ? catalogTranslation.trim()
@@ -62,8 +63,11 @@ export function resolveBabyNameMeaningFields(
 
 // NOTE:
 // - runtime.ts remains for UI labels (e.g. "Meaning")
-// - per-name meaning: optional `localizedMeaning` (catalog + bundled), then canonical `meaning`
-// - placeholder/broken strings like "Spain national statistics" are filtered out
+// Resolution order for displayed meaning text (no runtime GPT / LLM):
+// 1) `localizedMeaning` — hydrated catalog row keyed by normalized UI language (`name_meaning_translations`), merged in resolveBabyNameMeaningFields
+// 2) bundled `meaningTranslations` — exact locale key then base (pt-BR → pt)
+// 3) canonical English `meaning`
+// Placeholder/broken strings like "Spain national statistics" are filtered out.
 export function getLocalizedNameMeaning(name: BabyName, language: AppLanguage | string): string {
   const lm = name.localizedMeaning?.trim();
   if (lm && !isPlaceholder(lm)) return lm;
@@ -79,7 +83,7 @@ export function shouldShowEnglishMeaningBadge(
   name: BabyName,
   language: AppLanguage | string,
 ): boolean {
-  const normalizedLanguage = String(language ?? '').trim().split(/[-_]/)[0]?.toLowerCase() ?? '';
+  const normalizedLanguage = normalizeLanguageTagToBase(String(language ?? ''));
   if (normalizedLanguage === 'en') return false;
   if (name.meaningIsFallback === true) return true;
   if (name.meaningIsFallback === false) return false;

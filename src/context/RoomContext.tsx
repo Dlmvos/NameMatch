@@ -62,11 +62,11 @@ export function useRoom(): RoomStateContextValue & RoomActionsContextValue & Mat
 export function RoomProvider({ children }: { children: React.ReactNode }) {
   const { user, profile, refreshProfile } = useAuth();
 
-  const deviceLanguage =
-    Intl.DateTimeFormat().resolvedOptions().locale?.split(/[-_]/)[0] ?? 'en';
+  const deviceLocaleTag =
+    Intl.DateTimeFormat().resolvedOptions().locale ?? 'en';
   const effectiveLanguage = useMemo(
-    () => getEffectiveLanguage(profile?.language_preference ?? null, deviceLanguage),
-    [profile?.language_preference, deviceLanguage],
+    () => getEffectiveLanguage(profile?.language_preference ?? null, deviceLocaleTag),
+    [profile?.language_preference, deviceLocaleTag],
   );
   const effectiveLanguageRef = useRef(effectiveLanguage);
   effectiveLanguageRef.current = effectiveLanguage;
