@@ -299,8 +299,8 @@ order by table_name;
 -- 5b. Coverage spot-check — name_meaning_translations broken down by language.
 select
   '5b_translations_by_lang' as section,
-  meaning_language          as language,
+  language_code              as language,
   count(*)                  as rows
 from public.name_meaning_translations
-group by meaning_language
+group by language_code
 order by rows desc;
