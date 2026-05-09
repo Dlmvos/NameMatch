@@ -145,7 +145,26 @@ async function resolveCustomerInfoWithPremiumBackoff(
       // Transient fetch failure — continue retrying.
     }
   }
-  console.warn(`[PurchaseService] ${label} → entitlement still missing after retries, returning original customerInfo`);
+  // Final fallback: server-side reconciliation. The edge function queries
+  // RevenueCat's REST API authoritatively and writes the entitlement to
+  // Supabase. After it returns we re-fetch local customerInfo, which now
+  // reflects the canonical state. This recovers from RC propagation lag
+  // that exceeds the local 6s budget (common in sandbox/TestFlight).
+  try {
+    const { error } = await supabase.functions.invoke('sync-revenuecat-entitlement', {
+      method: 'POST',
+    });
+    if (!error) {
+      const fresh = await Purchases.getCustomerInfo();
+      if (hasPremiumEntitlement(fresh)) {
+        if (__DEV__) console.log(`[PurchaseService] ${label} → entitlement active after server sync`);
+        return fresh;
+      }
+    }
+  } catch {
+    // Best-effort — fall through to original "still missing" behaviour.
+  }
+  console.warn(`[PurchaseService] ${label} → entitlement still missing after retries + server sync, returning original customerInfo`);
   return initialCustomerInfo;
 }
 
