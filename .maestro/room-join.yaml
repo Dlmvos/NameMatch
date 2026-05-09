@@ -1,0 +1,14 @@
+appId: com.daanvos.namenest
+---
+- launchApp
+- assertVisible:
+    id: partner-tab-join
+- tapOn:
+    id: partner-tab-join
+- assertVisible:
+    id: partner-join-code-input
+- tapOn:
+    id: partner-join-code-input
+- inputText: ${MAESTRO_ROOM_CODE}
+- tapOn:
+    id: partner-join-room-button

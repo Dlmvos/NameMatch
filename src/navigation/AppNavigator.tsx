@@ -29,12 +29,14 @@ import ShopScreen from '../screens/ShopScreen';
 import PaywallScreen from '../screens/PaywallScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 import DevAnalyticsScreen from '../screens/DevAnalyticsScreen';
+import DevDebugScreen from '../screens/DevDebugScreen';
 
 import { RootStackParamList, MainTabParamList } from '../types';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator<MainTabParamList>();
 const DEBUG_STARTUP_GATE = false;
+const DEBUG_AUTH_NAV_BRANCHES = __DEV__;
 
 function AppI18nBridge({ children }: { children: React.ReactNode }) {
   const { effectiveLanguage } = useApp();
@@ -143,6 +145,31 @@ function AuthenticatedRootNavigator() {
       : 'main';
 
   useEffect(() => {
+    if (!DEBUG_AUTH_NAV_BRANCHES) return;
+    console.log('[AuthenticatedRootNavigator] stackKind', stackKind, {
+      hasCompletedOnboarding,
+      hasRoom,
+      isPaid,
+      isStartupReady,
+      rootInitialPreview: !hasCompletedOnboarding
+        ? 'Preferences'
+        : !hasRoom
+          ? isPaid
+            ? 'MainTabs'
+            : 'Paywall'
+          : isPaid
+            ? 'MainTabs'
+            : 'Paywall',
+    });
+  }, [
+    stackKind,
+    hasCompletedOnboarding,
+    hasRoom,
+    isPaid,
+    isStartupReady,
+  ]);
+
+  useEffect(() => {
     if (!__DEV__ || !DEBUG_STARTUP_GATE) return;
     console.log('[StartupGate] ready state', {
       isStartupReady,
@@ -203,7 +230,10 @@ function AuthenticatedRootNavigator() {
             <Stack.Screen name="PartnerConnect" component={PartnerConnectScreen} />
             <Stack.Screen name="RoomManagement" component={RoomManagementScreen} />
             {__DEV__ ? (
-              <Stack.Screen name="DevAnalytics" component={DevAnalyticsScreen} options={{ headerShown: false }} />
+              <>
+                <Stack.Screen name="DevAnalytics" component={DevAnalyticsScreen} options={{ headerShown: false }} />
+                <Stack.Screen name="DevDebug" component={DevDebugScreen} options={{ headerShown: false }} />
+              </>
             ) : null}
           </>
         ) : !hasRoom ? (
@@ -214,7 +244,10 @@ function AuthenticatedRootNavigator() {
             <Stack.Screen name="Country" component={CountryScreen} />
             <Stack.Screen name="Region" component={RegionScreen} />
             {__DEV__ ? (
-              <Stack.Screen name="DevAnalytics" component={DevAnalyticsScreen} options={{ headerShown: false }} />
+              <>
+                <Stack.Screen name="DevAnalytics" component={DevAnalyticsScreen} options={{ headerShown: false }} />
+                <Stack.Screen name="DevDebug" component={DevDebugScreen} options={{ headerShown: false }} />
+              </>
             ) : null}
           </>
         ) : (
@@ -227,7 +260,10 @@ function AuthenticatedRootNavigator() {
             <Stack.Screen name="PartnerConnect" component={PartnerConnectScreen} />
             <Stack.Screen name="RoomManagement" component={RoomManagementScreen} />
             {__DEV__ ? (
-              <Stack.Screen name="DevAnalytics" component={DevAnalyticsScreen} options={{ headerShown: false }} />
+              <>
+                <Stack.Screen name="DevAnalytics" component={DevAnalyticsScreen} options={{ headerShown: false }} />
+                <Stack.Screen name="DevDebug" component={DevDebugScreen} options={{ headerShown: false }} />
+              </>
             ) : null}
           </>
         )}
@@ -240,9 +276,30 @@ function AuthenticatedRootNavigator() {
 // Root Navigator
 // ──────────────────────────────────────────────────────────
 export default function AppNavigator() {
-  const { session, profile, isLoading, startupError, retryStartup } = useAuth();
+  const {
+    session,
+    profile,
+    isLoading,
+    isSigningOut,
+    isDeletingAccount,
+    startupError,
+    retryStartup,
+  } = useAuth();
 
   const isAuthenticated = !!session;
+  const authTeardownPending = isSigningOut || isDeletingAccount;
+
+  useEffect(() => {
+    if (!DEBUG_AUTH_NAV_BRANCHES) return;
+    console.log('[AppNavigator] branch snapshot', {
+      isLoading,
+      isAuthenticated,
+      isSigningOut,
+      isDeletingAccount,
+      authTeardownPending,
+      willMountAuthenticatedTree: isAuthenticated && !authTeardownPending && !isLoading,
+    });
+  }, [isLoading, isAuthenticated, isSigningOut, isDeletingAccount, authTeardownPending]);
 
   useEffect(() => {
     if (!__DEV__ || !DEBUG_STARTUP_GATE) return;
@@ -267,6 +324,17 @@ export default function AppNavigator() {
 
   if (startupError) {
     return <StartupErrorView message={startupError} onRetry={retryStartup} />;
+  }
+
+  if (isAuthenticated && authTeardownPending) {
+    if (DEBUG_AUTH_NAV_BRANCHES) {
+      console.log('[AppNavigator] branch: auth teardown spinner (hide authenticated navigator)');
+    }
+    return (
+      <View style={styles.loading}>
+        <ActivityIndicator size="large" color={COLORS.primary} />
+      </View>
+    );
   }
 
   if (isAuthenticated) {

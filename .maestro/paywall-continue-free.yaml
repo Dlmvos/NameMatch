@@ -1,0 +1,8 @@
+appId: com.daanvos.namenest
+---
+- launchApp
+- assertVisible:
+    id: paywall-continue-free-button
+- tapOn:
+    id: paywall-continue-free-button
+- assertVisible: Settings

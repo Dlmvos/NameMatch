@@ -402,7 +402,10 @@ export default function ShopScreen() {
           <View style={styles.freeCardLeft}>
             <Text style={styles.freeCardEmoji}>{hasUnlockedPacks ? '✨' : '🎁'}</Text>
             <View>
-              <Text style={styles.freeCardTitle}>
+              <Text
+                style={styles.freeCardTitle}
+                testID={hasUnlockedPacks ? 'shop-premium-active-state' : 'shop-free-state'}
+              >
                 {hasUnlockedPacks ? t('shop.premiumActive.title') : t('shop.free.title')}
               </Text>
               <Text style={styles.freeCardSub}>
@@ -512,6 +515,7 @@ export default function ShopScreen() {
               style={[styles.premiumCta, isPurchased(premiumCouplePack.key) && styles.premiumCtaOwned]}
               onPress={() => handlePurchase(premiumCouplePack)}
               activeOpacity={0.9}
+              testID="shop-premium-cta-button"
             >
               <Text style={[styles.premiumCtaText, isPurchased(premiumCouplePack.key) && styles.premiumCtaTextOwned]}>
                 {isPurchased(premiumCouplePack.key)
@@ -523,6 +527,7 @@ export default function ShopScreen() {
               style={styles.restoreBtn}
               onPress={handleRestorePurchases}
               activeOpacity={0.85}
+              testID="shop-restore-button"
             >
               <Text style={styles.restoreBtnText}>{t('shop.restorePurchases')}</Text>
             </TouchableOpacity>
@@ -554,6 +559,7 @@ export default function ShopScreen() {
                 style={styles.devResetBtn}
                 onPress={handleResetDevPremium}
                 activeOpacity={0.85}
+                testID="shop-dev-reset-premium-button"
               >
                 <Text style={styles.devResetBtnText}>Reset Dev Premium</Text>
               </TouchableOpacity>

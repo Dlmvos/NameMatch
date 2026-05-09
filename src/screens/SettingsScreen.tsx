@@ -351,16 +351,26 @@ export default function SettingsScreen() {
         {/* About */}
         <SettingsSection title={tr('settings.about')}>
           {__DEV__ ? (
-            <SettingsRow
-              icon="analytics-outline"
-              label="Dev Analytics"
-              value=""
-              onPress={() =>
-                navigation.getParent<NativeStackNavigationProp<RootStackParamList>>()?.navigate(
-                  'DevAnalytics',
-                )
-              }
-            />
+            <>
+              <SettingsRow
+                icon="analytics-outline"
+                label="Dev Analytics"
+                value=""
+                onPress={() =>
+                  navigation.getParent<NativeStackNavigationProp<RootStackParamList>>()?.navigate(
+                    'DevAnalytics',
+                  )
+                }
+              />
+              <SettingsRow
+                icon="bug-outline"
+                label="Dev session debug"
+                value=""
+                onPress={() =>
+                  navigation.getParent<NativeStackNavigationProp<RootStackParamList>>()?.navigate('DevDebug')
+                }
+              />
+            </>
           ) : null}
           <SettingsRow
             icon="refresh-circle-outline"
@@ -390,6 +400,7 @@ export default function SettingsScreen() {
           onPress={handleSignOut}
           disabled={isSigningOut}
           activeOpacity={0.8}
+          testID="settings-sign-out-button"
         >
           <Ionicons name="log-out-outline" size={20} color={COLORS.skip} />
           <Text style={styles.signOutText}>

@@ -131,6 +131,7 @@ export default function PreferencesScreen({ navigation }: Props) {
                 onPress={() => setSelected(opt.key)}
                 disabled={isLoading}
                 activeOpacity={0.8}
+                testID={`preferences-option-${opt.key}`}
               >
                 <Text style={styles.optionEmoji}>{opt.emoji}</Text>
                 <View style={styles.optionText}>
@@ -164,6 +165,7 @@ export default function PreferencesScreen({ navigation }: Props) {
           onPress={handleContinue}
           disabled={!selected || isLoading}
           activeOpacity={0.85}
+          testID="preferences-continue-button"
         >
           <LinearGradient
             colors={

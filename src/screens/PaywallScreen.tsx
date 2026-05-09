@@ -266,6 +266,7 @@ export default function PaywallScreen({ navigation }: Props) {
           onPress={handlePurchase}
           disabled={isBusy}
           activeOpacity={0.9}
+          testID="paywall-purchase-button"
         >
           <Text style={styles.primaryButtonText}>{t('paywall.couple.primaryCta')}</Text>
         </TouchableOpacity>
@@ -279,6 +280,7 @@ export default function PaywallScreen({ navigation }: Props) {
           onPress={handleContinueFree}
           disabled={isBusy}
           activeOpacity={0.85}
+          testID="paywall-continue-free-button"
         >
           <Text style={styles.secondaryButtonText}>{t('paywall.secondaryCta')}</Text>
         </TouchableOpacity>
@@ -300,6 +302,7 @@ export default function PaywallScreen({ navigation }: Props) {
           onPress={handleRestore}
           disabled={isBusy}
           activeOpacity={0.85}
+          testID="paywall-restore-button"
         >
           <Text style={styles.restoreLinkText}>{t('shop.restorePurchases')}</Text>
         </TouchableOpacity>

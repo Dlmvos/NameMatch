@@ -14,11 +14,12 @@ export function getSimilarNames(
 ): BabyName[] {
   // 1. Check enrichment data first (curated)
   const enrichment = enrichName(target.name);
-  if (enrichment.similar_names && enrichment.similar_names.length > 0) {
+  const curatedSimilarNames = enrichment.similar_names ?? [];
+  if (curatedSimilarNames.length > 0) {
     const curatedMatches = pool
       .filter((n) =>
         n.id !== target.id &&
-        enrichment.similar_names!.some(
+        curatedSimilarNames.some(
           (sn) => sn.toLowerCase() === n.name.toLowerCase()
         )
       )

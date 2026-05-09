@@ -100,6 +100,7 @@ export default function WelcomeScreen({ navigation }: Props) {
             style={[styles.primaryBtn, SHADOWS.button]}
             onPress={() => navigation.navigate('Auth', { mode: 'signup' })}
             activeOpacity={0.85}
+            testID="welcome-signup-button"
           >
             <LinearGradient
               colors={[colors.onboarding.primary, colors.onboarding.secondary]}
@@ -115,6 +116,7 @@ export default function WelcomeScreen({ navigation }: Props) {
             style={styles.secondaryBtn}
             onPress={() => navigation.navigate('Auth', { mode: 'login' })}
             activeOpacity={0.75}
+            testID="welcome-login-button"
           >
             <Text style={styles.secondaryBtnText}>{t('welcome.cta.login')}</Text>
           </TouchableOpacity>

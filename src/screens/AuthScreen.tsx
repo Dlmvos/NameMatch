@@ -143,6 +143,7 @@ export default function AuthScreen({ navigation, route }: Props) {
               value={displayName}
               onChangeText={setDisplayName}
               autoCapitalize="words"
+              testID="auth-display-name-input"
             />
           )}
 
@@ -153,6 +154,7 @@ export default function AuthScreen({ navigation, route }: Props) {
             onChangeText={setEmail}
             keyboardType="email-address"
             autoCapitalize="none"
+            testID="auth-email-input"
           />
 
           <View style={styles.passwordWrapper}>
@@ -162,6 +164,7 @@ export default function AuthScreen({ navigation, route }: Props) {
               value={password}
               onChangeText={setPassword}
               secureTextEntry={!showPassword}
+              testID="auth-password-input"
             />
             <TouchableOpacity
               style={styles.eyeBtn}
@@ -181,6 +184,7 @@ export default function AuthScreen({ navigation, route }: Props) {
           onPress={handleSubmit}
           disabled={isLoading}
           activeOpacity={0.85}
+          testID="auth-submit-button"
         >
           <LinearGradient
             colors={[colors.onboarding.primary, colors.onboarding.secondary]}
@@ -194,7 +198,12 @@ export default function AuthScreen({ navigation, route }: Props) {
           </LinearGradient>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.toggleBtn} onPress={toggleMode} disabled={isLoading}>
+        <TouchableOpacity
+          style={styles.toggleBtn}
+          onPress={toggleMode}
+          disabled={isLoading}
+          testID="auth-toggle-mode-button"
+        >
           <Text style={styles.toggleText}>
             {mode === 'signup' ? t('auth.toggle.hasAccount') : t('auth.toggle.noAccount')}
             <Text style={styles.toggleLink}>
@@ -215,6 +224,7 @@ function InputField({
   keyboardType,
   autoCapitalize,
   secureTextEntry,
+  testID,
 }: {
   icon: keyof typeof Ionicons.glyphMap;
   placeholder: string;
@@ -223,6 +233,7 @@ function InputField({
   keyboardType?: 'default' | 'email-address';
   autoCapitalize?: 'none' | 'words' | 'sentences';
   secureTextEntry?: boolean;
+  testID?: string;
 }) {
   return (
     <View style={styles.inputWrapper}>
@@ -237,6 +248,7 @@ function InputField({
         autoCapitalize={autoCapitalize ?? 'none'}
         secureTextEntry={secureTextEntry}
         autoCorrect={false}
+        testID={testID}
       />
     </View>
   );

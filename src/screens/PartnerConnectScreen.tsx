@@ -172,6 +172,7 @@ export default function PartnerConnectScreen({ navigation }: Props) {
                 style={[styles.primaryBtn, SHADOWS.button]}
                 onPress={handleStartSwiping}
                 activeOpacity={0.85}
+                testID="partner-connected-start-button"
               >
                 <LinearGradient
                   colors={[colors.onboarding.primary, colors.onboarding.secondary]}
@@ -191,6 +192,7 @@ export default function PartnerConnectScreen({ navigation }: Props) {
               <TouchableOpacity
                 style={[styles.tab, activeTab === 'create' && styles.tabActive]}
                 onPress={() => setActiveTab('create')}
+                testID="partner-tab-create"
               >
                 <Text style={[styles.tabText, activeTab === 'create' && styles.tabTextActive]}>
                   {t('partner.tab.create')}
@@ -199,6 +201,7 @@ export default function PartnerConnectScreen({ navigation }: Props) {
               <TouchableOpacity
                 style={[styles.tab, activeTab === 'join' && styles.tabActive]}
                 onPress={() => setActiveTab('join')}
+                testID="partner-tab-join"
               >
                 <Text style={[styles.tabText, activeTab === 'join' && styles.tabTextActive]}>
                   {t('partner.tab.join')}
@@ -222,6 +225,7 @@ export default function PartnerConnectScreen({ navigation }: Props) {
                   onPress={handleCreateRoom}
                   disabled={isLoading}
                   activeOpacity={0.85}
+                  testID="partner-create-room-button"
                 >
                   <LinearGradient
                     colors={[colors.onboarding.primary, colors.onboarding.secondary]}
@@ -241,6 +245,7 @@ export default function PartnerConnectScreen({ navigation }: Props) {
                       style={styles.devDemoCodeBtn}
                       onPress={() => setRoomCode(DEV_SCREENSHOT_ROOM_CODE)}
                       activeOpacity={0.85}
+                      testID="partner-dev-demo-code-button"
                     >
                       <Text style={styles.devDemoCodeText}>Demo invite code</Text>
                     </TouchableOpacity>
@@ -248,6 +253,7 @@ export default function PartnerConnectScreen({ navigation }: Props) {
                       style={styles.devDemoCodeBtn}
                       onPress={() => setShowDevConnectedState(true)}
                       activeOpacity={0.85}
+                      testID="partner-dev-connected-button"
                     >
                       <Text style={styles.devDemoCodeText}>Connected state</Text>
                     </TouchableOpacity>
@@ -273,6 +279,7 @@ export default function PartnerConnectScreen({ navigation }: Props) {
                   style={[styles.shareBtn, SHADOWS.button]}
                   onPress={handleShare}
                   activeOpacity={0.85}
+                  testID="partner-share-button"
                 >
                   <LinearGradient
                     colors={[colors.onboarding.primary, colors.onboarding.secondary]}
@@ -288,6 +295,7 @@ export default function PartnerConnectScreen({ navigation }: Props) {
                 <TouchableOpacity
                   style={styles.skipBtn}
                   onPress={handleSkip}
+                  testID="partner-solo-button"
                 >
                   <Text style={styles.skipText}>{t('partner.solo')}</Text>
                 </TouchableOpacity>
@@ -317,6 +325,7 @@ export default function PartnerConnectScreen({ navigation }: Props) {
                 autoCorrect={false}
                 returnKeyType="join"
                 onSubmitEditing={handleJoinRoom}
+                testID="partner-join-code-input"
               />
             </View>
 
@@ -342,6 +351,7 @@ export default function PartnerConnectScreen({ navigation }: Props) {
               onPress={handleJoinRoom}
               disabled={isLoading || !isJoinCodeComplete}
               activeOpacity={0.85}
+              testID="partner-join-room-button"
             >
               <LinearGradient
                 colors={[colors.swipe.like, colors.onboarding.primary]}
@@ -363,6 +373,7 @@ export default function PartnerConnectScreen({ navigation }: Props) {
               <TouchableOpacity
                 style={styles.skipBtn}
                 onPress={handleSkip}
+                testID="partner-skip-button"
               >
                 <Text style={styles.skipText}>{t('partner.skip')}</Text>
               </TouchableOpacity>

@@ -36,6 +36,10 @@ interface AuthContextValue {
   user: User | null;
   profile: Profile | null;
   isLoading: boolean;
+  /** True while sign-out is in flight — gate navigator until session clears. */
+  isSigningOut: boolean;
+  /** True while account deletion + local sign-out is in flight — gate navigator until session clears. */
+  isDeletingAccount: boolean;
   startupError: string | null;
   retryStartup: () => void;
   signUp: (email: string, password: string, displayName: string) => Promise<void>;
@@ -73,6 +77,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSigningOut, setIsSigningOut] = useState(false);
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
   const [startupError, setStartupError] = useState<string | null>(null);
   const [bootstrapAttempt, setBootstrapAttempt] = useState(0);
   /** Guards against stale profile writes when auth changes mid-flight (deferred fetches). */
@@ -207,6 +213,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       (event, s) => {
         const nextUser = s?.user ?? null;
         const prevUserId = activeAuthUserIdRef.current;
+        if (__DEV__ && (event === 'SIGNED_IN' || event === 'SIGNED_OUT')) {
+          console.log('[AuthTransition] onAuthStateChange', event, {
+            prevUserId: prevUserId ?? null,
+            nextUserId: nextUser?.id ?? null,
+          });
+        }
         activeAuthUserIdRef.current = nextUser?.id ?? null;
 
         if (prevUserId && (!nextUser || nextUser.id !== prevUserId)) {
@@ -278,6 +290,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, [bootstrapAttempt, fetchProfile]);
 
+  /** Clear teardown flags once Supabase session is gone (covers successful sign-out / delete). */
+  useEffect(() => {
+    if (!session) {
+      setIsSigningOut(false);
+      setIsDeletingAccount(false);
+    }
+  }, [session]);
+
   // ── Auth actions ────────────────────────────────────────
   const signUp = async (
     email: string,
@@ -298,17 +318,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signOut = async () => {
-    setProfile((prev) =>
-      prev
-        ? {
-            ...prev,
-            purchased_packs: (prev.purchased_packs ?? []).filter((p) => p !== PREMIUM_COUPLE_PACK_KEY),
-          }
-        : prev,
-    );
-    await PurchaseService.logOut().catch(() => {});
-    const { error } = await supabase.auth.signOut();
-    if (error) throw error;
+    if (__DEV__) console.log('[AuthTransition] signOut → start');
+    setIsSigningOut(true);
+    try {
+      setProfile((prev) =>
+        prev
+          ? {
+              ...prev,
+              purchased_packs: (prev.purchased_packs ?? []).filter((p) => p !== PREMIUM_COUPLE_PACK_KEY),
+            }
+          : prev,
+      );
+      await PurchaseService.logOut().catch(() => {});
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+      if (__DEV__) console.log('[AuthTransition] signOut → supabase.signOut resolved');
+    } catch (err) {
+      setIsSigningOut(false);
+      throw err;
+    }
   };
 
   const updateProfile = useCallback(
@@ -446,21 +474,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const deleteAccount = async () => {
     if (!user) throw new Error('Not authenticated');
 
-    // Server-side SECURITY DEFINER RPC: deletes matches for rooms
-    // where user is partner (user2), then deletes auth.users row.
-    // FK cascades handle profiles → swipes, purchases, rooms (owner) → matches.
-    const { error } = await supabase.rpc('delete_own_account');
-    if (error) throw new Error(error.message ?? 'Could not delete account.');
+    if (__DEV__) console.log('[AuthTransition] deleteAccount → start');
+    setIsDeletingAccount(true);
+    try {
+      // Server-side SECURITY DEFINER RPC: deletes matches for rooms
+      // where user is partner (user2), then deletes auth.users row.
+      // FK cascades handle profiles → swipes, purchases, rooms (owner) → matches.
+      const { error } = await supabase.rpc('delete_own_account');
+      if (error) throw new Error(error.message ?? 'Could not delete account.');
 
-    setProfile(null);
-    await prepareLocalStorageForSignOut(user.id).catch(() => {});
+      await prepareLocalStorageForSignOut(user.id).catch(() => {});
 
-    await PurchaseService.logOut().catch(() => {
-      /* best-effort */
-    });
-    const { error: signOutError } = await supabase.auth.signOut({ scope: 'local' });
-    if (signOutError && __DEV__) {
-      console.warn('[AuthContext] signOut after deleteAccount:', signOutError.message);
+      await PurchaseService.logOut().catch(() => {
+        /* best-effort */
+      });
+      const { error: signOutError } = await supabase.auth.signOut({ scope: 'local' });
+      if (signOutError && __DEV__) {
+        console.warn('[AuthContext] signOut after deleteAccount:', signOutError.message);
+      }
+      if (signOutError) throw new Error(signOutError.message ?? 'Could not sign out after delete.');
+      if (__DEV__) console.log('[AuthTransition] deleteAccount → local signOut resolved');
+    } catch (err) {
+      setIsDeletingAccount(false);
+      throw err;
     }
   };
 
@@ -471,6 +507,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         user,
         profile,
         isLoading,
+        isSigningOut,
+        isDeletingAccount,
         startupError,
         retryStartup,
         signUp,

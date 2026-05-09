@@ -96,6 +96,7 @@ export default function CountryScreen({ navigation, route }: Props) {
         style={[styles.countryRow, isSelected && styles.countryRowSelected]}
         onPress={() => setSelected(item)}
         activeOpacity={0.7}
+        testID={`country-row-${item.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`}
       >
         <Text style={styles.flag}>{item.flag}</Text>
         <Text style={[styles.countryName, isSelected && styles.countryNameSelected]}>
@@ -140,6 +141,7 @@ export default function CountryScreen({ navigation, route }: Props) {
             onChangeText={setQuery}
             autoCorrect={false}
             clearButtonMode="while-editing"
+            testID="country-search-input"
           />
         </View>
         {!fromSettings && (
@@ -181,6 +183,7 @@ export default function CountryScreen({ navigation, route }: Props) {
           onPress={handleContinue}
           disabled={!selected || isLoading}
           activeOpacity={0.85}
+          testID="country-continue-button"
         >
           <LinearGradient
             colors={
@@ -231,6 +234,7 @@ export default function CountryScreen({ navigation, route }: Props) {
               setIsLoading(false);
             }
           }}
+          testID="country-skip-button"
         >
           <Text style={styles.skipText}>{t('country.skip')}</Text>
         </TouchableOpacity>

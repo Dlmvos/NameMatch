@@ -27,6 +27,7 @@ export type PremiumOfferingPackages = {
 type PurchaseSuccess = { success: true; customerInfo: CustomerInfo };
 type PurchaseCancelled = { success: false; cancelled: true };
 let didConfigure = false;
+let configuredKeyPrefix: string | null = null;
 let purchasesDisabledReason: string | null = null;
 const warnedDisabledMethods = new Set<string>();
 
@@ -136,6 +137,11 @@ async function resolveCustomerInfoWithPremiumBackoff(
   for (const ms of delays) {
     await new Promise((r) => setTimeout(r, ms));
     try {
+      // RC's local SDK cache is fresh for several minutes after purchasePackage,
+      // so getCustomerInfo() returns cached state without a network round-trip.
+      // Force a network re-pull each retry so propagation on RC's backend is
+      // actually observed by this client.
+      try { await Purchases.invalidateCustomerInfoCache(); } catch { /* best-effort */ }
       const fresh = await Purchases.getCustomerInfo();
       if (hasPremiumEntitlement(fresh)) {
         if (__DEV__) console.log(`[PurchaseService] ${label} → entitlement active after ${ms}ms retry`);
@@ -147,14 +153,15 @@ async function resolveCustomerInfoWithPremiumBackoff(
   }
   // Final fallback: server-side reconciliation. The edge function queries
   // RevenueCat's REST API authoritatively and writes the entitlement to
-  // Supabase. After it returns we re-fetch local customerInfo, which now
-  // reflects the canonical state. This recovers from RC propagation lag
-  // that exceeds the local 6s budget (common in sandbox/TestFlight).
+  // Supabase. After it returns we invalidate the RC local cache and re-fetch,
+  // so RC pulls fresh state from its own backend. This recovers from
+  // propagation lag that exceeds the local 6s budget (common in sandbox/TestFlight).
   try {
     const { error } = await supabase.functions.invoke('sync-revenuecat-entitlement', {
       method: 'POST',
     });
     if (!error) {
+      try { await Purchases.invalidateCustomerInfoCache(); } catch { /* best-effort */ }
       const fresh = await Purchases.getCustomerInfo();
       if (hasPremiumEntitlement(fresh)) {
         if (__DEV__) console.log(`[PurchaseService] ${label} → entitlement active after server sync`);
@@ -302,7 +309,16 @@ export const PurchaseService = {
     try {
       Purchases.configure({ apiKey });
       didConfigure = true;
+      configuredKeyPrefix = apiKey.slice(0, 5); // 'appl_' | 'goog_' | 'test_'
       purchasesDisabledReason = null;
+      // One-shot diagnostic: which key prefix did we configure with? If this
+      // logs `test_` while you're testing on a real device with Apple Pay,
+      // RC will silently ignore App Store receipts — no customer record will
+      // ever be created in the RC dashboard.
+      console.log(
+        `[PurchaseService] configured RC SDK with key prefix "${configuredKeyPrefix}" ` +
+          `(expected "appl_" on iOS prod, "goog_" on Android prod, "test_" only in Expo Go).`,
+      );
     } catch (err: any) {
       purchasesDisabledReason = err?.message ?? 'RevenueCat configure failed.';
       console.error('[PurchaseService] configure failed:', purchasesDisabledReason);
@@ -349,6 +365,25 @@ export const PurchaseService = {
       if (!__DEV__) throw purchasesUnavailableError('purchasePremium');
       return { success: false, cancelled: true };
     }
+
+    // Diagnostic: surface RC SDK identity vs Supabase identity at the moment
+    // of purchase. If `rcAppUserID` is `$RCAnonymousID:…` while supabaseUid is
+    // a real uuid, the SDK hasn't completed logIn — receipts will be attributed
+    // to the anon ID. If `keyPrefix` is `test_`, RC will reject real App Store
+    // receipts entirely (no customer record will ever appear in the dashboard).
+    let rcAppUserID = '<unavailable>';
+    let supabaseUid = '<unavailable>';
+    try { rcAppUserID = await Purchases.getAppUserID(); } catch { /* best-effort */ }
+    try {
+      const { data } = await supabase.auth.getUser();
+      supabaseUid = data.user?.id ?? '<no-session>';
+    } catch { /* best-effort */ }
+    console.log(
+      `[PurchaseService] purchasePremium pre-flight → keyPrefix="${configuredKeyPrefix ?? '<none>'}" ` +
+        `rcAppUserID="${rcAppUserID}" supabaseUid="${supabaseUid}" ` +
+        `match=${rcAppUserID === supabaseUid}`,
+    );
+
     const premiumPackage =
       selectedPackage ??
       (await this.getPremiumPackage());
@@ -360,7 +395,12 @@ export const PurchaseService = {
     }
     try {
       const { customerInfo } = await Purchases.purchasePackage(premiumPackage);
-      if (__DEV__) console.log('[PurchaseService] purchasePremium → success');
+      console.log(
+        `[PurchaseService] purchasePremium → StoreKit returned. ` +
+          `customerInfo.originalAppUserId="${customerInfo.originalAppUserId}" ` +
+          `activeSubscriptions=${JSON.stringify(customerInfo.activeSubscriptions)} ` +
+          `entitlements.active=${JSON.stringify(Object.keys(customerInfo.entitlements.active))}`,
+      );
       const resolved = await resolveCustomerInfoWithPremiumBackoff('purchasePremium', customerInfo);
       return { success: true, customerInfo: resolved };
     } catch (err) {

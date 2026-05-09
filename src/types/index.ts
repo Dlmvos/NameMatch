@@ -235,6 +235,7 @@ export type RootStackParamList = {
   MainTabs: NavigatorScreenParams<MainTabParamList> | undefined;
   Paywall: undefined;
   DevAnalytics: undefined;
+  DevDebug: undefined;
 };
 
 export type MainTabParamList = {
