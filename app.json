@@ -2,6 +2,10 @@
   "expo": {
     "name": "Babinom",
     "slug": "namematch",
+    "scheme": [
+      "namematch",
+      "com.daanvos.namenest"
+    ],
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",

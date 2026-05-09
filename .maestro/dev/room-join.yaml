@@ -1,9 +1,13 @@
 appId: com.daanvos.namenest
 ---
-# Starting state (required): Partner Connect visible with Join tab (`partner-tab-join`).
-# Dev-client only — no launchApp.
-- assertVisible:
-    id: partner-tab-join
+# Starting state (required): Partner stack registered (onboarding done; often no room yet).
+# Dev automation: `openLink` navigates to PartnerConnect (__DEV__ only). Alternative: `namematch://maestro/partner`
+- openLink: com.daanvos.namenest://maestro/partner
+- waitForAnimationToEnd
+- extendedWaitUntil:
+    visible:
+      id: partner-tab-join
+    timeout: 15000
 - tapOn:
     id: partner-tab-join
 - assertVisible:

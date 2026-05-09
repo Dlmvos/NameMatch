@@ -1,11 +1,13 @@
 appId: com.daanvos.namenest
 ---
-# Starting state (required): Signed-in user with Settings tab available on MainTabs.
-# Dev-client only — no launchApp (must preserve active session until sign-out).
-- assertVisible: Settings
-- tapOn: Settings
-- assertVisible:
-    id: settings-sign-out-button
+# Starting state (required): Signed-in; MainTabs registered on stack (completed onboarding + typically room joined).
+# Dev automation: `openLink` opens Settings tab (__DEV__ only). Alternative: `namematch://maestro/settings`
+- openLink: com.daanvos.namenest://maestro/settings
+- waitForAnimationToEnd
+- extendedWaitUntil:
+    visible:
+      id: settings-sign-out-button
+    timeout: 15000
 - tapOn:
     id: settings-sign-out-button
 - tapOn: Sign out

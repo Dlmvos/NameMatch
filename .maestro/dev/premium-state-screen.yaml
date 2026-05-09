@@ -1,11 +1,13 @@
 appId: com.daanvos.namenest
 ---
-# Starting state (required): Logged in on MainTabs (Shop tab reachable). Premium purchase flow will run on device.
-# Dev-client only — no launchApp (clearState would destroy signed-in session / premium flags).
-- assertVisible: Shop
-- tapOn: Shop
-- assertVisible:
-    id: shop-premium-cta-button
+# Starting state (required): Signed-in with MainTabs on stack (premium flow touches Shop).
+# Dev automation: `openLink` opens Shop tab (__DEV__ only). Alternative: `namematch://maestro/shop`
+- openLink: com.daanvos.namenest://maestro/shop
+- waitForAnimationToEnd
+- extendedWaitUntil:
+    visible:
+      id: shop-premium-cta-button
+    timeout: 15000
 - tapOn:
     id: shop-premium-cta-button
 - tapOn: OK

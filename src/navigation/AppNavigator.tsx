@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { colors } from '../theme';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -32,6 +32,8 @@ import DevAnalyticsScreen from '../screens/DevAnalyticsScreen';
 import DevDebugScreen from '../screens/DevDebugScreen';
 
 import { RootStackParamList, MainTabParamList } from '../types';
+import { authenticatedRootNavigationRef } from './rootNavigationRef';
+import { MaestroDevLinkBridge } from './MaestroDevLinkBridge';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator<MainTabParamList>();
@@ -120,6 +122,7 @@ function MainTabs() {
 
 function AuthenticatedRootNavigator() {
   const { session, profile } = useAuth();
+  const [navigationReady, setNavigationReady] = useState(false);
   const {
     effectiveUnlockedPacks,
     isCountryPrefHydrated,
@@ -215,12 +218,16 @@ function AuthenticatedRootNavigator() {
       : mainInitialRoute;
 
   return (
-    <NavigationContainer>
-      <Stack.Navigator
-        key={`${stackKind}:${isPaid ? 'paid' : 'free'}`}
-        initialRouteName={rootInitialRoute}
-        screenOptions={{ headerShown: false, animation: 'slide_from_right' }}
+    <>
+      <NavigationContainer
+        ref={authenticatedRootNavigationRef}
+        onReady={() => setNavigationReady(true)}
       >
+        <Stack.Navigator
+          key={`${stackKind}:${isPaid ? 'paid' : 'free'}`}
+          initialRouteName={rootInitialRoute}
+          screenOptions={{ headerShown: false, animation: 'slide_from_right' }}
+        >
         {!hasCompletedOnboarding ? (
           <>
             <Stack.Screen name="Preferences" component={PreferencesScreen} />
@@ -268,7 +275,11 @@ function AuthenticatedRootNavigator() {
           </>
         )}
       </Stack.Navigator>
-    </NavigationContainer>
+      </NavigationContainer>
+      {__DEV__ ? (
+        <MaestroDevLinkBridge isStartupReady={isStartupReady} navigationReady={navigationReady} />
+      ) : null}
+    </>
   );
 }
 

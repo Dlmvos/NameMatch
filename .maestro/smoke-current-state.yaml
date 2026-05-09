@@ -1,10 +1,10 @@
 appId: com.daanvos.namenest
 ---
-# Starting state (required): Authenticated “main” shell after onboarding/paywall — bottom tabs visible (MainTabs).
-# Dev-client / warm JS: do NOT use launchApp here (dev-client resumes arbitrary route otherwise).
-#
-# Asserts Swipe surface via `swipe-screen-root` (stable testID). Uses English tab label “Discover” — set app language to EN for reliability.
-- tapOn: Discover
+# Starting state (required): Authenticated; onboarding complete; stack includes MainTabs (usually room joined).
+# Dev automation: `openLink` navigates to Swipe tab (__DEV__ only). Same scheme works as `namematch://maestro/main`.
+# Dev-client: JS already loaded — no launchApp.
+- openLink: com.daanvos.namenest://maestro/main
+- waitForAnimationToEnd
 - extendedWaitUntil:
     visible:
       id: swipe-screen-root

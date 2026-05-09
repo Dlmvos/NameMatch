@@ -28,6 +28,18 @@
         <category android:name="android.intent.category.BROWSABLE"/>
         <data android:scheme="exp+namematch"/>
       </intent-filter>
+      <intent-filter>
+        <action android:name="android.intent.action.VIEW"/>
+        <category android:name="android.intent.category.DEFAULT"/>
+        <category android:name="android.intent.category.BROWSABLE"/>
+        <data android:scheme="com.daanvos.namenest"/>
+      </intent-filter>
+      <intent-filter>
+        <action android:name="android.intent.action.VIEW"/>
+        <category android:name="android.intent.category.DEFAULT"/>
+        <category android:name="android.intent.category.BROWSABLE"/>
+        <data android:scheme="namematch"/>
+      </intent-filter>
     </activity>
   </application>
 </manifest>
