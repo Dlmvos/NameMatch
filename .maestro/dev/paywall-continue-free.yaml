@@ -1,0 +1,16 @@
+appId: com.daanvos.namenest
+---
+# Starting state (required): Paywall visible (`paywall-continue-free-button` on screen).
+# Typical free-tier path: partner stack opens Paywall first — dismiss with Continue free → lands on MainTabs (Swipe).
+# Dev-client: Metro/dev build already running — do NOT launchApp (would restore unpredictable navigation).
+- extendedWaitUntil:
+    visible:
+      id: paywall-continue-free-button
+    timeout: 15000
+- tapOn:
+    id: paywall-continue-free-button
+- waitForAnimationToEnd
+- extendedWaitUntil:
+    visible:
+      id: swipe-screen-root
+    timeout: 25000

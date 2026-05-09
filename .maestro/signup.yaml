@@ -1,22 +1,5 @@
 appId: com.daanvos.namenest
 ---
-- launchApp:
-    clearState: true
-- tapOn:
-    id: welcome-signup-button
-- assertVisible:
-    id: auth-display-name-input
-- tapOn:
-    id: auth-display-name-input
-- inputText: ${MAESTRO_SIGNUP_NAME}
-- tapOn:
-    id: auth-email-input
-- inputText: ${MAESTRO_SIGNUP_EMAIL}
-- tapOn:
-    id: auth-password-input
-- inputText: ${MAESTRO_SIGNUP_PASSWORD}
-- tapOn:
-    id: auth-submit-button
-- tapOn: OK
-- assertVisible:
-    id: auth-submit-button
+# Default entrypoint (release-style cold start). For dev-client, run `.maestro/dev/signup.yaml` instead.
+- runFlow:
+    file: release/signup.yaml

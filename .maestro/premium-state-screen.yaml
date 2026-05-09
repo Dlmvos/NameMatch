@@ -1,12 +1,5 @@
 appId: com.daanvos.namenest
 ---
-- launchApp
-- assertVisible: Shop
-- tapOn: Shop
-- assertVisible:
-    id: shop-premium-cta-button
-- tapOn:
-    id: shop-premium-cta-button
-- tapOn: OK
-- assertVisible:
-    id: shop-premium-active-state
+# Dev-client flow — session must already be signed in (see `.maestro/dev/premium-state-screen.yaml`).
+- runFlow:
+    file: dev/premium-state-screen.yaml

@@ -1,0 +1,24 @@
+appId: com.daanvos.namenest
+---
+# Starting state (required): None — cold launch (storage cleared).
+# Release style: use when you need a deterministic Welcome → signup screen transition.
+- launchApp:
+    clearState: true
+- tapOn:
+    id: welcome-signup-button
+- assertVisible:
+    id: auth-display-name-input
+- tapOn:
+    id: auth-display-name-input
+- inputText: ${MAESTRO_SIGNUP_NAME}
+- tapOn:
+    id: auth-email-input
+- inputText: ${MAESTRO_SIGNUP_EMAIL}
+- tapOn:
+    id: auth-password-input
+- inputText: ${MAESTRO_SIGNUP_PASSWORD}
+- tapOn:
+    id: auth-submit-button
+- tapOn: OK
+- assertVisible:
+    id: auth-submit-button

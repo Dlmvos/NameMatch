@@ -1,0 +1,15 @@
+appId: com.daanvos.namenest
+---
+# Starting state (required): Partner Connect visible with Join tab (`partner-tab-join`).
+# Dev-client only — no launchApp.
+- assertVisible:
+    id: partner-tab-join
+- tapOn:
+    id: partner-tab-join
+- assertVisible:
+    id: partner-join-code-input
+- tapOn:
+    id: partner-join-code-input
+- inputText: ${MAESTRO_ROOM_CODE}
+- tapOn:
+    id: partner-join-room-button

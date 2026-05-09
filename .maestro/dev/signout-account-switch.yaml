@@ -1,0 +1,27 @@
+appId: com.daanvos.namenest
+---
+# Starting state (required): Signed-in user with Settings tab available on MainTabs.
+# Dev-client only — no launchApp (must preserve active session until sign-out).
+- assertVisible: Settings
+- tapOn: Settings
+- assertVisible:
+    id: settings-sign-out-button
+- tapOn:
+    id: settings-sign-out-button
+- tapOn: Sign out
+- assertVisible:
+    id: welcome-login-button
+- tapOn:
+    id: welcome-login-button
+- assertVisible:
+    id: auth-email-input
+- tapOn:
+    id: auth-email-input
+- eraseText
+- inputText: ${MAESTRO_SWITCH_EMAIL}
+- tapOn:
+    id: auth-password-input
+- eraseText
+- inputText: ${MAESTRO_SWITCH_PASSWORD}
+- tapOn:
+    id: auth-submit-button

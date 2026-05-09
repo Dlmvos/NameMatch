@@ -1,26 +1,5 @@
 appId: com.daanvos.namenest
 ---
-- launchApp
-- assertVisible: Settings
-- tapOn: Settings
-- assertVisible:
-    id: settings-sign-out-button
-- tapOn:
-    id: settings-sign-out-button
-- tapOn: Sign out
-- assertVisible:
-    id: welcome-login-button
-- tapOn:
-    id: welcome-login-button
-- assertVisible:
-    id: auth-email-input
-- tapOn:
-    id: auth-email-input
-- eraseText
-- inputText: ${MAESTRO_SWITCH_EMAIL}
-- tapOn:
-    id: auth-password-input
-- eraseText
-- inputText: ${MAESTRO_SWITCH_PASSWORD}
-- tapOn:
-    id: auth-submit-button
+# Dev-client flow — requires active session on MainTabs (see `.maestro/dev/signout-account-switch.yaml`).
+- runFlow:
+    file: dev/signout-account-switch.yaml

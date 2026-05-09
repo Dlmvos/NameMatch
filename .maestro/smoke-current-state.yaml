@@ -1,0 +1,11 @@
+appId: com.daanvos.namenest
+---
+# Starting state (required): Authenticated “main” shell after onboarding/paywall — bottom tabs visible (MainTabs).
+# Dev-client / warm JS: do NOT use launchApp here (dev-client resumes arbitrary route otherwise).
+#
+# Asserts Swipe surface via `swipe-screen-root` (stable testID). Uses English tab label “Discover” — set app language to EN for reliability.
+- tapOn: Discover
+- extendedWaitUntil:
+    visible:
+      id: swipe-screen-root
+    timeout: 25000

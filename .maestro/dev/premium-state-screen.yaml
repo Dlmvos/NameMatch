@@ -1,0 +1,13 @@
+appId: com.daanvos.namenest
+---
+# Starting state (required): Logged in on MainTabs (Shop tab reachable). Premium purchase flow will run on device.
+# Dev-client only — no launchApp (clearState would destroy signed-in session / premium flags).
+- assertVisible: Shop
+- tapOn: Shop
+- assertVisible:
+    id: shop-premium-cta-button
+- tapOn:
+    id: shop-premium-cta-button
+- tapOn: OK
+- assertVisible:
+    id: shop-premium-active-state

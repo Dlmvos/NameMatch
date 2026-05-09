@@ -1,0 +1,48 @@
+appId: com.daanvos.namenest
+---
+# Starting state (required): None — cold launch after install or cleared app data.
+# Release / CI style: clears storage then walks signup → login → onboarding until Partner Connect.
+- launchApp:
+    clearState: true
+- assertVisible:
+    id: welcome-signup-button
+- tapOn:
+    id: welcome-signup-button
+- assertVisible:
+    id: auth-display-name-input
+- tapOn:
+    id: auth-display-name-input
+- inputText: ${MAESTRO_SIGNUP_NAME}
+- tapOn:
+    id: auth-email-input
+- inputText: ${MAESTRO_SIGNUP_EMAIL}
+- tapOn:
+    id: auth-password-input
+- inputText: ${MAESTRO_SIGNUP_PASSWORD}
+- tapOn:
+    id: auth-submit-button
+- tapOn: OK
+- assertVisible:
+    id: auth-submit-button
+- tapOn:
+    id: auth-email-input
+- eraseText
+- inputText: ${MAESTRO_LOGIN_EMAIL}
+- tapOn:
+    id: auth-password-input
+- eraseText
+- inputText: ${MAESTRO_LOGIN_PASSWORD}
+- tapOn:
+    id: auth-submit-button
+- assertVisible:
+    id: preferences-option-both
+- tapOn:
+    id: preferences-option-both
+- tapOn:
+    id: preferences-continue-button
+- assertVisible:
+    id: country-skip-button
+- tapOn:
+    id: country-skip-button
+- assertVisible:
+    id: partner-tab-create

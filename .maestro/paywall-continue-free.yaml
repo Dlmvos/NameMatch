@@ -1,8 +1,5 @@
 appId: com.daanvos.namenest
 ---
-- launchApp
-- assertVisible:
-    id: paywall-continue-free-button
-- tapOn:
-    id: paywall-continue-free-button
-- assertVisible: Settings
+# Delegates to dev-client flow (Paywall must already be visible — see comments inside).
+- runFlow:
+    file: dev/paywall-continue-free.yaml
