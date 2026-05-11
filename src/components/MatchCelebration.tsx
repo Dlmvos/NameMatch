@@ -42,7 +42,7 @@ interface MatchCelebrationProps {
 
 export default function MatchCelebration({ name, onDismiss, onViewMatches }: MatchCelebrationProps) {
   const { t, language } = useTranslation();
-  const scaleAnim = useRef(new Animated.Value(0.88)).current;
+  const scaleAnim = useRef(new Animated.Value(0.82)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const glowPulse = useRef(new Animated.Value(0.15)).current;
   const nameReveal = useRef(new Animated.Value(0)).current;
@@ -102,10 +102,14 @@ export default function MatchCelebration({ name, onDismiss, onViewMatches }: Mat
   ).current;
 
   useEffect(() => {
-    // Layered tactile: thump → tap → whisper for emotional depth
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setTimeout(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light), 180);
-    setTimeout(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light), 400);
+    // Layered tactile: thump → tap → whisper → reward for emotional depth
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    setTimeout(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium), 160);
+    setTimeout(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light), 360);
+    // Success notification at name reveal — the dopamine payoff
+    setTimeout(() => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success), 600);
+    // Soft nudge when "the one" tagline appears
+    setTimeout(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light), 950);
 
     // Fade in backdrop
     Animated.timing(fadeAnim, {
@@ -135,8 +139,8 @@ export default function MatchCelebration({ name, onDismiss, onViewMatches }: Mat
       Animated.sequence([
         Animated.delay(260),
         Animated.timing(nameScale, {
-          toValue: 1.035,
-          duration: 420,
+          toValue: 1.06,
+          duration: 440,
           easing: Easing.out(Easing.cubic),
           useNativeDriver: true,
         }),
@@ -156,18 +160,18 @@ export default function MatchCelebration({ name, onDismiss, onViewMatches }: Mat
       Animated.spring(ringScale3, { toValue: 1, tension: 16, friction: 16, delay: 200, useNativeDriver: true }),
     ]).start();
 
-    // Glow pulse: slow breathing rhythm — intensified range for warmth
+    // Glow pulse: slow breathing rhythm — wider range for richer warmth
     Animated.loop(
       Animated.sequence([
         Animated.timing(glowPulse, {
-          toValue: 0.48,
-          duration: 2200,
+          toValue: 0.58,
+          duration: 2000,
           easing: Easing.inOut(Easing.ease),
           useNativeDriver: true,
         }),
         Animated.timing(glowPulse, {
-          toValue: 0.12,
-          duration: 2800,
+          toValue: 0.10,
+          duration: 2600,
           easing: Easing.inOut(Easing.ease),
           useNativeDriver: true,
         }),
@@ -208,8 +212,8 @@ export default function MatchCelebration({ name, onDismiss, onViewMatches }: Mat
       Animated.sequence([
         Animated.delay(1600),
         Animated.timing(heartScale, {
-          toValue: 1.18,
-          duration: 280,
+          toValue: 1.24,
+          duration: 260,
           easing: Easing.out(Easing.ease),
           useNativeDriver: true,
         }),
@@ -220,8 +224,8 @@ export default function MatchCelebration({ name, onDismiss, onViewMatches }: Mat
           useNativeDriver: true,
         }),
         Animated.timing(heartScale, {
-          toValue: 1.12,
-          duration: 240,
+          toValue: 1.15,
+          duration: 220,
           easing: Easing.out(Easing.ease),
           useNativeDriver: true,
         }),
@@ -252,7 +256,7 @@ export default function MatchCelebration({ name, onDismiss, onViewMatches }: Mat
             }),
             Animated.sequence([
               Animated.timing(sp.opacity, {
-                toValue: 0.6,
+                toValue: 0.75,
                 duration: duration * 0.2,
                 useNativeDriver: true,
               }),
@@ -465,9 +469,9 @@ const styles = StyleSheet.create({
   // ── Radial glow ──
   glowOrb: {
     position: 'absolute',
-    width: 280,
-    height: 280,
-    borderRadius: 140,
+    width: 340,
+    height: 340,
+    borderRadius: 170,
     alignSelf: 'center',
   },
   // ── Concentric rings ──
@@ -513,16 +517,21 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.md,
   },
   partnerAvatar: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     borderWidth: 1.5,
-    backgroundColor: 'rgba(255,255,255,0.72)',
+    backgroundColor: 'rgba(255,255,255,0.82)',
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 2,
   },
   partnerAvatarOverlap: {
-    marginLeft: -8,
+    marginLeft: -10,
   },
   partnerAvatarText: {
     fontSize: FONTS.sizes.xs,
@@ -536,10 +545,10 @@ const styles = StyleSheet.create({
   },
   nameGlow: {
     position: 'absolute',
-    width: 200,
-    height: 60,
-    borderRadius: 30,
-    top: -4,
+    width: 280,
+    height: 80,
+    borderRadius: 40,
+    top: -8,
     alignSelf: 'center',
   },
   nameText: {
@@ -549,6 +558,9 @@ const styles = StyleSheet.create({
     color: TEXT_PRIMARY,
     textAlign: 'center',
     letterSpacing: 1.5,
+    textShadowColor: 'rgba(0,0,0,0.06)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 8,
   },
   oneText: {
     fontSize: FONTS.sizes.md,
@@ -583,21 +595,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   heartOuter: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
     alignItems: 'center',
     justifyContent: 'center',
   },
   heartInner: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
   },
   heartIcon: {
-    fontSize: 22,
+    fontSize: 26,
   },
   // ── Actions ──
   actionsArea: {
