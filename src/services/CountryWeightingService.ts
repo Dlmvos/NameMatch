@@ -18,6 +18,18 @@
 
 import type { BabyName, GenderPreference, Region } from '../types';
 import { findCountry } from '../data/countries';
+import { stableHash } from '../lib/stableHash';
+
+/** Mulberry32 — deterministic PRNG for room-scoped shuffles (matches partners when seeded identically). */
+function mulberry32(seed: number): () => number {
+  let a = seed >>> 0;
+  return () => {
+    let t = (a += 0x6d2b79f5);
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
 
 // ─────────────────────────────────────────────────────────────
 // Adjacent region map (for the 15% pool)
@@ -45,6 +57,7 @@ export class CountryWeightingService {
     region: Region,
     country: string | undefined,
     genderPref: GenderPreference,
+    _roomId: string,
   ): BabyName[] {
     const base = this._filterGender(allNames, genderPref);
     const countryOption = country ? findCountry(country) : undefined;
@@ -109,6 +122,7 @@ export class CountryWeightingService {
     genderPref: GenderPreference,
     swipeCount = 0,
     purchasedPacks: string[] = [],
+    roomId = '',
   ): BabyName[] {
     // 1. Gender filter first
     const base = this._filterGender(allNames, genderPref);
@@ -135,19 +149,20 @@ export class CountryWeightingService {
     const regionPrimaryTarget = Math.round(primaryTarget * 0.2);
     const worldwidePrimaryTarget = primaryTarget - countryPrimaryTarget - regionPrimaryTarget;
 
-    const sampledCountryPrimary = this._shuffle([...countrySpecific]).slice(0, countryPrimaryTarget);
-    const sampledRegionPrimary = this._shuffle([...regionGeneral]).slice(
+    const rng = mulberry32(stableHash(roomId));
+    const sampledCountryPrimary = this._shuffle([...countrySpecific], rng).slice(0, countryPrimaryTarget);
+    const sampledRegionPrimary = this._shuffle([...regionGeneral], rng).slice(
       0,
       regionPrimaryTarget + Math.max(0, countryPrimaryTarget - sampledCountryPrimary.length),
     );
-    const sampledWorldwidePrimary = this._shuffle([...worldwide]).slice(0, worldwidePrimaryTarget);
+    const sampledWorldwidePrimary = this._shuffle([...worldwide], rng).slice(0, worldwidePrimaryTarget);
     const sampledPrimary = this._dedupeById([
       ...sampledCountryPrimary,
       ...sampledRegionPrimary,
       ...sampledWorldwidePrimary,
     ]).slice(0, primaryTarget);
-    const sampledAdjacent = this._shuffle([...adjacent]).slice(0, adjacentTarget);
-    const sampledDiscovery = this._shuffle([...discovery]).slice(0, discoveryTarget);
+    const sampledAdjacent = this._shuffle([...adjacent], rng).slice(0, adjacentTarget);
+    const sampledDiscovery = this._shuffle([...discovery], rng).slice(0, discoveryTarget);
 
     return [...sampledPrimary, ...sampledAdjacent, ...sampledDiscovery];
   }
@@ -205,10 +220,10 @@ export class CountryWeightingService {
     return names.filter((n) => n.gender === pref || n.gender === 'neutral');
   }
 
-  private _shuffle<T>(arr: T[]): T[] {
+  private _shuffle<T>(arr: T[], random: () => number): T[] {
     const result = [...arr];
     for (let i = result.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
+      const j = Math.floor(random() * (i + 1));
       [result[i], result[j]] = [result[j], result[i]];
     }
     return result;

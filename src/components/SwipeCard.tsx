@@ -78,6 +78,8 @@ interface SwipeCardProps {
   metadataKey?: SwipeMetadataLabelKey | null;
   nextPreviewLabel?: string;
   canSwipe?: boolean;
+  /** Brief inhale before match modal — parent gates alongside celebration timing (native-driven scale). */
+  preMatchAnticipation?: boolean;
 }
 
 export default function SwipeCard({
@@ -90,10 +92,12 @@ export default function SwipeCard({
   metadataKey,
   nextPreviewLabel,
   canSwipe = true,
+  preMatchAnticipation = false,
 }: SwipeCardProps) {
   const { t } = useTranslation();
   const position = useRef(new Animated.ValueXY()).current;
   const promotionAnim = useRef(new Animated.Value(1)).current;
+  const inhalePulseAnim = useRef(new Animated.Value(1)).current;
   const wasTopRef = useRef(isTop);
   const isSwipingRef = useRef(false);
   const pendingCommitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -111,6 +115,34 @@ export default function SwipeCard({
       }
     };
   }, []);
+
+  /**
+   * Pre-celebration inhale: a micro pause lets the brain register “something special happened”
+   * before the modal takeover — emotional contrast without changing celebration artwork.
+   */
+  useEffect(() => {
+    if (!preMatchAnticipation || !isTop) {
+      inhalePulseAnim.setValue(1);
+      return;
+    }
+    inhalePulseAnim.setValue(1);
+    const seq = Animated.sequence([
+      Animated.timing(inhalePulseAnim, {
+        toValue: 1.025,
+        duration: 200,
+        easing: Easing.out(Easing.quad),
+        useNativeDriver: true,
+      }),
+      Animated.timing(inhalePulseAnim, {
+        toValue: 1,
+        duration: 200,
+        easing: Easing.in(Easing.quad),
+        useNativeDriver: true,
+      }),
+    ]);
+    seq.start();
+    return () => seq.stop();
+  }, [preMatchAnticipation, isTop, name.id, inhalePulseAnim]);
 
   // ── Animated promotion: behind-card rises to front-card position ──
   useEffect(() => {
@@ -327,57 +359,59 @@ export default function SwipeCard({
   }
 
   return (
-    <Animated.View
-      style={[
-        styles.card,
-        {
-          transform: [
-            { translateX: position.x },
-            { translateY: topTranslateY },
-            { rotate: rotation },
-            { scale: promotionScale },
-          ],
-          zIndex: 100,
-        },
-      ]}
-    >
-      <View style={styles.swipeSurface} {...panResponder.panHandlers}>
-        <Animated.View pointerEvents="none" style={[styles.stamp, styles.likeStamp, { opacity: likeOpacityInterp }]}>
-          <Text style={styles.likeStampText}>{t('swipe.card.love')}</Text>
-        </Animated.View>
+    <Animated.View style={{ transform: [{ scale: inhalePulseAnim }] }}>
+      <Animated.View
+        style={[
+          styles.card,
+          {
+            transform: [
+              { translateX: position.x },
+              { translateY: topTranslateY },
+              { rotate: rotation },
+              { scale: promotionScale },
+            ],
+            zIndex: 100,
+          },
+        ]}
+      >
+        <View style={styles.swipeSurface} {...panResponder.panHandlers}>
+          <Animated.View pointerEvents="none" style={[styles.stamp, styles.likeStamp, { opacity: likeOpacityInterp }]}>
+            <Text style={styles.likeStampText}>{t('swipe.card.love')}</Text>
+          </Animated.View>
 
-        <Animated.View pointerEvents="none" style={[styles.stamp, styles.skipStamp, { opacity: skipOpacityInterp }]}>
-          <Text style={styles.skipStampText}>{t('swipe.card.skip')}</Text>
-        </Animated.View>
+          <Animated.View pointerEvents="none" style={[styles.stamp, styles.skipStamp, { opacity: skipOpacityInterp }]}>
+            <Text style={styles.skipStampText}>{t('swipe.card.skip')}</Text>
+          </Animated.View>
 
-        <CardContent name={name} isTop metadataKey={metadataKey} />
-      </View>
-
-      <View style={styles.actions}>
-        <View style={styles.actionSide}>
-          <TouchableOpacity
-            style={[styles.actionBtn, styles.skipBtn]}
-            onPress={() => commitLeft(true)}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.skipBtnText}>✕</Text>
-          </TouchableOpacity>
+          <CardContent name={name} isTop metadataKey={metadataKey} />
         </View>
 
-        <View style={styles.actionCenter} pointerEvents="none">
-          <Text style={styles.swipeHint}>{t('swipe.card.hint')}</Text>
-        </View>
+        <View style={styles.actions}>
+          <View style={styles.actionSide}>
+            <TouchableOpacity
+              style={[styles.actionBtn, styles.skipBtn]}
+              onPress={() => commitLeft(true)}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.skipBtnText}>✕</Text>
+            </TouchableOpacity>
+          </View>
 
-        <View style={[styles.actionSide, styles.actionSideRight]}>
-          <TouchableOpacity
-            style={[styles.actionBtn, styles.likeBtn]}
-            onPress={() => commitRight(true)}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.likeBtnText}>♥</Text>
-          </TouchableOpacity>
+          <View style={styles.actionCenter} pointerEvents="none">
+            <Text style={styles.swipeHint}>{t('swipe.card.hint')}</Text>
+          </View>
+
+          <View style={[styles.actionSide, styles.actionSideRight]}>
+            <TouchableOpacity
+              style={[styles.actionBtn, styles.likeBtn]}
+              onPress={() => commitRight(true)}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.likeBtnText}>♥</Text>
+            </TouchableOpacity>
+          </View>
         </View>
-      </View>
+      </Animated.View>
     </Animated.View>
   );
 }

@@ -29,14 +29,15 @@ export function getSimilarNames(
   // 2. Heuristic scoring
   const scored = pool
     .filter((n) => n.id !== target.id && n.gender === target.gender)
-    .map((n) => ({ name: n, score: similarity(target, n) }))
+    .map((n) => ({ name: n, score: heuristicSimilarity(target, n) }))
     .filter((s) => s.score > 0)
     .sort((a, b) => b.score - a.score);
 
   return scored.slice(0, limit).map((s) => s.name);
 }
 
-function similarity(a: BabyName, b: BabyName): number {
+/** Shared heuristic for deck pacing / adaptive boosts (not gender-filtered). */
+export function heuristicSimilarity(a: BabyName, b: BabyName): number {
   let score = 0;
 
   // Same origin (partial match)

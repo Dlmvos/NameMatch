@@ -34,6 +34,7 @@ const TEXT_MUTED = colors.neutral.darkGray;
 const CORAL = colors.onboarding.secondary;
 const TEAL = colors.onboarding.primary;
 
+/** Parent (`SwipeScreen`) delays mounting until after card inhale; it applies a silence window after dismiss. */
 interface MatchCelebrationProps {
   name: BabyName;
   onDismiss: () => void;

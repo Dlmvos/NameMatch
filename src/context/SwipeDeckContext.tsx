@@ -15,6 +15,9 @@ import { enrichName, getNameLength } from '../services/nameEnrichment';
 import { countryWeightingService } from '../services/CountryWeightingService';
 import { useApp } from './AppContext';
 import { userPreferenceLearningService } from '../services/UserPreferenceLearningService';
+import { stableHash } from '../lib/stableHash';
+import { sequenceSwipeDeck } from '../lib/deckSequencing';
+import type { LearningProfile } from '../services/UserPreferenceLearningService';
 
 function nameGenderDedupeKey(n: BabyName): string {
   return `${n.name.trim().toLowerCase()}|${n.gender}`;
@@ -36,6 +39,8 @@ const UUID_LIKE_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{
 const DEBUG_SWIPE_DECK = false;
 /** Max wait for remote deck / swipe restores so startup cannot hang indefinitely. */
 const STARTUP_HYDRATION_TIMEOUT_MS = 12_000;
+/** Keep top card mounted briefly after a mutual match so SwipeScreen can run pre-celebration inhale (see SwipeScreen inhale duration). */
+const MATCH_DECK_FLUSH_DELAY_MS = 424;
 
 const normalizeFilterText = (value?: string): string => value?.trim().toLowerCase() ?? '';
 
@@ -93,15 +98,6 @@ function mergeDeckSourcesByNameGender(
     }
   }
   return out;
-}
-
-function stableHash(input: string): number {
-  let h = 2166136261;
-  for (let i = 0; i < input.length; i++) {
-    h ^= input.charCodeAt(i);
-    h = Math.imul(h, 16777619);
-  }
-  return h >>> 0;
 }
 
 function applySharedRoomOrdering(names: BabyName[], roomId: string | null): BabyName[] {
@@ -218,6 +214,10 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
   const swipedIdsRef = useRef<Set<string>>(new Set());
   /** IDs of custom names the partner created that the current user hasn't swiped yet — front-loaded in deck. */
   const partnerCustomIdsRef = useRef<Set<string>>(new Set());
+  const countryPreferenceRef = useRef<string | null>(null);
+  const regionPreferenceRef = useRef<Region>('WORLDWIDE');
+  const learningProfileRef = useRef<LearningProfile | null>(null);
+  const recentLikedRef = useRef<BabyName[]>([]);
   const nameLengthCacheRef = useRef<Map<string, ReturnType<typeof getNameLength>>>(new Map());
   const trendCacheRef = useRef<Map<string, BabyName['trend'] | undefined>>(new Map());
 
@@ -239,9 +239,22 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
     hasPaidPackRef.current = effectiveUnlockedPacks.length > 0;
     userIdRef.current = user?.id ?? null;
     roomIdRef.current = room?.id ?? profile?.room_id ?? null;
+    countryPreferenceRef.current = countryPreference ?? null;
+    regionPreferenceRef.current = (profile?.region_preference ?? 'WORLDWIDE') as Region;
     consumeFreeSwipeRef.current = consumeFreeSwipe;
     handleConfirmedMatchRef.current = handleConfirmedMatch;
-  }, [consumeFreeSwipe, effectiveUnlockedPacks, handleConfirmedMatch, profile?.free_swipes_remaining, profile?.room_id, profile?.id, room?.id, user?.id]);
+  }, [
+    consumeFreeSwipe,
+    countryPreference,
+    effectiveUnlockedPacks,
+    handleConfirmedMatch,
+    profile?.free_swipes_remaining,
+    profile?.region_preference,
+    profile?.room_id,
+    profile?.id,
+    room?.id,
+    user?.id,
+  ]);
 
   const activeFilterCount =
     (filters.lengths.length > 0 ? 1 : 0) +
@@ -571,6 +584,43 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
     return computed;
   }, []);
 
+  useEffect(() => {
+    if (!user?.id) {
+      learningProfileRef.current = null;
+      return;
+    }
+    void userPreferenceLearningService.loadProfile(user.id).then((p) => {
+      learningProfileRef.current = p;
+    });
+  }, [user?.id]);
+
+  useEffect(() => {
+    recentLikedRef.current = [];
+  }, [user?.id]);
+
+  /**
+   * Lightweight pacing after stableHash ordering: break streaky letters / locales / trends /
+   * rarity bands while keeping partner-visible decks deterministic for identical pool + ctx.
+   * Personal taste nudges read local refs only (recent likes + cached learning profile).
+   */
+  const refineDeckOrder = useCallback((deck: BabyName[]): BabyName[] => {
+    if (deck.length <= 1) return deck;
+    const rawRoom = roomIdRef.current ?? '';
+    const ctx = {
+      roomId: rawRoom || '__solo_deck__',
+      countryPreference: countryPreferenceRef.current,
+      region: regionPreferenceRef.current,
+      sessionSwipeDepth: swipedIdsRef.current.size,
+      learningProfile: learningProfileRef.current,
+      recentLiked: recentLikedRef.current.slice(),
+    };
+    const custom = partnerCustomIdsRef.current;
+    if (custom.size === 0) return sequenceSwipeDeck(deck, ctx);
+    const prio = deck.filter((n) => custom.has(n.id));
+    const rest = deck.filter((n) => !custom.has(n.id));
+    return [...prio, ...sequenceSwipeDeck(rest, ctx)];
+  }, []);
+
   // ── Core name queue builder (synchronous — guaranteed safe) ──
   const buildNameQueue = useCallback(() => {
     if (!profile || !isDeckReadyToBuild) {
@@ -597,6 +647,7 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
         region,
         countryPreference ?? undefined,
         genderPref,
+        sharedRoomId ?? '',
       );
     } else {
       // Paid tier: keep weighted discovery flow, expanded by purchased packs.
@@ -607,6 +658,7 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
         genderPref,
         swipedIdsRef.current.size,
         purchasedPacks,
+        sharedRoomId ?? '',
       );
     }
 
@@ -687,10 +739,10 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
       });
     }
 
-    setNamesToSwipe(pool);
+    setNamesToSwipe(refineDeckOrder(pool));
     setIsLoadingNames(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- closure reads profile/filters/packs; nameQueueRebuildKey gates when those inputs meaningfully change
-  }, [isDeckReadyToBuild, nameQueueRebuildKey, deckNames, room?.id, profile?.room_id]);
+  }, [isDeckReadyToBuild, nameQueueRebuildKey, deckNames, room?.id, profile?.room_id, refineDeckOrder]);
 
   // Rebuild when preferences, filters, packs, or swipe access *tier* change — not each free_swipes tick
   // profile?.id only (not whole profile) avoids rebuild on every free_swipes_remaining tick
@@ -771,8 +823,19 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
       if (__DEV__ && DEBUG_SWIPE_DECK) {
         console.log('[SwipeDeck] recordSwipe', nameId);
       }
-      setNamesToSwipe((prev) => prev.filter((n) => n.id !== nameId));
       swipedIdsRef.current.add(nameId);
+      if (swipedName && direction === 'right') {
+        recentLikedRef.current = [...recentLikedRef.current, swipedName].slice(-8);
+      }
+
+      const deferDeckRemoval = direction === 'right';
+      const flushDeckRemoval = () => {
+        setNamesToSwipe((prev) => refineDeckOrder(prev.filter((n) => n.id !== nameId)));
+      };
+
+      if (!deferDeckRemoval) {
+        flushDeckRemoval();
+      }
 
       if (!hasPaidPack && freeSwipesRemaining > 0) {
         const fn = consumeFreeSwipeRef.current;
@@ -782,6 +845,7 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
       const roomId = roomIdRef.current;
       const userId = userIdRef.current;
       if (!userId || !roomId) {
+        if (deferDeckRemoval) flushDeckRemoval();
         return false;
       }
 
@@ -794,6 +858,7 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
         });
       } catch (err: any) {
         console.error('[SwipeDeck] recordSwipe error:', err?.message ?? err);
+        if (deferDeckRemoval) flushDeckRemoval();
         return false;
       }
 
@@ -824,7 +889,7 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
                 name: swipedName.name,
               });
             }
-            await handleConfirmedMatchRef.current?.(swipedName);
+            void Promise.resolve(handleConfirmedMatchRef.current?.(swipedName)).catch(() => {});
           }
         } catch (err: any) {
           if (__DEV__) {
@@ -840,11 +905,25 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
         }
       }
 
+      if (deferDeckRemoval) {
+        if (isMatch) {
+          setTimeout(flushDeckRemoval, MATCH_DECK_FLUSH_DELAY_MS);
+        } else {
+          flushDeckRemoval();
+        }
+      }
+
       // Fire-and-forget preference learning (never blocks the swipe)
       if (swipedName && userId) {
         try {
           const signal = isMatch ? 'match' : direction === 'right' ? 'like' : 'skip';
-          userPreferenceLearningService.recordSwipe(userId, swipedName, signal).catch(() => {});
+          void userPreferenceLearningService
+            .recordSwipe(userId, swipedName, signal)
+            .then(() => userPreferenceLearningService.loadProfile(userId))
+            .then((p) => {
+              learningProfileRef.current = p;
+            })
+            .catch(() => {});
         } catch {
           // ignore any conversion errors — learning is non-critical
         }
@@ -852,11 +931,12 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
 
       return isMatch;
     },
-    [],
+    [refineDeckOrder],
   );
 
   const setFilters = useCallback((f: NameFilters) => {
     swipedIdsRef.current = new Set();
+    recentLikedRef.current = [];
     const nextFilters = {
       ...DEFAULT_FILTERS,
       ...f,
