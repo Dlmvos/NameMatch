@@ -302,7 +302,7 @@ export default function SwipeScreen() {
 
   if (isLoadingNames) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={styles.container} testID="swipe-screen-root">
         <LinearGradient colors={['#FFF0F5', '#FFF9F5']} style={StyleSheet.absoluteFill} />
         <View style={styles.centerState}>
           <ActivityIndicator size="large" color={COLORS.primary} />
@@ -314,7 +314,7 @@ export default function SwipeScreen() {
 
   if (isLocked) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={styles.container} testID="swipe-screen-root">
         <LinearGradient colors={['#FFF0F5', '#FFF9F5']} style={StyleSheet.absoluteFill} />
         <View style={styles.centerState}>
           <View style={styles.lockedIcon}>
@@ -347,7 +347,7 @@ export default function SwipeScreen() {
 
   if (totalRemaining === 0) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={styles.container} testID="swipe-screen-root">
         <LinearGradient colors={['#FFF0F5', '#FFF9F5']} style={StyleSheet.absoluteFill} />
         <View style={styles.centerState}>
           <Text style={styles.emptyEmoji}>🌸</Text>
@@ -369,7 +369,7 @@ export default function SwipeScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={styles.container} edges={['top']} testID="swipe-screen-root">
       <LinearGradient colors={['#FFF0F5', '#FFF9F5']} style={StyleSheet.absoluteFill} />
 
       {/* Header */}
@@ -485,7 +485,14 @@ export default function SwipeScreen() {
       ) : null}
 
       {latestMatch && (
-        <MatchCelebration name={latestMatch} onDismiss={dismissLatestMatch} />
+        <MatchCelebration
+          name={latestMatch}
+          onDismiss={dismissLatestMatch}
+          onViewMatches={() => {
+            dismissLatestMatch();
+            navigation.navigate('MainTabs', { screen: 'Matches' });
+          }}
+        />
       )}
       {!latestMatch && pendingMilestone && (
         <MilestoneCelebration milestone={pendingMilestone} onDismiss={dismissMilestone} />
@@ -494,6 +501,10 @@ export default function SwipeScreen() {
         <MatchCelebration
           name={devPreviewMatch}
           onDismiss={() => setDevPreviewMatch(null)}
+          onViewMatches={() => {
+            setDevPreviewMatch(null);
+            navigation.navigate('MainTabs', { screen: 'Matches' });
+          }}
         />
       ) : null}
 
