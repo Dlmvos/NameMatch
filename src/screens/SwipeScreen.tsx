@@ -25,6 +25,7 @@ import MatchCelebration from '../components/MatchCelebration';
 import MilestoneCelebration from '../components/MilestoneCelebration';
 import FilterSheet from '../components/FilterSheet';
 import NameDetailModal from '../components/NameDetailModal';
+import { useBooleanFlag } from '../hooks/useFeatureFlag';
 import { formatLocalizedPrice, resolveCurrencyCode } from '../lib/currency';
 import { getSwipeMetadataLabelKey } from '../lib/swipeMetadataLabel';
 import {
@@ -37,6 +38,7 @@ import {
 } from '../services/namePackRecommendationService';
 import { AnalyticsService } from '../services/AnalyticsService';
 import { copresenceSampleEligible } from '../services/anticipationAnalytics';
+import { FEATURE_FLAGS } from '../services/featureFlags';
 import type { BabyName, RootStackParamList } from '../types';
 import { colors, COLORS, FONTS, RADIUS, SHADOWS, SPACING } from '../theme';
 
@@ -205,6 +207,11 @@ export default function SwipeScreen() {
     return pack.title;
   };
   const swipesToCurated = RECOMMENDATION_CADENCE - (swipeCountRef.current % RECOMMENDATION_CADENCE);
+  /** Feature-flagged so inhale can be disabled instantly if anti-metrics regress. */
+  const anticipationInhaleEnabled = useBooleanFlag(
+    'anticipation_inhale_enabled',
+    FEATURE_FLAGS.anticipation_inhale_enabled.defaultValue,
+  );
   const shouldShowProgressCue =
     swipeCountRef.current > 0 &&
     swipesToCurated > 0 &&
@@ -267,9 +274,14 @@ export default function SwipeScreen() {
     }
     const onCooldown = Date.now() < silenceCooldownUntilRef.current;
     anticipationOutcomeRef.current = onCooldown ? 'suppressed_by_cooldown' : 'celebration_shown';
-    anticipationHadInhaleRef.current = !onCooldown;
+    anticipationHadInhaleRef.current = !onCooldown && anticipationInhaleEnabled;
 
     if (onCooldown) {
+      setMatchCelebrationReady(true);
+      return;
+    }
+
+    if (!anticipationInhaleEnabled) {
       setMatchCelebrationReady(true);
       return;
     }
@@ -296,7 +308,7 @@ export default function SwipeScreen() {
       clearTimeout(tid);
       clearTimeout(fallback);
     };
-  }, [latestMatch]);
+  }, [latestMatch, anticipationInhaleEnabled]);
 
   const preMatchAnticipationActive =
     !!latestMatch &&
