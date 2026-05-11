@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   View,
@@ -10,6 +10,7 @@ import {
   Modal,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as Haptics from 'expo-haptics';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useIsFocused, useNavigation } from '@react-navigation/native';
@@ -35,6 +36,7 @@ import {
   type SwipeSignal,
 } from '../services/namePackRecommendationService';
 import { AnalyticsService } from '../services/AnalyticsService';
+import { copresenceSampleEligible } from '../services/anticipationAnalytics';
 import type { BabyName, RootStackParamList } from '../types';
 import { colors, COLORS, FONTS, RADIUS, SHADOWS, SPACING } from '../theme';
 
@@ -44,6 +46,13 @@ const VISIBLE_CARDS = 4;
 const CURATED_RECOMMENDATION_UNLOCKS_STORAGE_KEY = 'AI_PACK_UNLOCKS';
 const DEV_PAYWALL_INTERVAL = 10;
 const DEBUG_SWIPE_SCREEN = false;
+/** Keep in sync with SwipeDeckContext `MATCH_DECK_FLUSH_DELAY_MS` (matched card stays mounted through inhale). */
+const PRE_MATCH_INHALE_MS = 400;
+/**
+ * Session-local only: after dismiss, inhale+haptics stay muted briefly so back-to-back celebrations
+ * don't flatten emotional contrast — future anticipation hooks can read the same deadline.
+ */
+const MATCH_SILENCE_COOLDOWN_MS = 90_000;
 const DEV_PREVIEW_MATCH: BabyName = {
   id: 'dev-match-preview',
   name: 'Noah',
@@ -145,6 +154,23 @@ export default function SwipeScreen() {
   const didShowFinalSwipePreviewRef = useRef(false);
   const didRefillAttemptRef = useRef(false);
   const lockedAttemptRef = useRef(0);
+  /** Ephemeral (session): future anticipation UIs can skip extras while `Date.now() < this`. */
+  const silenceCooldownUntilRef = useRef(0);
+  const [matchCelebrationReady, setMatchCelebrationReady] = useState(false);
+
+  const latestMatchRef = useRef<BabyName | null>(null);
+  const inhaleStartedForMatchIdRef = useRef<string | null>(null);
+  const inhaleCompletedForMatchIdRef = useRef<string | null>(null);
+  const inhaleWallClockStartMsRef = useRef(0);
+  const anticipationHadInhaleRef = useRef(false);
+  const anticipationOutcomeRef = useRef<'celebration_shown' | 'suppressed_by_cooldown'>(
+    'celebration_shown',
+  );
+  const celebrationVisibleAtMsRef = useRef(0);
+  const celebrationShownTrackedForMatchIdRef = useRef<string | null>(null);
+  const swipeBlockedForMatchIdRef = useRef<string | null>(null);
+  const copresenceSwipeSessionActiveRef = useRef(false);
+  const copresenceStartedAtMsRef = useRef(0);
 
   // Completion-bias: progress toward curated packs (~40 swipes); offers first near ~40 swipes then on 45-swipe rhythm (min gap 45).
   const RECOMMENDATION_CADENCE = 40;
@@ -189,6 +215,151 @@ export default function SwipeScreen() {
         ? 'strong'
         : 'soft'
       : null;
+
+  const beginMatchSilenceCooldown = useCallback(() => {
+    const now = Date.now();
+    const wasInactive = silenceCooldownUntilRef.current <= now;
+    silenceCooldownUntilRef.current = now + MATCH_SILENCE_COOLDOWN_MS;
+    if (wasInactive) {
+      const entered_at_ms = Date.now();
+      AnalyticsService.track('anticipation_cooldown_entered', {
+        cooldown_until_ms: silenceCooldownUntilRef.current,
+        entered_at_ms,
+      });
+    }
+  }, []);
+
+  const trackMatchCelebrationDismissed = useCallback(() => {
+    const m = latestMatchRef.current;
+    if (!m) return;
+    const dismissed_at_ms = Date.now();
+    const shownAt = celebrationVisibleAtMsRef.current;
+    const dwell_ms = shownAt > 0 ? Math.max(0, dismissed_at_ms - shownAt) : 0;
+    AnalyticsService.track('match_celebration_dismissed', {
+      name_id: m.id,
+      dwell_ms,
+      had_inhale: anticipationHadInhaleRef.current,
+      outcome: anticipationOutcomeRef.current,
+      dismissed_at_ms,
+    });
+  }, []);
+
+  const dismissMatchWithSilence = useCallback(() => {
+    trackMatchCelebrationDismissed();
+    beginMatchSilenceCooldown();
+    dismissLatestMatch();
+  }, [beginMatchSilenceCooldown, dismissLatestMatch, trackMatchCelebrationDismissed]);
+
+  /**
+   * Gate celebration mount so the top card can finish its inhale first (swipe RPC + deck order unchanged).
+   * Silence cooldown skips inhale+haptics so clustered matches still feel weighty per reveal.
+   * Analytics: inhale_started fires once per match id (never on cooldown suppression).
+   */
+  useEffect(() => {
+    if (!latestMatch) {
+      setMatchCelebrationReady(false);
+      inhaleStartedForMatchIdRef.current = null;
+      inhaleCompletedForMatchIdRef.current = null;
+      celebrationShownTrackedForMatchIdRef.current = null;
+      swipeBlockedForMatchIdRef.current = null;
+      celebrationVisibleAtMsRef.current = 0;
+      return;
+    }
+    const onCooldown = Date.now() < silenceCooldownUntilRef.current;
+    anticipationOutcomeRef.current = onCooldown ? 'suppressed_by_cooldown' : 'celebration_shown';
+    anticipationHadInhaleRef.current = !onCooldown;
+
+    if (onCooldown) {
+      setMatchCelebrationReady(true);
+      return;
+    }
+
+    if (inhaleStartedForMatchIdRef.current !== latestMatch.id) {
+      inhaleStartedForMatchIdRef.current = latestMatch.id;
+      inhaleWallClockStartMsRef.current = Date.now();
+      const started_at_ms = Date.now();
+      AnalyticsService.track('anticipation_inhale_started', {
+        name_id: latestMatch.id,
+        started_at_ms,
+      });
+    }
+
+    setMatchCelebrationReady(false);
+    try {
+      void Haptics.selectionAsync();
+    } catch {
+      // Haptics unavailable on some simulators — timers still reveal celebration.
+    }
+    const tid = setTimeout(() => setMatchCelebrationReady(true), PRE_MATCH_INHALE_MS);
+    const fallback = setTimeout(() => setMatchCelebrationReady(true), PRE_MATCH_INHALE_MS + 320);
+    return () => {
+      clearTimeout(tid);
+      clearTimeout(fallback);
+    };
+  }, [latestMatch]);
+
+  const preMatchAnticipationActive =
+    !!latestMatch &&
+    !matchCelebrationReady &&
+    visibleNames[0]?.id === latestMatch.id &&
+    Date.now() >= silenceCooldownUntilRef.current;
+
+  useEffect(() => {
+    latestMatchRef.current = latestMatch;
+  }, [latestMatch]);
+
+  /** Wall-clock inhale visibility ends when celebration mounts (real dwell, not assumed PRE_MATCH_INHALE_MS). */
+  useEffect(() => {
+    if (!latestMatch || !matchCelebrationReady) return;
+    if (celebrationShownTrackedForMatchIdRef.current === latestMatch.id) return;
+    celebrationShownTrackedForMatchIdRef.current = latestMatch.id;
+    celebrationVisibleAtMsRef.current = Date.now();
+  }, [latestMatch, matchCelebrationReady]);
+
+  useEffect(() => {
+    if (!latestMatch || !matchCelebrationReady) return;
+    if (!anticipationHadInhaleRef.current) return;
+    if (inhaleCompletedForMatchIdRef.current === latestMatch.id) return;
+    inhaleCompletedForMatchIdRef.current = latestMatch.id;
+    const completed_at_ms = Date.now();
+    const dwell_ms = Math.max(0, completed_at_ms - inhaleWallClockStartMsRef.current);
+    AnalyticsService.track('anticipation_inhale_completed', {
+      name_id: latestMatch.id,
+      dwell_ms,
+      completed_at_ms,
+    });
+  }, [latestMatch, matchCelebrationReady]);
+
+  /** Sampled Swipe focus while the room has a partner — not dual-device co-presence. */
+  useEffect(() => {
+    const uid = profile?.id;
+    const onSwipeFocus = () => {
+      if (!uid || !hasPartner) return;
+      if (!copresenceSampleEligible(uid)) return;
+      if (copresenceSwipeSessionActiveRef.current) return;
+      copresenceSwipeSessionActiveRef.current = true;
+      const started_at_ms = Date.now();
+      copresenceStartedAtMsRef.current = started_at_ms;
+      AnalyticsService.track('swipe_partner_room_session_started', { started_at_ms });
+    };
+    const onSwipeBlur = () => {
+      if (!copresenceSwipeSessionActiveRef.current) return;
+      copresenceSwipeSessionActiveRef.current = false;
+      const ended_at_ms = Date.now();
+      const duration_ms = ended_at_ms - copresenceStartedAtMsRef.current;
+      if (duration_ms <= 0) return;
+      AnalyticsService.track('swipe_partner_room_session_ended', { duration_ms, ended_at_ms });
+    };
+    const unsubFocus = navigation.addListener('focus', onSwipeFocus);
+    const unsubBlur = navigation.addListener('blur', onSwipeBlur);
+    if (navigation.isFocused()) {
+      onSwipeFocus();
+    }
+    return () => {
+      unsubFocus();
+      unsubBlur();
+    };
+  }, [navigation, profile?.id, hasPartner]);
 
   useEffect(() => {
     if (!isFocused) {
@@ -288,7 +459,7 @@ export default function SwipeScreen() {
     }
   };
 
-  const handleBlockedSwipe = () => {
+  const handleBlockedSwipe = useCallback(() => {
     if (!isLocked) return;
     if (!__DEV__) {
       navigation.navigate('Paywall');
@@ -298,7 +469,23 @@ export default function SwipeScreen() {
     if (lockedAttemptRef.current % DEV_PAYWALL_INTERVAL === 0) {
       navigation.navigate('Paywall');
     }
-  };
+  }, [isLocked, navigation]);
+
+  const handleDeckBlockedSwipeForCard = useCallback(
+    (name: BabyName, isTopCard: boolean) => {
+      if (preMatchAnticipationActive && isTopCard && latestMatch?.id === name.id) {
+        const mid = name.id;
+        if (swipeBlockedForMatchIdRef.current !== mid) {
+          swipeBlockedForMatchIdRef.current = mid;
+          const blocked_at_ms = Date.now();
+          AnalyticsService.track('anticipation_swipe_blocked', { name_id: mid, blocked_at_ms });
+        }
+        return;
+      }
+      handleBlockedSwipe();
+    },
+    [preMatchAnticipationActive, latestMatch?.id, handleBlockedSwipe],
+  );
 
   if (isLoadingNames) {
     return (
@@ -455,8 +642,9 @@ export default function SwipeScreen() {
               cardIndex={cardIndex}
               metadataKey={metadataKey}
               nextPreviewLabel={cardIndex === 1 ? nextPreviewLabel : undefined}
-              canSwipe={!isLocked}
-              onBlockedSwipe={handleBlockedSwipe}
+              canSwipe={!isLocked && !(preMatchAnticipationActive && isTop)}
+              preMatchAnticipation={preMatchAnticipationActive && isTop}
+              onBlockedSwipe={() => handleDeckBlockedSwipeForCard(name, isTop)}
               onSwipeLeft={() => handleSwipe(name, 'left')}
               onSwipeRight={() => handleSwipe(name, 'right')}
             />
@@ -484,11 +672,13 @@ export default function SwipeScreen() {
         </TouchableOpacity>
       ) : null}
 
-      {latestMatch && (
+      {latestMatch && matchCelebrationReady && (
         <MatchCelebration
           name={latestMatch}
-          onDismiss={dismissLatestMatch}
+          onDismiss={dismissMatchWithSilence}
           onViewMatches={() => {
+            trackMatchCelebrationDismissed();
+            beginMatchSilenceCooldown();
             dismissLatestMatch();
             navigation.navigate('MainTabs', { screen: 'Matches' });
           }}

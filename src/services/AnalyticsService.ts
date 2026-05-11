@@ -10,7 +10,14 @@ type AnalyticsEvent =
   | 'low_swipes_banner_tap'
   | 'match_shared'
   | 'match_created'
-  | 'milestone_reached';
+  | 'milestone_reached'
+  | 'anticipation_inhale_started'
+  | 'anticipation_inhale_completed'
+  | 'match_celebration_dismissed'
+  | 'anticipation_swipe_blocked'
+  | 'anticipation_cooldown_entered'
+  | 'swipe_partner_room_session_started'
+  | 'swipe_partner_room_session_ended';
 
 type AnalyticsProperties = Record<string, string | number | boolean | null | undefined>;
 export type StoredAnalyticsEvent = {
