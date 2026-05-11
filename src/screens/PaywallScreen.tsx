@@ -1,10 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import type { PurchasesPackage } from 'react-native-purchases';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useFocusEffect } from '@react-navigation/native';
 import { useTranslation } from '../i18n/I18nProvider';
 import { RootStackParamList } from '../types';
 import { colors } from '../theme/colors';
@@ -21,7 +22,7 @@ function isSamePackage(a: PurchasesPackage | null, b: PurchasesPackage | null): 
 
 // TODO: If react-native-purchases-ui is added later, this screen can present RevenueCat's paywall UI.
 
-export default function PaywallScreen({ navigation }: Props) {
+export default function PaywallScreen({ navigation, route }: Props) {
   const { t } = useTranslation();
   const { hydratePremiumFromRevenueCat, restorePurchases } = useAuth();
   const [lifetimePkg, setLifetimePkg] = useState<PurchasesPackage | null>(null);
@@ -39,8 +40,14 @@ export default function PaywallScreen({ navigation }: Props) {
 
   const showDualOffers = Boolean(lifetimePkg && monthlyPkg);
 
+  useFocusEffect(
+    useCallback(() => {
+      const src = route.params?.source;
+      AnalyticsService.track('paywall_impression', src ? { source: src } : {});
+    }, [route.params?.source]),
+  );
+
   useEffect(() => {
-    AnalyticsService.track('paywall_impression');
     let mounted = true;
     PurchaseService.getPremiumOfferingPackages()
       .then(({ lifetime, monthly, legacy }) => {

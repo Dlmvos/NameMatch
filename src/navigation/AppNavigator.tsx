@@ -10,6 +10,7 @@ import { useAuth } from '../context/AuthContext';
 import { AppProvider, useApp } from '../context/AppContext';
 import { RoomProvider, useRoomState } from '../context/RoomContext';
 import { SwipeDeckProvider } from '../context/SwipeDeckContext';
+import { useVariantFlag } from '../hooks/useFeatureFlag';
 import { I18nProvider } from '../i18n/I18nProvider';
 import { useTranslation } from '../i18n/I18nProvider';
 import { trStatic } from '../i18n/staticTranslate';
@@ -30,6 +31,7 @@ import SettingsScreen from '../screens/SettingsScreen';
 import DevAnalyticsScreen from '../screens/DevAnalyticsScreen';
 
 import { RootStackParamList, MainTabParamList } from '../types';
+import { FEATURE_FLAGS, PAYWALL_PLACEMENT_VARIANTS } from '../services/featureFlags';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator<MainTabParamList>();
@@ -124,6 +126,13 @@ function AuthenticatedRootNavigator() {
   } = useApp();
   const { room, isLoadingRoom, isRoomHydrated } = useRoomState();
 
+  /** Feature-flagged for placement experiments. */
+  const paywallPlacement = useVariantFlag(
+    'paywall_placement',
+    PAYWALL_PLACEMENT_VARIANTS,
+    FEATURE_FLAGS.paywall_placement.defaultValue,
+  );
+
   const hasCompletedOnboarding = !!(
     profile?.gender_preference &&
     profile?.region_preference &&
@@ -131,6 +140,15 @@ function AuthenticatedRootNavigator() {
   );
   const hasRoom = !!profile?.room_id;
   const isPaid = effectiveUnlockedPacks.length > 0;
+  const suppressAutoInitialPaywall = paywallPlacement === 'shop_only';
+  const partnerInitialRoute = isPaid ? 'MainTabs' : suppressAutoInitialPaywall ? 'PartnerConnect' : 'Paywall';
+  const mainInitialRoute = isPaid ? 'MainTabs' : suppressAutoInitialPaywall ? 'MainTabs' : 'Paywall';
+
+  const partnerPaywallInitialParams: RootStackParamList['Paywall'] =
+    partnerInitialRoute === 'Paywall' ? { source: 'onboarding' } : undefined;
+  const mainPaywallInitialParams: RootStackParamList['Paywall'] =
+    mainInitialRoute === 'Paywall' ? { source: 'onboarding' } : undefined;
+
   const isStartupReady =
     isCountryPrefHydrated &&
     isUnlockedPacksHydrated &&
@@ -178,8 +196,6 @@ function AuthenticatedRootNavigator() {
     );
   }
 
-  const partnerInitialRoute = isPaid ? 'MainTabs' : 'Paywall';
-  const mainInitialRoute = isPaid ? 'MainTabs' : 'Paywall';
   const rootInitialRoute: keyof RootStackParamList = !hasCompletedOnboarding
     ? 'Preferences'
     : !hasRoom
@@ -208,7 +224,12 @@ function AuthenticatedRootNavigator() {
         ) : !hasRoom ? (
           <>
             <Stack.Screen name="PartnerConnect" component={PartnerConnectScreen} />
-            <Stack.Screen name="Paywall" component={PaywallScreen} options={{ headerShown: false }} />
+            <Stack.Screen
+              name="Paywall"
+              component={PaywallScreen}
+              options={{ headerShown: false }}
+              initialParams={partnerPaywallInitialParams}
+            />
             <Stack.Screen name="MainTabs" component={MainTabs} />
             <Stack.Screen name="Country" component={CountryScreen} />
             <Stack.Screen name="Region" component={RegionScreen} />
@@ -218,7 +239,12 @@ function AuthenticatedRootNavigator() {
           </>
         ) : (
           <>
-            <Stack.Screen name="Paywall" component={PaywallScreen} options={{ headerShown: false }} />
+            <Stack.Screen
+              name="Paywall"
+              component={PaywallScreen}
+              options={{ headerShown: false }}
+              initialParams={mainPaywallInitialParams}
+            />
             <Stack.Screen name="MainTabs" component={MainTabs} />
             <Stack.Screen name="Preferences" component={PreferencesScreen} />
             <Stack.Screen name="Country" component={CountryScreen} />

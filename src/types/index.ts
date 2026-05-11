@@ -226,7 +226,8 @@ export type RootStackParamList = {
   PartnerConnect: undefined;
   RoomManagement: undefined;
   MainTabs: NavigatorScreenParams<MainTabParamList> | undefined;
-  Paywall: undefined;
+  /** Optional `source` for accurate paywall_impression attribution (auto-open vs manual). */
+  Paywall: { source?: 'onboarding' | 'post_match' } | undefined;
   DevAnalytics: undefined;
 };
 

@@ -25,7 +25,7 @@ import MatchCelebration from '../components/MatchCelebration';
 import MilestoneCelebration from '../components/MilestoneCelebration';
 import FilterSheet from '../components/FilterSheet';
 import NameDetailModal from '../components/NameDetailModal';
-import { useBooleanFlag } from '../hooks/useFeatureFlag';
+import { useBooleanFlag, useVariantFlag } from '../hooks/useFeatureFlag';
 import { formatLocalizedPrice, resolveCurrencyCode } from '../lib/currency';
 import { getSwipeMetadataLabelKey } from '../lib/swipeMetadataLabel';
 import {
@@ -38,7 +38,7 @@ import {
 } from '../services/namePackRecommendationService';
 import { AnalyticsService } from '../services/AnalyticsService';
 import { copresenceSampleEligible } from '../services/anticipationAnalytics';
-import { FEATURE_FLAGS } from '../services/featureFlags';
+import { FEATURE_FLAGS, PAYWALL_PLACEMENT_VARIANTS } from '../services/featureFlags';
 import type { BabyName, RootStackParamList } from '../types';
 import { colors, COLORS, FONTS, RADIUS, SHADOWS, SPACING } from '../theme';
 
@@ -212,6 +212,14 @@ export default function SwipeScreen() {
     'anticipation_inhale_enabled',
     FEATURE_FLAGS.anticipation_inhale_enabled.defaultValue,
   );
+  /** Feature-flagged for placement experiments. */
+  const paywallPlacement = useVariantFlag(
+    'paywall_placement',
+    PAYWALL_PLACEMENT_VARIANTS,
+    FEATURE_FLAGS.paywall_placement.defaultValue,
+  );
+  const suppressSwipeAutoPaywall =
+    paywallPlacement === 'shop_only' || paywallPlacement === 'post_onboarding';
   const shouldShowProgressCue =
     swipeCountRef.current > 0 &&
     swipesToCurated > 0 &&
@@ -388,12 +396,13 @@ export default function SwipeScreen() {
       !hasUnlockedPacks &&
       !useDevScreenshotDeck &&
       freeSwipesLeft === 1 &&
-      !didShowFinalSwipePreviewRef.current
+      !didShowFinalSwipePreviewRef.current &&
+      !suppressSwipeAutoPaywall
     ) {
       didShowFinalSwipePreviewRef.current = true;
       setShowFinalSwipePaywallPreview(true);
     }
-  }, [freeSwipesLeft, hasUnlockedPacks, isFocused, useDevScreenshotDeck]);
+  }, [freeSwipesLeft, hasUnlockedPacks, isFocused, useDevScreenshotDeck, suppressSwipeAutoPaywall]);
 
   useEffect(() => {
     if (
@@ -412,12 +421,16 @@ export default function SwipeScreen() {
     if (__DEV__ && useDevScreenshotDeck) return;
     if (isLocked) {
       if (!__DEV__) {
-        navigation.navigate('Paywall');
+        if (!suppressSwipeAutoPaywall) {
+          navigation.navigate('Paywall', { source: 'post_match' });
+        }
         return;
       }
       lockedAttemptRef.current += 1;
       if (lockedAttemptRef.current % DEV_PAYWALL_INTERVAL === 0) {
-        navigation.navigate('Paywall');
+        if (!suppressSwipeAutoPaywall) {
+          navigation.navigate('Paywall', { source: 'post_match' });
+        }
       }
       return;
     }
@@ -473,15 +486,16 @@ export default function SwipeScreen() {
 
   const handleBlockedSwipe = useCallback(() => {
     if (!isLocked) return;
+    if (suppressSwipeAutoPaywall) return;
     if (!__DEV__) {
-      navigation.navigate('Paywall');
+      navigation.navigate('Paywall', { source: 'post_match' });
       return;
     }
     lockedAttemptRef.current += 1;
     if (lockedAttemptRef.current % DEV_PAYWALL_INTERVAL === 0) {
-      navigation.navigate('Paywall');
+      navigation.navigate('Paywall', { source: 'post_match' });
     }
-  }, [isLocked, navigation]);
+  }, [isLocked, navigation, suppressSwipeAutoPaywall]);
 
   const handleDeckBlockedSwipeForCard = useCallback(
     (name: BabyName, isTopCard: boolean) => {
