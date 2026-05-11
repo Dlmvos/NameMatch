@@ -20,8 +20,6 @@ const SAVE_TIMEOUT_MS = 12000;
 interface GenderOption {
   key: GenderPreference;
   emoji: string;
-  label: string;
-  description: string;
   color: string;
   lightColor: string;
 }
@@ -30,24 +28,18 @@ const GENDER_OPTIONS: GenderOption[] = [
   {
     key: 'boy',
     emoji: '👦',
-    label: "It's a Boy!",
-    description: 'Show me boy names',
     color: COLORS.boy,
     lightColor: COLORS.boyLight,
   },
   {
     key: 'girl',
     emoji: '👧',
-    label: "It's a Girl!",
-    description: 'Show me girl names',
     color: COLORS.girl,
     lightColor: COLORS.girlLight,
   },
   {
     key: 'both',
     emoji: '✨',
-    label: 'Surprise Us!',
-    description: 'Show all names',
     color: COLORS.neutral,
     lightColor: COLORS.neutralLight,
   },
