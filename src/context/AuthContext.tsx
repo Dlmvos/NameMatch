@@ -13,6 +13,7 @@ import {
   supabaseStartupError,
 } from '../lib/supabase';
 import { Profile, PREMIUM_COUPLE_PACK_KEY } from '../types';
+import { posthog } from '../analytics/posthog';
 import { ProfileService } from '../services/ProfileService';
 import { PurchaseService } from '../services/purchaseService';
 
@@ -79,6 +80,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   /** Latest profile for stable callbacks (avoids stale reads without widening useCallback deps). */
   const profileRef = useRef<Profile | null>(null);
   profileRef.current = profile;
+  /** Avoid resetting PostHog on cold start before we know if a session exists. */
+  const prevAnalyticsUserIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!posthog) return;
+    const uid = user?.id ?? null;
+    const prev = prevAnalyticsUserIdRef.current;
+    prevAnalyticsUserIdRef.current = uid;
+    if (uid) {
+      posthog.identify(uid);
+    } else if (prev !== null) {
+      posthog.reset();
+    }
+  }, [user?.id]);
 
   const ensureProfile = useCallback(async (authUser: User) => {
     return ProfileService.ensureProfile(
