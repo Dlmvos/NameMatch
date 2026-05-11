@@ -14,6 +14,10 @@ import {
 } from '../lib/supabase';
 import { Profile, PREMIUM_COUPLE_PACK_KEY } from '../types';
 import { posthog } from '../analytics/posthog';
+import {
+  reloadFeatureFlags,
+  resetFeatureFlagChangedSession,
+} from '../services/featureFlags';
 import { ProfileService } from '../services/ProfileService';
 import { PurchaseService } from '../services/purchaseService';
 
@@ -90,6 +94,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     prevAnalyticsUserIdRef.current = uid;
     if (uid) {
       posthog.identify(uid);
+      resetFeatureFlagChangedSession();
+      void reloadFeatureFlags();
     } else if (prev !== null) {
       posthog.reset();
     }
