@@ -96,7 +96,7 @@ export default function SwipeCard({
 }: SwipeCardProps) {
   const { t } = useTranslation();
   const position = useRef(new Animated.ValueXY()).current;
-  const promotionAnim = useRef(new Animated.Value(1)).current;
+  const promotionAnim = useRef(new Animated.Value(isTop ? 1 : 0)).current;
   const inhalePulseAnim = useRef(new Animated.Value(1)).current;
   const wasTopRef = useRef(isTop);
   const isSwipingRef = useRef(false);
@@ -217,7 +217,6 @@ export default function SwipeCard({
       useNativeDriver: true,
     }).start(() => {
       isSwipingRef.current = false;
-      position.setValue({ x: 0, y: 0 });
     });
   };
 
@@ -243,7 +242,6 @@ export default function SwipeCard({
       }),
     ]).start(() => {
       isSwipingRef.current = false;
-      position.setValue({ x: 0, y: 0 });
     });
   };
 
