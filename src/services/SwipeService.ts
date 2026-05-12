@@ -215,6 +215,24 @@ export const SwipeService = {
   },
 
   /**
+   * Ephemeral Realtime broadcast so the partner can refetch `getPartnerCustomNameIds`
+   * without `swipes` being in `supabase_realtime` (postgres_changes still used when available).
+   */
+  notifyPartnerCustomSurfaceHint(roomId: string): void {
+    const channel = supabase.channel(`partner-swipe-deck:${roomId}`, {
+      config: { broadcast: { self: true } },
+    });
+    void channel.subscribe((status) => {
+      if (status !== 'SUBSCRIBED') return;
+      void channel
+        .send({ type: 'broadcast', event: 'refetch_partner_custom', payload: {} })
+        .finally(() => {
+          void supabase.removeChannel(channel);
+        });
+    });
+  },
+
+  /**
    * Unlike a name: flip the swipe to 'left' and clean up any match.
    * Uses upsert (existing unique constraint on user_id+room_id+name_id).
    *

@@ -1,4 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { supabase } from '../lib/supabase';
 import { useAuth } from './AuthContext';
 import { useRoom } from './RoomContext';
 import { SwipeService } from '../services/SwipeService';
@@ -44,6 +45,12 @@ const STARTUP_HYDRATION_TIMEOUT_MS = 12_000;
 const MATCH_DECK_FLUSH_DELAY_MS = 424;
 
 const normalizeFilterText = (value?: string): string => value?.trim().toLowerCase() ?? '';
+
+function setsEqualString(a: Set<string>, b: Set<string>): boolean {
+  if (a.size !== b.size) return false;
+  for (const x of a) if (!b.has(x)) return false;
+  return true;
+}
 
 function discoveryMatchText(name: BabyName): string {
   const nameText = normalizeFilterText(name.name);
@@ -232,6 +239,7 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
   const swipedIdsRef = useRef<Set<string>>(new Set());
   /** IDs of custom names the partner created that the current user hasn't swiped yet — front-loaded in deck. */
   const partnerCustomIdsRef = useRef<Set<string>>(new Set());
+  const buildNameQueueRef = useRef<() => void>(() => {});
   const countryPreferenceRef = useRef<string | null>(null);
   const regionPreferenceRef = useRef<Region>('WORLDWIDE');
   const learningProfileRef = useRef<LearningProfile | null>(null);
@@ -764,6 +772,10 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- closure reads profile/filters/packs; nameQueueRebuildKey gates when those inputs meaningfully change
   }, [isDeckReadyToBuild, nameQueueRebuildKey, deckNames, room?.id, profile?.room_id, refineDeckOrder]);
 
+  useEffect(() => {
+    buildNameQueueRef.current = buildNameQueue;
+  }, [buildNameQueue]);
+
   // Rebuild when preferences, filters, packs, or swipe access *tier* change — not each free_swipes tick
   // profile?.id only (not whole profile) avoids rebuild on every free_swipes_remaining tick
   useEffect(() => {
@@ -828,6 +840,61 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
     };
   }, [expectedSwipeStateHydrationKey, room?.id, profile?.room_id, user?.id]);
 
+  // Partner right-swipes on custom names: postgres_changes when `swipes` is in the Realtime publication,
+  // plus broadcast hint (see SwipeService.notifyPartnerCustomSurfaceHint) for environments without it.
+  useEffect(() => {
+    const roomId = room?.id ?? profile?.room_id ?? null;
+    const uid = user?.id;
+    if (!roomId || !uid || !isSwipeStateHydrated) return;
+
+    const refetchPartnerCustom = async () => {
+      try {
+        const next = await SwipeService.getPartnerCustomNameIds({ userId: uid, roomId });
+        if (setsEqualString(partnerCustomIdsRef.current, next)) return;
+        partnerCustomIdsRef.current = next;
+        buildNameQueueRef.current();
+      } catch {
+        // best-effort
+      }
+    };
+
+    const partnerDeckChannel = supabase
+      .channel(`partner-swipe-deck:${roomId}`, { config: { broadcast: { self: true } } })
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'swipes',
+          filter: `room_id=eq.${roomId}`,
+        },
+        (payload) => {
+          const newRow = payload.new as { user_id?: string; direction?: string } | undefined;
+          const oldRow = payload.old as { user_id?: string; direction?: string } | undefined;
+          if (payload.eventType === 'INSERT') {
+            if (!newRow?.user_id || newRow.user_id === uid) return;
+            if (newRow.direction !== 'right') return;
+            void refetchPartnerCustom();
+            return;
+          }
+          if (payload.eventType === 'UPDATE') {
+            if (!newRow?.user_id || newRow.user_id === uid) return;
+            if (newRow.direction === 'right' || oldRow?.direction === 'right') {
+              void refetchPartnerCustom();
+            }
+          }
+        },
+      )
+      .on('broadcast', { event: 'refetch_partner_custom' }, () => {
+        void refetchPartnerCustom();
+      })
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(partnerDeckChannel);
+    };
+  }, [room?.id, profile?.room_id, user?.id, isSwipeStateHydrated]);
+
   // ── Swipe recording ─────────────────────────────────────────
   const loadMoreNames = useCallback(() => buildNameQueue(), [buildNameQueue]);
 
@@ -876,6 +943,9 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
           nameId,
           direction,
         });
+        if (direction === 'right' && swipedName?.source === 'custom') {
+          SwipeService.notifyPartnerCustomSurfaceHint(roomId);
+        }
       } catch (err: any) {
         console.error('[SwipeDeck] recordSwipe error:', err?.message ?? err);
         if (deferDeckRemoval) flushDeckRemoval();

@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase';
 import type { BabyName, Gender, Region } from '../types';
+import { SwipeService } from './SwipeService';
 
 export interface AddCustomNameParams {
   name: string;
@@ -127,6 +128,8 @@ export const CustomNameService = {
         nameId: inserted.id,
       });
     }
+
+    SwipeService.notifyPartnerCustomSurfaceHint(roomId);
 
     // 3. Check for match (partner may have somehow swiped this name already — very unlikely but consistent)
     let isMatch = false;
