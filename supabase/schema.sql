@@ -654,13 +654,18 @@ create policy "premium_meaning_translations read by entitlement"
     )
   );
 
--- Localized public-catalog meanings (same row shape as premium_meaning_translations;
--- name_content_id aligns with public.baby_names.id).
+-- Localized public-catalog meanings (production: name_id text, no FK to baby_names).
 create table if not exists public.name_meaning_translations (
-  name_content_id uuid not null references public.baby_names(id) on delete cascade,
-  locale text not null,
+  id uuid primary key default uuid_generate_v4(),
+  name_id text not null,
+  language_code text not null,
   meaning text not null,
-  primary key (name_content_id, locale)
+  source text,
+  confidence numeric,
+  verified boolean default false,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now(),
+  constraint name_meaning_translations_name_id_language_code_key unique (name_id, language_code)
 );
 
 alter table public.name_meaning_translations enable row level security;
