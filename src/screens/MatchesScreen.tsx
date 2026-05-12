@@ -25,6 +25,7 @@ import { useTranslation } from '../i18n/I18nProvider';
 import { getLocalizedNameMeaning, cleanOriginForDisplay } from '../i18n/nameMeaningDisplay';
 import { CustomNameService } from '../services/CustomNameService';
 import { SwipeService, LikedName } from '../services/SwipeService';
+import { PremiumContentService } from '../services/PremiumContentService';
 import NameDetailModal from '../components/NameDetailModal';
 import { ensureNameNestStorageMigration } from '../lib/storageBrandMigration';
 import { Match, BabyName, Gender, Region, MainTabParamList } from '../types';
@@ -84,6 +85,43 @@ export default function MatchesScreen() {
       ),
     [rawDisplayedMatches],
   );
+
+  const [matchesForDisplay, setMatchesForDisplay] = useState<Match[]>(displayedMatches);
+
+  useEffect(() => {
+    let cancelled = false;
+    const base = displayedMatches;
+    void (async () => {
+      const locale = String(language ?? '').trim();
+      if (!locale || base.length === 0) {
+        if (!cancelled) setMatchesForDisplay(base);
+        return;
+      }
+      const names = base.map((m) => m.baby_names).filter(Boolean) as BabyName[];
+      if (names.length === 0) {
+        if (!cancelled) setMatchesForDisplay(base);
+        return;
+      }
+      try {
+        const merged = await PremiumContentService.mergePublicMeaningTranslationsForBabyNames(names, locale);
+        if (cancelled) return;
+        const byId = new Map(merged.map((n) => [n.id, n]));
+        setMatchesForDisplay(
+          base.map((m) => {
+            const bn = m.baby_names;
+            if (!bn) return m;
+            const next = byId.get(bn.id);
+            return next ? { ...m, baby_names: { ...bn, ...next } } : m;
+          }),
+        );
+      } catch {
+        if (!cancelled) setMatchesForDisplay(base);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [displayedMatches, language]);
 
   const handleShareMatch = useCallback(
     async (match: Match) => {
@@ -403,7 +441,7 @@ export default function MatchesScreen() {
           />
         ) : (
           <FlatList
-            data={displayedMatches}
+            data={matchesForDisplay}
             keyExtractor={(item) => item.id}
             contentContainerStyle={styles.list}
             showsVerticalScrollIndicator={false}

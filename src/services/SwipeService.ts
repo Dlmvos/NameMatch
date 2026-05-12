@@ -78,12 +78,15 @@ export const SwipeService = {
     nameId: string;
     direction: SwipeDirection;
   }): Promise<void> {
-    const { error } = await supabase.from('swipes').upsert({
-      user_id: params.userId,
-      room_id: params.roomId,
-      name_id: params.nameId,
-      direction: params.direction,
-    });
+    const { error } = await supabase.from('swipes').upsert(
+      {
+        user_id: params.userId,
+        room_id: params.roomId,
+        name_id: params.nameId,
+        direction: params.direction,
+      },
+      { onConflict: 'room_id,user_id,name_id' },
+    );
     if (error) throw error;
   },
 

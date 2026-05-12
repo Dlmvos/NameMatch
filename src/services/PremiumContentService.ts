@@ -4,7 +4,10 @@ import { rarityFromPopularityRank } from '../lib/rarityFromPopularityRank';
 import { supabase } from '../lib/supabase';
 import type { AppLanguage, BabyName, Region } from '../types';
 import { enrichName } from './nameEnrichment';
-import { fetchPremiumMeaningTranslationsForIds } from './premiumMeaningTranslationsRemote';
+import {
+  fetchPremiumMeaningTranslationsForIds,
+  fetchPublicMeaningTranslationsForIds,
+} from './premiumMeaningTranslationsRemote';
 
 export interface PremiumBundledSourceOptions {
   /** When true, caller asserts premium entitlement (e.g. unlocked packs). */
@@ -36,6 +39,8 @@ export interface FetchRemotePublicDeckSupplementOptions {
   region?: Region | null;
   /** When `boy` / `girl`, restricts to that gender plus `neutral`. `both` = no gender filter. */
   gender?: 'boy' | 'girl' | 'both' | null;
+  /** Active UI language; merges `public.name_meaning_translations` into returned names when present. */
+  meaningLocale?: string;
 }
 
 const DEFAULT_PUBLIC_DECK_SUPPLEMENT_LIMIT = 400;
@@ -118,6 +123,23 @@ function applyPublicSupplementGenderFilter<T extends { in: (c: string, v: string
   return query;
 }
 
+async function attachPublicMeaningTranslations(
+  names: BabyName[],
+  meaningLocale: string | undefined,
+): Promise<BabyName[]> {
+  const locale = String(meaningLocale ?? '').trim();
+  if (!locale || names.length === 0) return names;
+  const byId = await fetchPublicMeaningTranslationsForIds(
+    names.map((n) => n.id),
+    locale,
+  );
+  return names.map((name) => {
+    const t = byId[name.id];
+    const meaningTranslations = buildMeaningTranslationsForRemoteName(locale, t);
+    return meaningTranslations ? { ...name, meaningTranslations } : name;
+  });
+}
+
 /** Round-robin merge up to `maxTotal` rows; skips duplicate ids within the supplement. */
 function interleavePublicSupplementSlices(slices: BabyName[][], maxTotal: number): BabyName[] {
   const out: BabyName[] = [];
@@ -161,12 +183,14 @@ async function fetchPublicRowsForRegionCountry(
   q = q.order('popularity_rank', { ascending: true, nullsFirst: false }).limit(limit);
   const { data, error } = await q;
   if (error) return [];
-  return ((data ?? []) as BabyNamePremiumRow[]).map((row) => mapRowToBabyName(row));
+  const rows = (data ?? []) as BabyNamePremiumRow[];
+  return rows.map((row) => mapRowToBabyName(row));
 }
 
 async function fetchWorldwideBalancedPublicRows(
   limit: number,
   gender: 'boy' | 'girl' | 'both',
+  meaningLocale: string | undefined,
 ): Promise<BabyName[]> {
   const regions = WORLDWIDE_PUBLIC_SUPPLEMENT_REGIONS;
   const n = regions.length;
@@ -191,13 +215,15 @@ async function fetchWorldwideBalancedPublicRows(
   );
 
   const nameSlices = rowSlices.map((rows) => rows.map((row) => mapRowToBabyName(row)));
-  return interleavePublicSupplementSlices(nameSlices, limit);
+  const interleaved = interleavePublicSupplementSlices(nameSlices, limit);
+  return attachPublicMeaningTranslations(interleaved, meaningLocale);
 }
 
 async function fetchRegionCountryBalancedPublicRows(
   region: Region,
   limit: number,
   gender: 'boy' | 'girl' | 'both',
+  meaningLocale: string | undefined,
 ): Promise<BabyName[]> {
   const countries = countriesForRegion(region);
   if (__DEV__) {
@@ -267,7 +293,7 @@ async function fetchRegionCountryBalancedPublicRows(
       },
     });
   }
-  return out;
+  return attachPublicMeaningTranslations(out, meaningLocale);
 }
 
 /**
@@ -299,13 +325,14 @@ export const PremiumContentService = {
 
       const region = opts.region ?? null;
       const gender = opts.gender ?? 'both';
+      const meaningLocale = opts.meaningLocale;
 
       if (region === 'WORLDWIDE') {
-        return await fetchWorldwideBalancedPublicRows(limit, gender);
+        return await fetchWorldwideBalancedPublicRows(limit, gender, meaningLocale);
       }
 
       if (region) {
-        const balancedRows = await fetchRegionCountryBalancedPublicRows(region, limit, gender);
+        const balancedRows = await fetchRegionCountryBalancedPublicRows(region, limit, gender, meaningLocale);
         if (balancedRows.length > 0) {
           return balancedRows;
         }
@@ -330,7 +357,8 @@ export const PremiumContentService = {
       }
 
       const rows = (data ?? []) as BabyNamePremiumRow[];
-      return rows.map((row) => mapRowToBabyName(row));
+      const names = rows.map((row) => mapRowToBabyName(row));
+      return attachPublicMeaningTranslations(names, meaningLocale);
     } catch {
       return [];
     }
@@ -372,5 +400,15 @@ export const PremiumContentService = {
   /** Core bundled names only (for merging with a successful remote premium list). */
   getCoreBundledNames(): BabyName[] {
     return getBundledNames();
+  },
+
+  /**
+   * Merges localized rows from `public.name_meaning_translations` into public-catalog `BabyName`s.
+   */
+  mergePublicMeaningTranslationsForBabyNames(
+    names: BabyName[],
+    meaningLocale: string | undefined,
+  ): Promise<BabyName[]> {
+    return attachPublicMeaningTranslations(names, meaningLocale);
   },
 };

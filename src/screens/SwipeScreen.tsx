@@ -152,6 +152,10 @@ export default function SwipeScreen() {
   const [devDetailName, setDevDetailName] = useState<BabyName | null>(null);
   const [showDevScreenshotMenu, setShowDevScreenshotMenu] = useState(false);
   const [useDevScreenshotDeck, setUseDevScreenshotDeck] = useState(false);
+  const [devScreenshotSwipeByNameId, setDevScreenshotSwipeByNameId] = useState<
+    Record<string, 'left' | 'right'>
+  >({});
+  const [devScreenshotDeckNames, setDevScreenshotDeckNames] = useState<BabyName[] | null>(null);
   const [showFinalSwipePaywallPreview, setShowFinalSwipePaywallPreview] = useState(false);
   const didShowFinalSwipePreviewRef = useRef(false);
   const didRefillAttemptRef = useRef(false);
@@ -180,7 +184,10 @@ export default function SwipeScreen() {
   const freeSwipesLeft = profile?.free_swipes_remaining ?? 0;
   const hasUnlockedPacks = effectiveUnlockedPacks.length > 0;
   const hasPartner = !!(room?.user2_id);
-  const screenshotNames = __DEV__ && useDevScreenshotDeck ? DEV_SCREENSHOT_NAMES : namesToSwipe;
+  const screenshotNames =
+    __DEV__ && useDevScreenshotDeck
+      ? (devScreenshotDeckNames ?? DEV_SCREENSHOT_NAMES)
+      : namesToSwipe;
   const visibleNames = screenshotNames.slice(0, VISIBLE_CARDS);
   const nextName = visibleNames[1];
   const totalRemaining = screenshotNames.length;
@@ -418,7 +425,24 @@ export default function SwipeScreen() {
   }, [isFocused, isLoadingNames, namesToSwipe.length, effectiveUnlockedPacks, loadMoreNames]);
 
   const handleSwipe = async (name: BabyName, direction: 'left' | 'right') => {
-    if (__DEV__ && useDevScreenshotDeck) return;
+    if (__DEV__ && useDevScreenshotDeck) {
+      if (isSwipingRef.current) return;
+      isSwipingRef.current = true;
+      try {
+        setDevScreenshotSwipeByNameId((prev) => ({ ...prev, [name.id]: direction }));
+        setDevScreenshotDeckNames((prev) => {
+          const deck = prev ?? [...DEV_SCREENSHOT_NAMES];
+          const idx = deck.findIndex((n) => n.id === name.id);
+          if (idx === -1) return deck;
+          const next = deck.slice();
+          next.splice(idx, 1);
+          return next;
+        });
+      } finally {
+        isSwipingRef.current = false;
+      }
+      return;
+    }
     if (isLocked) {
       if (!__DEV__) {
         if (!suppressSwipeAutoPaywall) {
@@ -907,7 +931,17 @@ export default function SwipeScreen() {
             <TouchableOpacity
               style={styles.devMenuItem}
               onPress={() => {
-                setUseDevScreenshotDeck((prev) => !prev);
+                setUseDevScreenshotDeck((prev) => {
+                  const next = !prev;
+                  if (next) {
+                    setDevScreenshotDeckNames([...DEV_SCREENSHOT_NAMES]);
+                    setDevScreenshotSwipeByNameId({});
+                  } else {
+                    setDevScreenshotDeckNames(null);
+                    setDevScreenshotSwipeByNameId({});
+                  }
+                  return next;
+                });
                 setShowDevScreenshotMenu(false);
               }}
             >

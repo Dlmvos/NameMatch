@@ -285,6 +285,7 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
     effectiveUnlockedPacks.length > 0 ? 'paid' : 'unpaid',
     profile?.region_preference ?? '',
     profile?.gender_preference ?? '',
+    effectiveLanguage,
   ].join('|');
   const expectedPremiumDeckHydrationKey = [
     user?.id ?? 'no-user',
@@ -369,6 +370,7 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
             limit: 400,
             region: profile.region_preference ?? null,
             gender: profile.gender_preference ?? 'both',
+            meaningLocale: effectiveLanguage,
           }),
           new Promise<never>((_, reject) =>
             setTimeout(() => reject(new Error('public deck timeout')), STARTUP_HYDRATION_TIMEOUT_MS),
@@ -392,6 +394,7 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
     isCountryPrefHydrated,
     hasFreeSwipeEntitlement,
     effectiveUnlockedPacks.length,
+    effectiveLanguage,
     expectedPublicDeckHydrationKey,
   ]);
 

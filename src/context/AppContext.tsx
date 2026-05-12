@@ -47,6 +47,156 @@ const LANGUAGE_PREF_KEY = (uid: string) => `namenest:language_pref:${uid}`;
 const DEV_UNLOCKED_PACKS_KEY = 'NAMEMATCH_DEV_UNLOCKED_PACKS';
 const DEBUG_PREMIUM = false;
 
+/**
+ * Maps ISO 3166-1 alpha-2 to `CountryOption.name` (`src/data/countries.ts`) so
+ * residence strings match onboarding / currency `toI18nKey` lookups.
+ */
+const ISO_ALPHA2_TO_RESIDENCE_COUNTRY: Record<string, string> = {
+  NL: 'Netherlands',
+  DE: 'Germany',
+  FR: 'France',
+  GB: 'United Kingdom',
+  UK: 'United Kingdom',
+  IT: 'Italy',
+  ES: 'Spain',
+  PL: 'Poland',
+  SE: 'Sweden',
+  NO: 'Norway',
+  DK: 'Denmark',
+  BE: 'Belgium',
+  PT: 'Portugal',
+  FI: 'Finland',
+  AT: 'Austria',
+  CH: 'Switzerland',
+  IE: 'Ireland',
+  CZ: 'Czech Republic',
+  HU: 'Hungary',
+  RO: 'Romania',
+  GR: 'Greece',
+  RU: 'Russia',
+  US: 'USA',
+  CA: 'Canada',
+  AU: 'Australia',
+  NZ: 'New Zealand',
+  CN: 'China',
+  JP: 'Japan',
+  IN: 'India',
+  KR: 'South Korea',
+  ID: 'Indonesia',
+  PH: 'Philippines',
+  VN: 'Vietnam',
+  TH: 'Thailand',
+  MY: 'Malaysia',
+  SG: 'Singapore',
+  PK: 'Pakistan',
+  BD: 'Bangladesh',
+  TR: 'Turkey',
+  IR: 'Iran',
+  EG: 'Egypt',
+  MA: 'Morocco',
+  DZ: 'Algeria',
+  TN: 'Tunisia',
+  IL: 'Israel',
+  JO: 'Jordan',
+  LB: 'Lebanon',
+  SA: 'Saudi Arabia',
+  AE: 'UAE',
+  KW: 'Kuwait',
+  QA: 'Qatar',
+  BH: 'Bahrain',
+  OM: 'Oman',
+  BR: 'Brazil',
+  MX: 'Mexico',
+  AR: 'Argentina',
+  CO: 'Colombia',
+  PE: 'Peru',
+  CL: 'Chile',
+  VE: 'Venezuela',
+  ZA: 'South Africa',
+  NG: 'Nigeria',
+  KE: 'Kenya',
+};
+
+/** When `Intl.Locale.region` is missing (e.g. generic `en`), infer ISO2 from common IANA zones. */
+const TIME_ZONE_CITY_TO_ALPHA2: Record<string, string> = {
+  Madrid: 'ES',
+  Barcelona: 'ES',
+  Paris: 'FR',
+  Berlin: 'DE',
+  Amsterdam: 'NL',
+  Brussels: 'BE',
+  London: 'GB',
+  Lisbon: 'PT',
+  Rome: 'IT',
+  Warsaw: 'PL',
+  Stockholm: 'SE',
+  Oslo: 'NO',
+  Copenhagen: 'DK',
+  Vienna: 'AT',
+  Zurich: 'CH',
+  Dublin: 'IE',
+  Prague: 'CZ',
+  New_York: 'US',
+  Los_Angeles: 'US',
+  Chicago: 'US',
+  Detroit: 'US',
+  Phoenix: 'US',
+  Denver: 'US',
+  Toronto: 'CA',
+  Vancouver: 'CA',
+  Montreal: 'CA',
+  Mexico_City: 'MX',
+  Tokyo: 'JP',
+  Seoul: 'KR',
+  Shanghai: 'CN',
+  Mumbai: 'IN',
+  Sydney: 'AU',
+  Melbourne: 'AU',
+  Auckland: 'NZ',
+  Wellington: 'NZ',
+  Sao_Paulo: 'BR',
+  Buenos_Aires: 'AR',
+  Bogota: 'CO',
+  Lima: 'PE',
+  Santiago: 'CL',
+  Johannesburg: 'ZA',
+};
+
+function alpha2FromTimeZoneFallback(timeZone: string): string | null {
+  const i = timeZone.lastIndexOf('/');
+  if (i < 0 || i >= timeZone.length - 1) return null;
+  const city = timeZone.slice(i + 1);
+  return TIME_ZONE_CITY_TO_ALPHA2[city] ?? null;
+}
+
+/**
+ * Default residence only when Supabase + AsyncStorage are both unset (fresh install /
+ * migration). Explicit user picks always win via remote/cache.
+ */
+function deriveDefaultResidenceCountryFromDevice(): string | null {
+  try {
+    const localeTag = Intl.DateTimeFormat().resolvedOptions().locale ?? '';
+    const loc = new Intl.Locale(localeTag);
+    const raw = typeof loc.region === 'string' ? loc.region.trim() : '';
+    if (/^[a-z]{2}$/i.test(raw)) {
+      const name = ISO_ALPHA2_TO_RESIDENCE_COUNTRY[raw.toUpperCase()];
+      if (name) return name;
+    }
+  } catch {
+    // Intl.Locale / region unsupported — try timeZone only below
+  }
+
+  try {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (typeof tz !== 'string' || !tz) return null;
+    const alpha2 = alpha2FromTimeZoneFallback(tz);
+    if (!alpha2) return null;
+    return ISO_ALPHA2_TO_RESIDENCE_COUNTRY[alpha2] ?? null;
+  } catch {
+    return null;
+  }
+}
+
 // ─────────────────────────────────────────────────────────────
 // Provider
 // ─────────────────────────────────────────────────────────────
@@ -135,16 +285,26 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     Promise.all([countryPromise, residencePromise])
       .then(([countryVal, residenceVal]) => {
         const finalCountry = remoteCountry ?? countryVal;
-        const finalResidence = remoteResidence ?? residenceVal;
+        let deviceDerivedResidence: string | null = null;
+        if (remoteResidence === null && !residenceVal) {
+          deviceDerivedResidence = deriveDefaultResidenceCountryFromDevice();
+        }
+        const finalResidence = remoteResidence ?? residenceVal ?? deviceDerivedResidence;
 
         setCountryPreferenceState(finalCountry ?? null);
         setResidenceCountryState(finalResidence ?? null);
         setIsCountryPrefHydrated(true);
 
-        // If we had to fall back, persist those values to Supabase so remote becomes canonical.
         const update: Record<string, unknown> = {};
         if (remoteCountry === null && countryVal) update.country_preference = countryVal;
-        if (remoteResidence === null && residenceVal) update.residence_country = residenceVal;
+        const residenceToPersist =
+          remoteResidence === null ? (residenceVal ?? deviceDerivedResidence) ?? null : null;
+        if (residenceToPersist) {
+          update.residence_country = residenceToPersist;
+          if (!residenceVal && deviceDerivedResidence && user.id) {
+            void AsyncStorage.setItem(RESIDENCE_COUNTRY_KEY(user.id), residenceToPersist).catch(() => {});
+          }
+        }
         if (Object.keys(update).length > 0) {
           void updateProfile(update as any)
             .then(() => refreshProfile())

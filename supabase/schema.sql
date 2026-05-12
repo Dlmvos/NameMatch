@@ -364,7 +364,7 @@ grant execute on function public.consume_free_swipe(integer) to authenticated;
 -- ============================================================
 create or replace function public.check_and_create_match(
   p_room_id uuid,
-  p_name_id uuid,
+  p_name_id text,
   p_user_id uuid
 )
 returns boolean as $$
@@ -434,7 +434,7 @@ begin
 
   return false;
 end;
-$$ language plpgsql security definer;
+$$ language plpgsql security definer set search_path = '';
 
 -- ============================================================
 -- REALTIME: Enable real-time for matches and rooms

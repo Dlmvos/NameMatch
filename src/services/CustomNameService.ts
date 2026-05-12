@@ -105,12 +105,15 @@ export const CustomNameService = {
     };
 
     // 2. Record right-swipe for the creator
-    const { error: swipeErr } = await supabase.from('swipes').upsert({
-      user_id: userId,
-      room_id: roomId,
-      name_id: inserted.id,
-      direction: 'right',
-    });
+    const { error: swipeErr } = await supabase.from('swipes').upsert(
+      {
+        user_id: userId,
+        room_id: roomId,
+        name_id: inserted.id,
+        direction: 'right',
+      },
+      { onConflict: 'room_id,user_id,name_id' },
+    );
     if (swipeErr) {
       const message = supabaseErrorMessage(swipeErr);
       console.error('[CustomNameService] swipe insert error:', message);

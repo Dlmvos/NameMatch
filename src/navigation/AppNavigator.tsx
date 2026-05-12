@@ -141,8 +141,24 @@ function AuthenticatedRootNavigator() {
   const hasRoom = !!profile?.room_id;
   const isPaid = effectiveUnlockedPacks.length > 0;
   const suppressAutoInitialPaywall = paywallPlacement === 'shop_only';
-  const partnerInitialRoute = isPaid ? 'MainTabs' : suppressAutoInitialPaywall ? 'PartnerConnect' : 'Paywall';
-  const mainInitialRoute = isPaid ? 'MainTabs' : suppressAutoInitialPaywall ? 'MainTabs' : 'Paywall';
+  /** Creator-only room: stay on partner stack until partner joins (see stackKind below). */
+  const waitingAsCreatorForPartner =
+    hasRoom &&
+    isRoomHydrated &&
+    !!room &&
+    !!profile?.id &&
+    room.user1_id === profile.id &&
+    room.user2_id === null;
+  /** Main stack: room linked and not solo-waiting as creator for partner join. */
+  const useMainStack = hasRoom && !waitingAsCreatorForPartner;
+
+  const unpaidPreferPartnerConnect =
+    suppressAutoInitialPaywall || paywallPlacement === 'post_first_match';
+  const partnerInitialRoute = isPaid ? 'MainTabs' : unpaidPreferPartnerConnect ? 'PartnerConnect' : 'Paywall';
+  const mainInitialRoute =
+    isPaid || suppressAutoInitialPaywall || paywallPlacement === 'post_first_match'
+      ? 'MainTabs'
+      : 'Paywall';
 
   const partnerPaywallInitialParams: RootStackParamList['Paywall'] =
     partnerInitialRoute === 'Paywall' ? { source: 'onboarding' } : undefined;
@@ -155,7 +171,7 @@ function AuthenticatedRootNavigator() {
     (!hasRoom || isRoomHydrated);
   const stackKind: 'onboarding' | 'partner' | 'main' = !hasCompletedOnboarding
     ? 'onboarding'
-    : !hasRoom
+    : !useMainStack
       ? 'partner'
       : 'main';
 
@@ -198,7 +214,7 @@ function AuthenticatedRootNavigator() {
 
   const rootInitialRoute: keyof RootStackParamList = !hasCompletedOnboarding
     ? 'Preferences'
-    : !hasRoom
+    : !useMainStack
       ? partnerInitialRoute
       : mainInitialRoute;
 
@@ -221,7 +237,7 @@ function AuthenticatedRootNavigator() {
               <Stack.Screen name="DevAnalytics" component={DevAnalyticsScreen} options={{ headerShown: false }} />
             ) : null}
           </>
-        ) : !hasRoom ? (
+        ) : !useMainStack ? (
           <>
             <Stack.Screen name="PartnerConnect" component={PartnerConnectScreen} />
             <Stack.Screen
