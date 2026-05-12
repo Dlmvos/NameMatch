@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -7,11 +8,16 @@ import type { PurchasesPackage } from 'react-native-purchases';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useFocusEffect } from '@react-navigation/native';
 import { useTranslation } from '../i18n/I18nProvider';
-import { RootStackParamList } from '../types';
+import { RootStackParamList, PREMIUM_COUPLE_PACK_KEY } from '../types';
 import { colors } from '../theme/colors';
 import { useAuth } from '../context/AuthContext';
+import { useApp } from '../context/AppContext';
+import { useSwipeDeckActions } from '../context/SwipeDeckContext';
 import { PurchaseService } from '../services/purchaseService';
 import { AnalyticsService } from '../services/AnalyticsService';
+
+/** Same key as ShopScreen — dev-only mock premium unlocks. */
+const DEV_UNLOCKED_PACKS_KEY = 'NAMEMATCH_DEV_UNLOCKED_PACKS';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Paywall'>;
 
@@ -25,6 +31,8 @@ function isSamePackage(a: PurchasesPackage | null, b: PurchasesPackage | null): 
 export default function PaywallScreen({ navigation, route }: Props) {
   const { t } = useTranslation();
   const { hydratePremiumFromRevenueCat, restorePurchases } = useAuth();
+  const { refreshUnlockedPacks } = useApp();
+  const { loadMoreNames } = useSwipeDeckActions();
   const [lifetimePkg, setLifetimePkg] = useState<PurchasesPackage | null>(null);
   const [monthlyPkg, setMonthlyPkg] = useState<PurchasesPackage | null>(null);
   const [legacyPkg, setLegacyPkg] = useState<PurchasesPackage | null>(null);
@@ -87,6 +95,38 @@ export default function PaywallScreen({ navigation, route }: Props) {
 
   const navigateAfterPremiumVerified = () => {
     navigation.replace('MainTabs');
+  };
+
+  const addDevUnlockedPack = async (packKey: string): Promise<void> => {
+    const raw = await AsyncStorage.getItem(DEV_UNLOCKED_PACKS_KEY).catch(() => null);
+    let existing: string[] = [];
+    if (raw) {
+      try {
+        const parsed = JSON.parse(raw) as string[];
+        existing = Array.isArray(parsed) ? parsed : [];
+      } catch {
+        existing = [];
+      }
+    }
+    if (existing.includes(packKey)) return;
+    await AsyncStorage.setItem(DEV_UNLOCKED_PACKS_KEY, JSON.stringify([...existing, packKey])).catch(() => {});
+  };
+
+  const handleDevUnlockPremium = async () => {
+    if (!__DEV__) return;
+    if (isBusy) return;
+    setIsBusy(true);
+    try {
+      await addDevUnlockedPack(PREMIUM_COUPLE_PACK_KEY);
+      await refreshUnlockedPacks();
+      loadMoreNames();
+      Alert.alert('Dev unlock', 'Premium unlocked for this dev build.');
+      navigateAfterPremiumVerified();
+    } catch (err: any) {
+      Alert.alert('Dev unlock failed', err?.message ?? 'Unknown error');
+    } finally {
+      setIsBusy(false);
+    }
   };
 
   const handleContinueFree = () => {
@@ -274,6 +314,20 @@ export default function PaywallScreen({ navigation, route }: Props) {
         >
           <Text style={styles.restoreLinkText}>{t('shop.restorePurchases')}</Text>
         </TouchableOpacity>
+
+        {__DEV__ ? (
+          <View style={styles.devUnlockSection}>
+            <TouchableOpacity
+              style={[styles.devUnlockButton, isBusy && styles.disabledButton]}
+              onPress={handleDevUnlockPremium}
+              disabled={isBusy}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.devUnlockBadge}>DEV ONLY</Text>
+              <Text style={styles.devUnlockButtonText}>Dev Unlock Premium</Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
       </ScrollView>
     </SafeAreaView>
   );
@@ -508,5 +562,34 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     color: colors.match?.primary || colors.swipe.primary,
+  },
+  devUnlockSection: {
+    marginTop: 20,
+    paddingTop: 16,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.neutral.border,
+  },
+  devUnlockButton: {
+    alignSelf: 'stretch',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    borderStyle: 'dashed',
+    backgroundColor: '#F1F5F9',
+  },
+  devUnlockBadge: {
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 1.2,
+    color: '#94A3B8',
+    marginBottom: 6,
+  },
+  devUnlockButtonText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#64748B',
   },
 });
