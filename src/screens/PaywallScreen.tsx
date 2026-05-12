@@ -102,7 +102,14 @@ export default function PaywallScreen({ navigation, route }: Props) {
     try {
       const result = await PurchaseService.purchasePremium(selectedPremium ?? undefined);
       if (!result.success) {
-        AnalyticsService.track('purchase_failed', { reason: 'purchase_not_successful' });
+        if ('unavailable' in result && result.unavailable) {
+          AnalyticsService.track('purchase_failed', { reason: 'purchases_unavailable' });
+          Alert.alert(
+            'Purchases unavailable (dev)',
+            `${result.reason}\n\nRebuild the dev client if you recently changed EXPO_PUBLIC_REVENUECAT_* keys.`,
+          );
+          return;
+        }
         return;
       }
       if (!PurchaseService.hasPremiumEntitlement(result.customerInfo)) {

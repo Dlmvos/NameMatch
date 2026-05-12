@@ -280,6 +280,11 @@ export default function ShopScreen() {
       return;
     }
     if (__DEV__) {
+      console.log('[ShopScreen] handlePurchase', {
+        mode: 'dev_mock_unlock',
+        packKey: pack.key,
+        note: 'RevenueCat is not used for shop purchases in __DEV__; use Paywall for StoreKit.',
+      });
       try {
         await addDevUnlockedPack(pack.key);
         await refreshUnlockedPacks();
@@ -297,7 +302,12 @@ export default function ShopScreen() {
       const result = await PurchaseService.purchasePremium(
         pack.key === PREMIUM_COUPLE_PACK_KEY ? premiumSelectedPkg ?? undefined : undefined,
       );
-      if (!result.success) return;
+      if (!result.success) {
+        if ('unavailable' in result && result.unavailable) {
+          Alert.alert('Purchases unavailable (dev)', result.reason);
+        }
+        return;
+      }
       if (!PurchaseService.hasPremiumEntitlement(result.customerInfo)) {
         Alert.alert(t('common.error'), t('shop.purchaseError'));
         return;

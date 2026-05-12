@@ -23,8 +23,11 @@ export type PremiumOfferingPackages = {
   legacy: PurchasesPackage | null;
 };
 
-type PurchaseSuccess = { success: true; customerInfo: CustomerInfo };
-type PurchaseCancelled = { success: false; cancelled: true };
+export type PurchasePremiumResult =
+  | { success: true; customerInfo: CustomerInfo }
+  | { success: false; cancelled: true }
+  | { success: false; unavailable: true; reason: string };
+
 let didConfigure = false;
 let purchasesDisabledReason: string | null = null;
 const warnedDisabledMethods = new Set<string>();
@@ -45,6 +48,14 @@ function isValidPlatformKey(apiKey: string): boolean {
   if (Platform.OS === 'ios') return isValidRevenueCatKey(apiKey, 'appl_');
   if (Platform.OS === 'android') return isValidRevenueCatKey(apiKey, 'goog_');
   return false;
+}
+
+/** First chars only — never log full API keys. */
+function maskKeyPrefix(apiKey: string): string {
+  const t = apiKey.trim();
+  if (!t) return '(none)';
+  const head = t.slice(0, 8);
+  return t.length > 8 ? `${head}…` : head;
 }
 
 function getPlatformApiKey(): string {
@@ -190,10 +201,44 @@ function isPurchaseCancelled(err: unknown): boolean {
   );
 }
 
+function logDevConfigureAttempt(resolved: { apiKey: string | null }): void {
+  if (!__DEV__) return;
+  const usedTestStore = Boolean(resolved.apiKey && isValidTestStoreKey(resolved.apiKey));
+  console.log('[PurchaseService] configure attempt', {
+    platform: Platform.OS,
+    isExpoGo: isExpoGo(),
+    hasIosKey: isValidRevenueCatKey(RC_API_KEY_IOS, 'appl_'),
+    hasAndroidKey: isValidRevenueCatKey(RC_API_KEY_ANDROID, 'goog_'),
+    hasTestStoreKey: isValidTestStoreKey(RC_TEST_STORE_API_KEY),
+    usedTestStore,
+    iosKeyPrefix: maskKeyPrefix(RC_API_KEY_IOS),
+    androidKeyPrefix: maskKeyPrefix(RC_API_KEY_ANDROID),
+    testStoreKeyPrefix: maskKeyPrefix(RC_TEST_STORE_API_KEY),
+    resolved: resolved.apiKey ? 'configured' : 'no_key',
+  });
+}
+
+function logDevPremiumOfferingResolution(
+  source: 'getPremiumOfferingPackages' | 'getPremiumPackage',
+  offerings: PurchasesOfferings,
+  lifetime: PurchasesPackage | null,
+  monthly: PurchasesPackage | null,
+  legacy: PurchasesPackage | null,
+): void {
+  if (!__DEV__) return;
+  console.log(`[PurchaseService] ${source}`, {
+    currentOfferingId: offerings.current?.identifier ?? null,
+    hasLifetime: Boolean(lifetime),
+    hasMonthly: Boolean(monthly),
+    hasLegacy: Boolean(legacy),
+  });
+}
+
 export const PurchaseService = {
   configure(): void {
     if (didConfigure) return;
     const { apiKey, reason } = resolveRevenueCatApiKey();
+    logDevConfigureAttempt({ apiKey });
     if (!apiKey) {
       purchasesDisabledReason = reason ?? 'RevenueCat API key is missing or invalid.';
       warnPurchasesUnavailable('configure');
@@ -227,16 +272,29 @@ export const PurchaseService = {
     return await Purchases.getCustomerInfo();
   },
 
-  async purchasePremium(selectedPackage?: PurchasesPackage): Promise<PurchaseSuccess | PurchaseCancelled> {
+  async purchasePremium(selectedPackage?: PurchasesPackage): Promise<PurchasePremiumResult> {
     if (!canUsePurchases('purchasePremium')) {
+      const reason = purchasesDisabledReason ?? 'RevenueCat has not been configured.';
       if (!__DEV__) throw purchasesUnavailableError('purchasePremium');
-      return { success: false, cancelled: true };
+      return { success: false, unavailable: true, reason };
     }
     const premiumPackage =
       selectedPackage ??
       (await this.getPremiumPackage());
+    if (__DEV__) {
+      console.log('[PurchaseService] purchasePremium', {
+        didConfigure,
+        packageIdentifier: premiumPackage.identifier,
+        productIdentifier: premiumPackage.product.identifier,
+      });
+    }
     try {
       const { customerInfo } = await Purchases.purchasePackage(premiumPackage);
+      if (__DEV__) {
+        console.log('[PurchaseService] purchasePremium complete', {
+          activeEntitlementKeys: Object.keys(customerInfo.entitlements.active),
+        });
+      }
       return { success: true, customerInfo };
     } catch (err) {
       if (isPurchaseCancelled(err)) {
@@ -281,6 +339,8 @@ export const PurchaseService = {
       legacy = resolveLegacyPremiumPackage(offerings);
     }
 
+    logDevPremiumOfferingResolution('getPremiumOfferingPackages', offerings, lifetime, monthly, legacy);
+
     return { lifetime, monthly, legacy };
   },
 
@@ -291,9 +351,13 @@ export const PurchaseService = {
     const offerings = await Purchases.getOfferings();
     const { lifetime, monthly } = resolvePremiumSlots(offerings);
     const typed = lifetime ?? monthly;
-    if (typed) return typed;
+    if (typed) {
+      logDevPremiumOfferingResolution('getPremiumPackage', offerings, lifetime, monthly, null);
+      return typed;
+    }
 
     const legacy = resolveLegacyPremiumPackage(offerings);
+    logDevPremiumOfferingResolution('getPremiumPackage', offerings, lifetime, monthly, legacy);
     if (legacy) return legacy;
 
     throw new Error('Premium Couple package is not configured in RevenueCat.');
