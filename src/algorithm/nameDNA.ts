@@ -7,7 +7,6 @@ export type NameDNA = {
   endsWithVowel: boolean;
   ending: string;
   vowelRatioBucket: 'low' | 'medium' | 'high';
-  styleTags: string[];
   origin?: string | null;
   gender?: string | null;
 };
@@ -71,7 +70,6 @@ export function getNameDNA(name: NameRecord): NameDNA {
     endsWithVowel: /[aeiouy]$/.test(normalized),
     ending: getEnding(normalized),
     vowelRatioBucket: bucketVowelRatio(normalized),
-    styleTags: name.style_tags ?? [],
     origin: name.origin ?? null,
     gender: name.gender ?? null,
   };

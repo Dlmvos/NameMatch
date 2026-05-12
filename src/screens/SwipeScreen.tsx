@@ -645,10 +645,6 @@ export default function SwipeScreen() {
           onApply={setFilters}
           onClose={() => setShowFilters(false)}
           isPremium={hasUnlockedPacks}
-          onPremiumFilterPress={() => {
-            AnalyticsService.track('premium_filter_tap');
-            navigation.navigate('Paywall');
-          }}
         />
         {__DEV__ ? renderDevScreenshotMenu() : null}
       </SafeAreaView>
@@ -818,10 +814,6 @@ export default function SwipeScreen() {
         onApply={setFilters}
         onClose={() => setShowFilters(false)}
         isPremium={hasUnlockedPacks}
-        onPremiumFilterPress={() => {
-          AnalyticsService.track('premium_filter_tap');
-          navigation.navigate('Paywall');
-        }}
       />
       {__DEV__ ? (
         <NameDetailModal
