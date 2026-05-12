@@ -69,6 +69,7 @@ export function RoomProvider({ children }: { children: React.ReactNode }) {
 
   const matchSubscriptionRef = useRef<ReturnType<typeof RoomService.subscribeToMatches> | null>(null);
   const roomSubscriptionRef = useRef<ReturnType<typeof RoomService.subscribeToRoom> | null>(null);
+  const seenMatchIdsRef = useRef(new Set<string>());
   const clearMatchSubscription = () => {
     matchSubscriptionRef.current?.unsubscribe();
     matchSubscriptionRef.current = null;
@@ -86,6 +87,7 @@ export function RoomProvider({ children }: { children: React.ReactNode }) {
     if (!roomId) {
       clearMatchSubscription();
       clearRoomSubscription();
+      seenMatchIdsRef.current.clear();
       setRoom(null);
       setMatches([]);
       setLatestMatch(null);
@@ -96,6 +98,7 @@ export function RoomProvider({ children }: { children: React.ReactNode }) {
 
     const load = async () => {
       try {
+        seenMatchIdsRef.current.clear();
         setIsLoadingRoom(true);
         setIsRoomHydrated(false);
         const [loadedRoom, loadedMatches] = await Promise.all([
@@ -107,6 +110,9 @@ export function RoomProvider({ children }: { children: React.ReactNode }) {
         setRoom(loadedRoom);
         setMatches(loadedMatches);
         setLatestMatch(null);
+        for (const row of loadedMatches) {
+          seenMatchIdsRef.current.add(row.id);
+        }
 
         clearMatchSubscription();
         clearRoomSubscription();
@@ -125,6 +131,10 @@ export function RoomProvider({ children }: { children: React.ReactNode }) {
               name: m.baby_names?.name ?? null,
             });
           }
+          if (seenMatchIdsRef.current.has(m.id)) {
+            return;
+          }
+          seenMatchIdsRef.current.add(m.id);
           setMatches((prev) => [m, ...prev.filter((existing) => existing.id !== m.id)]);
           setLatestMatch(m.baby_names ?? null);
         });
@@ -156,6 +166,7 @@ export function RoomProvider({ children }: { children: React.ReactNode }) {
         console.error('[RoomContext] startup room hydration failed:', err?.message ?? err);
         clearMatchSubscription();
         clearRoomSubscription();
+        seenMatchIdsRef.current.clear();
         setRoom(null);
         setMatches([]);
         setLatestMatch(null);
@@ -173,6 +184,7 @@ export function RoomProvider({ children }: { children: React.ReactNode }) {
       cancelled = true;
       clearMatchSubscription();
       clearRoomSubscription();
+      seenMatchIdsRef.current.clear();
     };
   }, [profile?.room_id]);
 
@@ -214,6 +226,7 @@ export function RoomProvider({ children }: { children: React.ReactNode }) {
       // Immediate UI responsiveness; subscription effect will also clear on profile change.
       clearMatchSubscription();
       clearRoomSubscription();
+      seenMatchIdsRef.current.clear();
       setRoom(null);
       setMatches([]);
       setLatestMatch(null);
@@ -247,6 +260,9 @@ export function RoomProvider({ children }: { children: React.ReactNode }) {
 
     const loadedMatches = await RoomService.getMatches(roomId);
     setMatches(loadedMatches);
+    for (const row of loadedMatches) {
+      seenMatchIdsRef.current.add(row.id);
+    }
     if (__DEV__) {
       console.log('[RoomContext] matches refreshed after confirmed match', {
         roomId,
