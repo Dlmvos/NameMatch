@@ -8,6 +8,7 @@ const PLACEHOLDER_PATTERNS = [
   /^-+$/,
   /^\.+$/,
   /^\s*$/,
+  /\s\[(?:en|es|de|fr|nl|it|pt|zh|ja|ko|ar)\]\s*$/i,
 ];
 
 function isPlaceholder(text: string | null | undefined): boolean {

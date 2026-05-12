@@ -654,6 +654,26 @@ create policy "premium_meaning_translations read by entitlement"
     )
   );
 
+-- Localized public-catalog meanings (same row shape as premium_meaning_translations;
+-- name_content_id aligns with public.baby_names.id).
+create table if not exists public.name_meaning_translations (
+  name_content_id uuid not null references public.baby_names(id) on delete cascade,
+  locale text not null,
+  meaning text not null,
+  primary key (name_content_id, locale)
+);
+
+alter table public.name_meaning_translations enable row level security;
+
+drop policy if exists "name_meaning_translations read authenticated" on public.name_meaning_translations;
+create policy "name_meaning_translations read authenticated"
+  on public.name_meaning_translations for select
+  using (auth.uid() is not null);
+
+revoke all on table public.name_meaning_translations from public;
+grant select on table public.name_meaning_translations to authenticated;
+revoke insert, update, delete on table public.name_meaning_translations from authenticated;
+
 -- ============================================================
 -- Canonical name identity layer
 -- ============================================================
