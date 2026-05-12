@@ -772,6 +772,8 @@ left join lateral (
 -- associated data. Cascade rules handle most cleanup, but we
 -- explicitly delete matches in rooms where the user is the
 -- joiner (user2_id) because those rooms survive via SET NULL.
+-- We also null the partner's profile.room_id when this user is
+-- room creator (user1), because that room row cascades away.
 -- ============================================================
 create or replace function public.delete_own_account()
 returns void
@@ -785,6 +787,17 @@ begin
   if v_uid is null then
     raise exception 'Not authenticated';
   end if;
+
+  update public.profiles p
+  set
+    room_id = null,
+    updated_at = now()
+  where p.id <> v_uid
+    and p.room_id in (
+      select r.id
+      from public.rooms r
+      where r.user1_id = v_uid
+    );
 
   -- 1. Delete matches in rooms where user is partner (user2).
   --    The room itself won't cascade-delete (SET NULL), so its
