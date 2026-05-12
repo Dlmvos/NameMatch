@@ -151,6 +151,7 @@ interface SwipeDeckStateContextValue {
   isLoadingNames: boolean;
   filters: NameFilters;
   activeFilterCount: number;
+  pendingMatchAnticipation: BabyName | null;
 }
 
 interface SwipeDeckActionsContextValue {
@@ -207,6 +208,7 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
   );
 
   const [namesToSwipe, setNamesToSwipe] = useState<BabyName[]>([]);
+  const [pendingMatchAnticipation, setPendingMatchAnticipation] = useState<BabyName | null>(null);
   const [isLoadingNames, setIsLoadingNames] = useState(true);
   const [filters, setFiltersState] = useState<NameFilters>(DEFAULT_FILTERS);
   const [swipeStateHydrationKey, setSwipeStateHydrationKey] = useState<string | null>(null);
@@ -833,7 +835,7 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
 
       const deferDeckRemoval = false;
       const flushDeckRemoval = () => {
-        setNamesToSwipe((prev) => refineDeckOrder(prev.filter((n) => n.id !== nameId)));
+        setNamesToSwipe((prev) => prev.filter((n) => n.id !== nameId));
       };
 
       if (!deferDeckRemoval) {
@@ -892,6 +894,12 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
                 name: swipedName.name,
               });
             }
+            setPendingMatchAnticipation(swipedName);
+            setTimeout(() => {
+              setPendingMatchAnticipation((current) =>
+                current?.id === nameId ? null : current,
+              );
+            }, MATCH_DECK_FLUSH_DELAY_MS);
             void Promise.resolve(handleConfirmedMatchRef.current?.(swipedName)).catch(() => {});
           }
         } catch (err: any) {
@@ -906,19 +914,6 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
           }
           isMatch = false;
         }
-      }
-
-      if (direction === 'right' && isMatch && swipedName) {
-        // Re-insert matched card at index 0 so the inhale gate
-        // `visibleNames[0]?.id === latestMatch.id` (SwipeScreen ~ln 331)
-        // is satisfied for the inhale window. Re-splice after the same
-        // MATCH_DECK_FLUSH_DELAY_MS used today.
-        setNamesToSwipe((prev) =>
-          prev[0]?.id === nameId ? prev : [swipedName, ...prev]
-        );
-        setTimeout(() => {
-          setNamesToSwipe((prev) => prev.filter((n) => n.id !== nameId));
-        }, MATCH_DECK_FLUSH_DELAY_MS);
       }
 
       // Fire-and-forget preference learning (never blocks the swipe)
@@ -939,7 +934,7 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
 
       return isMatch;
     },
-    [refineDeckOrder],
+    [],
   );
 
   const setFilters = useCallback((f: NameFilters) => {
@@ -959,8 +954,9 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
       isLoadingNames: isLoadingNames || !isDeckReadyToBuild,
       filters,
       activeFilterCount,
+      pendingMatchAnticipation,
     }),
-    [namesToSwipe, isLoadingNames, isDeckReadyToBuild, filters, activeFilterCount],
+    [namesToSwipe, isLoadingNames, isDeckReadyToBuild, filters, activeFilterCount, pendingMatchAnticipation],
   );
 
   const actionsValue = useMemo(
