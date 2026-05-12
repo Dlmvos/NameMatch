@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "main": "./index.js",
   "scripts": {
-    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.scripts.json",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.scripts.json && node scripts/check-i18n-parity.mjs",
+    "check:i18n": "node scripts/check-i18n-parity.mjs",
     "typecheck:scripts": "tsc --noEmit -p tsconfig.scripts.json",
     "start": "expo start",
     "android": "expo run:android",
