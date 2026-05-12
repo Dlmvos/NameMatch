@@ -2,7 +2,6 @@ import { getBundledNames } from '../data/names';
 import { countriesForRegion } from '../data/countries';
 import { rarityFromPopularityRank } from '../lib/rarityFromPopularityRank';
 import { supabase } from '../lib/supabase';
-import { isMeaningTranslationPlaceholder } from '../i18n/nameMeaningDisplay';
 import type { AppLanguage, BabyName, Region } from '../types';
 import { enrichName } from './nameEnrichment';
 import {
@@ -126,7 +125,8 @@ function applyPublicSupplementGenderFilter<T extends { in: (c: string, v: string
 
 /**
  * Fetches `name_meaning_translations` (with id + normalized-name fallback) and merges into
- * existing `meaningTranslations`, overwriting only placeholder values for the active locale keys.
+ * `meaningTranslations`. For the active locale keys (exact + base), DB text always wins over
+ * bundled/static values; other locale keys are left unchanged.
  */
 async function attachPublicMeaningTranslationsForNames(
   names: BabyName[],
@@ -156,7 +156,6 @@ async function attachPublicMeaningTranslationsForNames(
     for (const [key, value] of Object.entries(dbKeys)) {
       if (!value?.trim()) continue;
       const k = key as AppLanguage;
-      if (!isMeaningTranslationPlaceholder(merged[k])) continue;
       merged[k] = value;
       applied = true;
     }
