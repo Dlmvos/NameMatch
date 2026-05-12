@@ -906,23 +906,31 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
         return false;
       }
 
-      const swipedName = namesToSwipeRef.current.find((n) => n.id === nameId);
+      const currentDeck = namesToSwipeRef.current;
+      const originalIndex = currentDeck.findIndex((n) => n.id === nameId);
+      const swipedName = originalIndex >= 0 ? currentDeck[originalIndex] : undefined;
       if (__DEV__ && DEBUG_SWIPE_DECK) {
         console.log('[SwipeDeck] recordSwipe', nameId);
       }
-      swipedIdsRef.current.add(nameId);
-      if (swipedName && direction === 'right') {
-        recentLikedRef.current = [...recentLikedRef.current, swipedName].slice(-8);
-      }
 
-      const deferDeckRemoval = false;
+      const rollbackOptimisticSwipe = () => {
+        swipedIdsRef.current.delete(nameId);
+        if (!swipedName) return;
+        setNamesToSwipe((prev) => {
+          if (prev.some((n) => n.id === nameId)) return prev;
+          const insertAt =
+            originalIndex < 0 ? prev.length : Math.min(Math.max(0, originalIndex), prev.length);
+          return [...prev.slice(0, insertAt), swipedName, ...prev.slice(insertAt)];
+        });
+      };
+
+      swipedIdsRef.current.add(nameId);
+
       const flushDeckRemoval = () => {
         setNamesToSwipe((prev) => prev.filter((n) => n.id !== nameId));
       };
 
-      if (!deferDeckRemoval) {
-        flushDeckRemoval();
-      }
+      flushDeckRemoval();
 
       if (!hasPaidPack && freeSwipesRemaining > 0) {
         const fn = consumeFreeSwipeRef.current;
@@ -932,7 +940,7 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
       const roomId = roomIdRef.current;
       const userId = userIdRef.current;
       if (!userId || !roomId) {
-        if (deferDeckRemoval) flushDeckRemoval();
+        rollbackOptimisticSwipe();
         return false;
       }
 
@@ -943,12 +951,15 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
           nameId,
           direction,
         });
+        if (direction === 'right' && swipedName) {
+          recentLikedRef.current = [...recentLikedRef.current, swipedName].slice(-8);
+        }
         if (direction === 'right' && swipedName?.source === 'custom') {
           SwipeService.notifyPartnerCustomSurfaceHint(roomId);
         }
       } catch (err: any) {
         console.error('[SwipeDeck] recordSwipe error:', err?.message ?? err);
-        if (deferDeckRemoval) flushDeckRemoval();
+        rollbackOptimisticSwipe();
         return false;
       }
 
