@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   TouchableOpacity,
   Modal,
+  ScrollView,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
@@ -132,7 +133,8 @@ const DEV_SCREENSHOT_NAMES: BabyName[] = [
 
 export default function SwipeScreen() {
   const { t } = useTranslation();
-  const { namesToSwipe, isLoadingNames, filters, activeFilterCount } = useSwipeDeckState();
+  const { namesToSwipe, isLoadingNames, filters, activeFilterCount, pendingMatchAnticipation } =
+    useSwipeDeckState();
   const { recordSwipe, loadMoreNames, setFilters } = useSwipeDeckActions();
   const { countryPreference, residenceCountry, effectiveUnlockedPacks, effectiveLanguage } = useApp();
   const { room } = useRoomState();
@@ -328,7 +330,8 @@ export default function SwipeScreen() {
   const preMatchAnticipationActive =
     !!latestMatch &&
     !matchCelebrationReady &&
-    visibleNames[0]?.id === latestMatch.id &&
+    !!pendingMatchAnticipation &&
+    pendingMatchAnticipation.id === latestMatch.id &&
     Date.now() >= silenceCooldownUntilRef.current;
 
   useEffect(() => {
@@ -583,23 +586,70 @@ export default function SwipeScreen() {
   }
 
   if (totalRemaining === 0) {
+    const emptyHint = hasUnlockedPacks
+      ? t('swipe.empty.hintPremium')
+      : freeSwipesLeft > 0
+        ? t('swipe.empty.hintFree', { count: freeSwipesLeft })
+        : null;
+
     return (
       <SafeAreaView style={styles.container} testID="swipe-screen-root">
         <LinearGradient colors={['#FFF0F5', '#FFF9F5']} style={StyleSheet.absoluteFill} />
-        <View style={styles.centerState}>
-          <Text style={styles.emptyEmoji}>🌸</Text>
-          <Text
-            style={styles.emptyTitle}
-            onLongPress={__DEV__ ? () => setShowDevScreenshotMenu(true) : undefined}
-          >
-            {t('swipe.empty.title')}
-          </Text>
-          <Text style={styles.emptySubtitle}>
-            {freeSwipesLeft > 0
-              ? t('swipe.empty.freeRemaining', { count: freeSwipesLeft })
-              : t('swipe.empty.locked')}
-          </Text>
-        </View>
+        <ScrollView
+          contentContainerStyle={styles.emptyRecoveryScroll}
+          keyboardShouldPersistTaps="handled"
+          bounces={false}
+        >
+          <View style={styles.emptyRecoveryInner}>
+            <Text style={styles.emptyEmoji}>🌸</Text>
+            <Text
+              style={styles.emptyTitle}
+              onLongPress={__DEV__ ? () => setShowDevScreenshotMenu(true) : undefined}
+            >
+              {t('swipe.empty.title')}
+            </Text>
+            <Text style={styles.emptySubtitle}>
+              {t('swipe.empty.subtitleMatch')}
+            </Text>
+            {emptyHint ? <Text style={styles.emptyHint}>{emptyHint}</Text> : null}
+            <View style={styles.emptyCtaStack}>
+              <TouchableOpacity
+                style={[styles.emptyCtaButton, styles.emptyCtaPrimary]}
+                activeOpacity={0.9}
+                onPress={() => setShowFilters(true)}
+              >
+                <Text style={styles.emptyCtaPrimaryText}>{t('swipe.empty.cta.filters')}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.emptyCtaButton}
+                activeOpacity={0.88}
+                onPress={() => navigation.navigate('Country', { source: 'settings' })}
+              >
+                <Text style={styles.emptyCtaSecondaryText}>{t('swipe.empty.cta.discovery')}</Text>
+              </TouchableOpacity>
+              {!hasUnlockedPacks ? (
+                <TouchableOpacity
+                  style={styles.emptyCtaButton}
+                  activeOpacity={0.88}
+                  onPress={() => navigation.navigate('Paywall')}
+                >
+                  <Text style={styles.emptyCtaSecondaryText}>{t('swipe.empty.cta.unlock')}</Text>
+                </TouchableOpacity>
+              ) : null}
+            </View>
+          </View>
+        </ScrollView>
+        <FilterSheet
+          visible={showFilters}
+          currentFilters={filters}
+          onApply={setFilters}
+          onClose={() => setShowFilters(false)}
+          isPremium={hasUnlockedPacks}
+          onPremiumFilterPress={() => {
+            AnalyticsService.track('premium_filter_tap');
+            navigation.navigate('Paywall');
+          }}
+        />
         {__DEV__ ? renderDevScreenshotMenu() : null}
       </SafeAreaView>
     );
@@ -700,6 +750,20 @@ export default function SwipeScreen() {
             />
           );
         })}
+        {pendingMatchAnticipation ? (
+          <SwipeCard
+            key={`inhale-${pendingMatchAnticipation.id}`}
+            name={pendingMatchAnticipation}
+            isTop
+            cardIndex={0}
+            metadataKey={getSwipeMetadataLabelKey(pendingMatchAnticipation, countryPreference)}
+            canSwipe={false}
+            preMatchAnticipation
+            onSwipeLeft={() => {}}
+            onSwipeRight={() => {}}
+            onBlockedSwipe={() => {}}
+          />
+        ) : null}
       </View>
 
       {paywallNudgeLevel ? (
@@ -1117,6 +1181,57 @@ const styles = StyleSheet.create({
   emptyEmoji: { fontSize: 64 },
   emptyTitle: { fontSize: 24, fontWeight: '800', color: COLORS.text, textAlign: 'center' },
   emptySubtitle: { fontSize: 15, color: COLORS.textSecondary, textAlign: 'center' },
+  emptyHint: {
+    fontSize: 14,
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+    marginTop: SPACING.xs,
+  },
+  emptyRecoveryScroll: {
+    flexGrow: 1,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.lg,
+    justifyContent: 'center',
+    minHeight: Dimensions.get('window').height * 0.85,
+  },
+  emptyRecoveryInner: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: SPACING.lg,
+    gap: SPACING.md,
+  },
+  emptyCtaStack: {
+    width: '100%',
+    maxWidth: 360,
+    marginTop: SPACING.lg,
+    gap: SPACING.sm,
+  },
+  emptyCtaButton: {
+    width: '100%',
+    borderRadius: RADIUS.lg,
+    paddingVertical: SPACING.md,
+    paddingHorizontal: SPACING.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.neutral.white,
+    borderWidth: 1,
+    borderColor: colors.neutral.border,
+  },
+  emptyCtaPrimary: {
+    backgroundColor: colors.onboarding.primary,
+    borderColor: colors.onboarding.primary,
+    ...SHADOWS.button,
+  },
+  emptyCtaPrimaryText: {
+    color: colors.neutral.white,
+    fontSize: FONTS.sizes.md,
+    fontWeight: '800',
+  },
+  emptyCtaSecondaryText: {
+    color: COLORS.text,
+    fontSize: FONTS.sizes.md,
+    fontWeight: '700',
+  },
   lockedIcon: {
     width: 64,
     height: 64,

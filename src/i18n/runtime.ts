@@ -20,9 +20,15 @@ const EN: TranslationMap = {
   'welcome.cta.login': 'I already have an account',
   'welcome.footer': 'Made with 💕 for expecting parents',
   'swipe.loading': 'Loading names...',
-  'swipe.empty.title': "You've explored every name!",
-  'swipe.empty.freeRemaining': '{{count}} free swipes remaining',
-  'swipe.empty.locked': 'Continue discovering names together with Premium.',
+  'swipe.empty.title': "You're all caught up",
+  'swipe.empty.subtitleMatch':
+    'There aren\'t any names left that match your filters and discovery settings.',
+  'swipe.empty.hintFree':
+    'You still have {{count}} free swipes today — try widening your discovery settings.',
+  'swipe.empty.hintPremium': 'Try widening filters or discovery settings to explore a different mix.',
+  'swipe.empty.cta.filters': 'Adjust filters',
+  'swipe.empty.cta.discovery': 'Change discovery settings',
+  'swipe.empty.cta.unlock': 'Unlock more names',
   'swipe.locked.title': 'Keep finding names together',
   'swipe.locked.subtitle':
     'You\'ve explored a lovely set of names today. More arrive tomorrow, or continue together anytime with Premium.',
@@ -967,9 +973,16 @@ const TRANSLATIONS: Record<string, Partial<TranslationMap>> = {
     'welcome.cta.start': 'Aan de slag ✨',
     'welcome.footer': 'Met 💕 gemaakt voor aanstaande ouders',
     'swipe.loading': 'Namen laden...',
-    'swipe.empty.title': 'Jullie hebben elke naam gezien!',
-    'swipe.empty.freeRemaining': 'Nog {{count}} gratis swipes',
-    'swipe.empty.locked': 'Ontdek samen nog meer namen met Premium.',
+    'swipe.empty.title': 'Jullie zijn helemaal bij',
+    'swipe.empty.subtitleMatch':
+      'Er zijn geen namen meer die passen bij jullie filters en ontdekkingsinstellingen.',
+    'swipe.empty.hintFree':
+      'Jullie hebben vandaag nog {{count}} gratis swipes — probeer jullie ontdekking breder te maken.',
+    'swipe.empty.hintPremium':
+      'Probeer filters of ontdekking breder te zetten om een andere mix te zien.',
+    'swipe.empty.cta.filters': 'Filters aanpassen',
+    'swipe.empty.cta.discovery': 'Ontdekking aanpassen',
+    'swipe.empty.cta.unlock': 'Meer namen ontgrendelen',
     'swipe.locked.title': 'Blijf samen zoeken',
     'swipe.locked.subtitle': 'Jullie hebben vandaag een mooie set namen gezien. Morgen komen er meer — of ga meteen samen verder met Premium.',
     'swipe.locked.cta': 'Samen verder',
@@ -1522,9 +1535,16 @@ const TRANSLATIONS: Record<string, Partial<TranslationMap>> = {
     'welcome.cta.login': 'Ich habe schon ein Konto',
     'welcome.footer': 'Mit 💕 gemacht für werdende Eltern',
     'swipe.loading': 'Namen werden geladen…',
-    'swipe.empty.title': 'Ihr habt alle Namen gesehen!',
-    'swipe.empty.freeRemaining': 'Noch {{count}} Gratis-Swipes',
-    'swipe.empty.locked': 'Entdeckt weiter gemeinsam Namen mit Premium.',
+    'swipe.empty.title': 'Ihr seid für jetzt durch',
+    'swipe.empty.subtitleMatch':
+      'Es gibt keine Namen mehr, die zu euren Filtern und Entdeckungseinstellungen passen.',
+    'swipe.empty.hintFree':
+      'Ihr habt heute noch {{count}} kostenlose Swipes — versucht, eure Entdeckung etwas weiter zu fassen.',
+    'swipe.empty.hintPremium':
+      'Lockert Filter oder Entdeckungseinstellungen, um eine andere Mischung zu sehen.',
+    'swipe.empty.cta.filters': 'Filter anpassen',
+    'swipe.empty.cta.discovery': 'Entdeckungseinstellungen ändern',
+    'swipe.empty.cta.unlock': 'Mehr Namen freischalten',
     'swipe.locked.title': 'Findet weiter zusammen Namen',
     'swipe.locked.subtitle': 'Ihr habt heute eine schöne Auswahl gesehen. Morgen gibt es mehr — oder ihr macht jederzeit mit Premium weiter.',
     'swipe.locked.cta': 'Gemeinsam weiter',
@@ -2079,9 +2099,16 @@ const TRANSLATIONS: Record<string, Partial<TranslationMap>> = {
     'welcome.cta.login': 'J’ai déjà un compte',
     'welcome.footer': 'Fait avec 💕 pour les futurs parents',
     'swipe.loading': 'Chargement des prénoms…',
-    'swipe.empty.title': 'Vous avez vu tous les prénoms !',
-    'swipe.empty.freeRemaining': 'Il reste {{count}} swipes gratuits',
-    'swipe.empty.locked': 'Continuez à explorer des prénoms ensemble avec Premium.',
+    'swipe.empty.title': 'Vous êtes à jour',
+    'swipe.empty.subtitleMatch':
+      'Il ne reste aucun prénom qui corresponde à vos filtres et à vos paramètres de découverte.',
+    'swipe.empty.hintFree':
+      'Il vous reste {{count}} swipes gratuits aujourd\'hui — essayez d\'élargir vos paramètres de découverte.',
+    'swipe.empty.hintPremium':
+      'Élargissez les filtres ou les paramètres de découverte pour explorer un autre mélange.',
+    'swipe.empty.cta.filters': 'Ajuster les filtres',
+    'swipe.empty.cta.discovery': 'Modifier la découverte',
+    'swipe.empty.cta.unlock': 'Débloquer plus de prénoms',
     'swipe.locked.title': 'Continuez à chercher ensemble',
     'swipe.locked.subtitle':
       'Vous avez découvert une belle sélection aujourd’hui. D’autres arrivent demain, ou continuez quand vous voulez avec Premium.',
@@ -2287,9 +2314,16 @@ const TRANSLATIONS: Record<string, Partial<TranslationMap>> = {
     'welcome.title': 'Babinom',
     'welcome.footer': 'Hecho con 💕 para futuros padres',
     'swipe.header.discover': 'Descubrir',
-    'swipe.empty.title': 'Has explorado todos los nombres',
-    'swipe.empty.freeRemaining': 'Te quedan {{count}} swipes gratis',
-    'swipe.empty.locked': 'Continúa descubriendo nombres juntos con Premium.',
+    'swipe.empty.title': 'Habéis llegado al final por ahora',
+    'swipe.empty.subtitleMatch':
+      'No quedan nombres que coincidan con tus filtros y la configuración de descubrimiento.',
+    'swipe.empty.hintFree':
+      'Aún tienes {{count}} swipes gratis hoy — prueba a ampliar la configuración de descubrimiento.',
+    'swipe.empty.hintPremium':
+      'Prueba a ampliar filtros o la configuración de descubrimiento para ver otra mezcla.',
+    'swipe.empty.cta.filters': 'Ajustar filtros',
+    'swipe.empty.cta.discovery': 'Cambiar configuración de descubrimiento',
+    'swipe.empty.cta.unlock': 'Desbloquear más nombres',
     'shop.title': 'Tienda',
     'shop.pack.label.worldwide': 'Paquete Mundial',
     'shop.pack.label.eu': 'Paquete Europa',
@@ -3201,9 +3235,16 @@ const TRANSLATIONS: Record<string, Partial<TranslationMap>> = {
     'welcome.cta.login': 'Ho già un account',
     'welcome.footer': 'Fatto con 💕 per chi sta per diventare genitore',
     'swipe.loading': 'Caricamento nomi…',
-    'swipe.empty.title': 'Avete visto tutti i nomi!',
-    'swipe.empty.freeRemaining': 'Ti restano {{count}} swipe gratuiti',
-    'swipe.empty.locked': 'Continuate a scoprire nomi insieme con Premium.',
+    'swipe.empty.title': 'Ci siete, per ora',
+    'swipe.empty.subtitleMatch':
+      'Non restano nomi che corrispondano ai vostri filtri e alle impostazioni di scoperta.',
+    'swipe.empty.hintFree':
+      'Avete ancora {{count}} swipe gratuiti oggi — provate ad ampliare le impostazioni di scoperta.',
+    'swipe.empty.hintPremium':
+      'Allargate filtri o impostazioni di scoperta per esplorare un mix diverso.',
+    'swipe.empty.cta.filters': 'Modifica filtri',
+    'swipe.empty.cta.discovery': 'Cambia impostazioni di scoperta',
+    'swipe.empty.cta.unlock': 'Sblocca più nomi',
     'swipe.locked.title': 'Continuate a cercare insieme',
     'swipe.locked.subtitle':
       'Oggi avete esplorato una bella selezione. Domani ce ne sono altri, oppure continuate quando volete con Premium.',
@@ -3761,9 +3802,16 @@ const TRANSLATIONS: Record<string, Partial<TranslationMap>> = {
     'welcome.cta.login': 'Já tenho conta',
     'welcome.footer': 'Feito com 💕 para futuros pais',
     'swipe.loading': 'A carregar nomes…',
-    'swipe.empty.title': 'Já viram todos os nomes!',
-    'swipe.empty.freeRemaining': 'Ainda tens {{count}} swipes grátis',
-    'swipe.empty.locked': 'Continuem a descobrir nomes juntos com Premium.',
+    'swipe.empty.title': 'Estão em dia',
+    'swipe.empty.subtitleMatch':
+      'Não há mais nomes que correspondam aos vossos filtros e às definições de descoberta.',
+    'swipe.empty.hintFree':
+      'Ainda tens {{count}} swipes grátis hoje — tenta alargar as definições de descoberta.',
+    'swipe.empty.hintPremium':
+      'Experimenta alargar filtros ou definições de descoberta para ver outra mistura.',
+    'swipe.empty.cta.filters': 'Ajustar filtros',
+    'swipe.empty.cta.discovery': 'Alterar definições de descoberta',
+    'swipe.empty.cta.unlock': 'Desbloquear mais nomes',
     'swipe.locked.title': 'Continuem a procurar juntos',
     'swipe.locked.subtitle':
       'Hoje exploraram um belo conjunto de nomes. Amanhã há mais, ou continuem quando quiserem com Premium.',
@@ -4362,9 +4410,13 @@ const TRANSLATIONS: Record<string, Partial<TranslationMap>> = {
     'welcome.cta.login': '我已有账号',
     'welcome.footer': '用 💕 为准爸妈而做',
     'swipe.loading': '正在加载名字…',
-    'swipe.empty.title': '你们已经看过所有名字了！',
-    'swipe.empty.freeRemaining': '还剩 {{count}} 次免费滑动',
-    'swipe.empty.locked': '开通 Premium，继续一起发现名字。',
+    'swipe.empty.title': '暂时都看完啦',
+    'swipe.empty.subtitleMatch': '没有更多符合你筛选条件和发现设置的名字了。',
+    'swipe.empty.hintFree': '你今天还有 {{count}} 次免费滑动——试试放宽发现设置。',
+    'swipe.empty.hintPremium': '试试放宽筛选或发现设置，探索不同的组合。',
+    'swipe.empty.cta.filters': '调整筛选',
+    'swipe.empty.cta.discovery': '更改发现设置',
+    'swipe.empty.cta.unlock': '解锁更多名字',
     'swipe.locked.title': '继续一起找名字',
     'swipe.locked.subtitle':
       '今天你们已经看了一批很棒的名字。明天还有更多，也可以随时用 Premium 继续。',
@@ -4867,9 +4919,16 @@ const TRANSLATIONS: Record<string, Partial<TranslationMap>> = {
     'welcome.cta.login': 'アカウントをお持ちの方',
     'welcome.footer': 'これからパパ・ママになる方へ 💕 をこめて',
     'swipe.loading': '名前を読み込み中…',
-    'swipe.empty.title': 'すべての名前を見ました！',
-    'swipe.empty.freeRemaining': '無料スワイプがあと {{count}} 回',
-    'swipe.empty.locked': 'Premium なら、ふたりでもっと名前を探せます。',
+    'swipe.empty.title': 'ひとまずここまで',
+    'swipe.empty.subtitleMatch':
+      'フィルターと発見の設定に合う名前が、これ以上ありません。',
+    'swipe.empty.hintFree':
+      '今日の無料スワイプはあと {{count}} 回です。発見の設定を広げてみてください。',
+    'swipe.empty.hintPremium':
+      'フィルターや発見の設定を広げると、別の組み合わせを探索できます。',
+    'swipe.empty.cta.filters': 'フィルターを調整',
+    'swipe.empty.cta.discovery': '発見の設定を変更',
+    'swipe.empty.cta.unlock': 'さらに名前を解放',
     'swipe.locked.title': 'これからも一緒に探そう',
     'swipe.locked.subtitle':
       '今日は素敵な名前にたくさん出会えましたね。明日も続きがあります。いつでも Premium で一緒に楽しめます。',
@@ -5398,9 +5457,16 @@ const TRANSLATIONS: Record<string, Partial<TranslationMap>> = {
     'welcome.cta.login': '이미 계정이 있어요',
     'welcome.footer': '예비 부모님을 위해 💕을 담아 만들었어요',
     'swipe.loading': '이름 불러오는 중…',
-    'swipe.empty.title': '모든 이름을 다 봤어요!',
-    'swipe.empty.freeRemaining': '무료 스와이프 {{count}}회 남음',
-    'swipe.empty.locked': 'Premium으로 둘이 계속 이름을 찾아보세요.',
+    'swipe.empty.title': '여기까지 다 봤어요',
+    'swipe.empty.subtitleMatch':
+      '필터와 발견 설정에 맞는 이름이 더 이상 없어요.',
+    'swipe.empty.hintFree':
+      '오늘 무료 스와이프가 {{count}}번 남았어요. 발견 설정을 넓혀 보세요.',
+    'swipe.empty.hintPremium':
+      '필터나 발견 설정을 넓히면 다른 조합을 탐색할 수 있어요.',
+    'swipe.empty.cta.filters': '필터 조정',
+    'swipe.empty.cta.discovery': '발견 설정 바꾸기',
+    'swipe.empty.cta.unlock': '이름 더 잠금 해제',
     'swipe.locked.title': '계속 함께 찾아보세요',
     'swipe.locked.subtitle':
       '오늘 멋진 이름들을 많이 만나셨어요. 내일도 새로운 이름이 올라와요. Premium으로는 언제든 이어서 할 수 있어요.',
@@ -5977,9 +6043,16 @@ const TRANSLATIONS: Record<string, Partial<TranslationMap>> = {
     'welcome.cta.login': 'لدي حساب بالفعل',
     'welcome.footer': 'صُنع بـ 💕 للوالدين المنتظرين',
     'swipe.loading': 'جارٍ تحميل الأسماء…',
-    'swipe.empty.title': 'لقد استكشفتا كل الأسماء!',
-    'swipe.empty.freeRemaining': '{{count}} سحبات مجانية متبقية',
-    'swipe.empty.locked': 'تابعا اكتشاف الأسماء معاً مع Premium.',
+    'swipe.empty.title': 'لقد وصلا إلى نهاية القائمة حالياً',
+    'swipe.empty.subtitleMatch':
+      'لا يوجد المزيد من الأسماء التي تطابق عوامل التصفية وإعدادات الاستكشاف.',
+    'swipe.empty.hintFree':
+      'ما زال لديكما {{count}} سحبة مجانية اليوم — جرّبا توسيع إعدادات الاستكشاف.',
+    'swipe.empty.hintPremium':
+      'جرّبا توسيع عوامل التصفية أو إعدادات الاستكشاف لرؤية مزيج مختلف.',
+    'swipe.empty.cta.filters': 'ضبط عوامل التصفية',
+    'swipe.empty.cta.discovery': 'تغيير إعدادات الاستكشاف',
+    'swipe.empty.cta.unlock': 'فتح المزيد من الأسماء',
     'swipe.locked.title': 'واصلا البحث معاً',
     'swipe.locked.subtitle':
       'اكتشفتا اليوم مجموعة جميلة من الأسماء. المزيد يصل غداً، أو تابعا في أي وقت مع Premium.',
