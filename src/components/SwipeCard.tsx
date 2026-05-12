@@ -336,7 +336,7 @@ export default function SwipeCard({
 
   if (!isTop) {
     return (
-      <Animated.View>
+      <View style={[styles.cardLayer, { zIndex: 10 - cardIndex }]} pointerEvents="none">
         <Animated.View
           pointerEvents="none"
           style={[
@@ -344,7 +344,6 @@ export default function SwipeCard({
             styles.stackedCard,
             {
               transform: [{ scale: cardScale }, { translateY: cardTranslateY }],
-              zIndex: 10 - cardIndex,
               opacity: safeIndex === 1 ? 0.92 : 0.7,
             },
           ]}
@@ -356,26 +355,26 @@ export default function SwipeCard({
             </View>
           ) : null}
         </Animated.View>
-      </Animated.View>
+      </View>
     );
   }
 
   return (
-    <Animated.View style={{ transform: [{ scale: inhalePulseAnim }] }}>
-      <Animated.View
-        style={[
-          styles.card,
-          {
-            transform: [
-              { translateX: position.x },
-              { translateY: topTranslateY },
-              { rotate: rotation },
-              { scale: promotionScale },
-            ],
-            zIndex: 100,
-          },
-        ]}
-      >
+    <View style={[styles.cardLayer, { zIndex: 100 }]} pointerEvents="box-none">
+      <Animated.View style={{ transform: [{ scale: inhalePulseAnim }] }}>
+        <Animated.View
+          style={[
+            styles.card,
+            {
+              transform: [
+                { translateX: position.x },
+                { translateY: topTranslateY },
+                { rotate: rotation },
+                { scale: promotionScale },
+              ],
+            },
+          ]}
+        >
         <View style={styles.swipeSurface} {...panResponder.panHandlers}>
           <Animated.View pointerEvents="none" style={[styles.stamp, styles.likeStamp, { opacity: likeOpacityInterp }]}>
             <Text style={styles.likeStampText}>{t('swipe.card.love')}</Text>
@@ -413,8 +412,9 @@ export default function SwipeCard({
             </TouchableOpacity>
           </View>
         </View>
+        </Animated.View>
       </Animated.View>
-    </Animated.View>
+    </View>
   );
 }
 
@@ -634,8 +634,13 @@ export function ReadOnlySwipeCard({ name }: { name: BabyName }) {
 // Styles
 // ─────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
+  /** Fills the stack region; centers each card so RTL/LTR never mis-anchors absolute children. */
+  cardLayer: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   card: {
-    position: 'absolute',
     width: CARD_WIDTH,
     maxWidth: CARD_WIDTH,
     minHeight: 530,
