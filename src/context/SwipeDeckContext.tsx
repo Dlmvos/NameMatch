@@ -5,7 +5,8 @@ import { SwipeService } from '../services/SwipeService';
 import {
   BabyName,
   NameFilters,
-  NameStyleTag,
+  NameOriginTag,
+  NameVibeTag,
   DEFAULT_FILTERS,
   Region,
   SwipeDirection,
@@ -44,13 +45,32 @@ const MATCH_DECK_FLUSH_DELAY_MS = 424;
 
 const normalizeFilterText = (value?: string): string => value?.trim().toLowerCase() ?? '';
 
-function matchesStyleTag(name: BabyName, tag: NameStyleTag): boolean {
+function discoveryMatchText(name: BabyName): string {
   const nameText = normalizeFilterText(name.name);
   const origin = normalizeFilterText(name.origin);
   const country = normalizeFilterText(name.country);
   const region = normalizeFilterText(name.region);
-  const combined = `${nameText} ${origin} ${country} ${region}`;
+  return `${nameText} ${origin} ${country} ${region}`;
+}
 
+export function matchesOriginTag(name: BabyName, tag: NameOriginTag): boolean {
+  const combined = discoveryMatchText(name);
+  switch (tag) {
+    case 'spanish':
+      return /\b(spanish|spain|hispanic|latin america|latam|mexico|argentina|chile|colombia)\b/.test(
+        combined,
+      );
+    case 'dutch':
+      return /\b(dutch|netherlands|nederland|flemish|belgium)\b/.test(combined);
+    default:
+      return false;
+  }
+}
+
+export function matchesVibeTag(name: BabyName, tag: NameVibeTag): boolean {
+  const nameText = normalizeFilterText(name.name);
+  const country = normalizeFilterText(name.country);
+  const region = normalizeFilterText(name.region);
   switch (tag) {
     case 'unique':
       return name.rarity?.tier === 'uncommon' ||
@@ -59,10 +79,6 @@ function matchesStyleTag(name: BabyName, tag: NameStyleTag): boolean {
         (name.popularity_rank ?? 0) >= 30;
     case 'international':
       return name.is_worldwide || region === 'worldwide' || country === 'worldwide';
-    case 'spanish':
-      return /\b(spanish|spain|hispanic|latin america|latam|mexico|argentina|chile|colombia)\b/.test(combined);
-    case 'dutch':
-      return /\b(dutch|netherlands|nederland|flemish|belgium)\b/.test(combined);
     case 'soft':
       return /[aeiy]$/.test(nameText) || /(ia|ella|elle|ina|ana|ora|lia|mila|luna)/.test(nameText);
     case 'strong':
@@ -262,8 +278,8 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
     (filters.lengths.length > 0 ? 1 : 0) +
     (filters.startingLetter ? 1 : 0) +
     (filters.trends.length > 0 ? 1 : 0) +
-    (filters.originsContain ? 1 : 0) +
-    (filters.styleTags.length > 0 ? 1 : 0);
+    (filters.origins.length > 0 ? 1 : 0) +
+    (filters.vibes.length > 0 ? 1 : 0);
 
   useEffect(() => {
     if (effectiveUnlockedPacks.length > 0) return;
@@ -674,12 +690,11 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
     if (filters.startingLetter) {
       pool = pool.filter((n) => n.name[0]?.toUpperCase() === filters.startingLetter);
     }
-    if (filters.originsContain) {
-      const q = filters.originsContain.toLowerCase();
-      pool = pool.filter((n) => n.origin.toLowerCase().includes(q));
+    if (filters.origins.length > 0) {
+      pool = pool.filter((n) => filters.origins.some((tag) => matchesOriginTag(n, tag)));
     }
-    if (filters.styleTags.length > 0) {
-      pool = pool.filter((n) => filters.styleTags.some((tag) => matchesStyleTag(n, tag)));
+    if (filters.vibes.length > 0) {
+      pool = pool.filter((n) => filters.vibes.some((tag) => matchesVibeTag(n, tag)));
     }
     if (filters.trends.length > 0) {
       pool = pool.filter((n) => {
@@ -943,7 +958,8 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
     const nextFilters = {
       ...DEFAULT_FILTERS,
       ...f,
-      styleTags: f.styleTags ?? [],
+      origins: f.origins ?? [],
+      vibes: f.vibes ?? [],
     };
     setFiltersState(effectiveUnlockedPacks.length > 0 ? nextFilters : sanitizeFreeFilters(nextFilters));
   }, [effectiveUnlockedPacks.length]);
