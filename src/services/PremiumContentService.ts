@@ -2,6 +2,7 @@ import { getBundledNames } from '../data/names';
 import { countriesForRegion } from '../data/countries';
 import { rarityFromPopularityRank } from '../lib/rarityFromPopularityRank';
 import { supabase } from '../lib/supabase';
+import { isMeaningTranslationPlaceholder } from '../i18n/nameMeaningDisplay';
 import type { AppLanguage, BabyName, Region } from '../types';
 import { enrichName } from './nameEnrichment';
 import {
@@ -123,16 +124,77 @@ function applyPublicSupplementGenderFilter<T extends { in: (c: string, v: string
   return query;
 }
 
+/**
+ * Fetches `name_meaning_translations` (with id + normalized-name fallback) and merges into
+ * existing `meaningTranslations`, overwriting only placeholder values for the active locale keys.
+ */
+async function attachPublicMeaningTranslationsForNames(
+  names: BabyName[],
+  meaningLocale: string | undefined,
+): Promise<{ names: BabyName[]; matched: number }> {
+  const locale = String(meaningLocale ?? '').trim();
+  if (!locale || names.length === 0) {
+    return { names, matched: 0 };
+  }
+
+  const byId = await fetchPublicMeaningTranslationsForIds(
+    names.map((n) => ({ id: n.id, name: n.name })),
+    locale,
+  );
+
+  let matched = 0;
+  const out = names.map((name) => {
+    const t = byId[name.id];
+    if (!t?.trim()) return name;
+    const dbKeys = buildMeaningTranslationsForRemoteName(locale, t);
+    if (!dbKeys || Object.keys(dbKeys).length === 0) return name;
+
+    const merged: NonNullable<BabyName['meaningTranslations']> = {
+      ...(name.meaningTranslations ?? {}),
+    };
+    let applied = false;
+    for (const [key, value] of Object.entries(dbKeys)) {
+      if (!value?.trim()) continue;
+      const k = key as AppLanguage;
+      if (!isMeaningTranslationPlaceholder(merged[k])) continue;
+      merged[k] = value;
+      applied = true;
+    }
+    if (!applied) return name;
+    matched += 1;
+    return { ...name, meaningTranslations: merged };
+  });
+
+  return { names: out, matched };
+}
+
 async function attachPublicMeaningTranslations(
   names: BabyName[],
   meaningLocale: string | undefined,
 ): Promise<BabyName[]> {
+  if (__DEV__) {
+    console.log('[MeaningDebug] attachPublicMeaningTranslations', {
+      locale: meaningLocale,
+      requested: names.length,
+      first: names.slice(0, 5).map((n) => ({ id: n.id, name: n.name })),
+    });
+  }
   const locale = String(meaningLocale ?? '').trim();
   if (!locale || names.length === 0) return names;
   const byId = await fetchPublicMeaningTranslationsForIds(
     names.map((n) => ({ id: n.id, name: n.name })),
     locale,
   );
+  if (__DEV__) {
+    console.log('[MeaningDebug] attachPublicMeaningTranslations result', {
+      matched: Object.keys(byId).length,
+      sample: names.slice(0, 5).map((n) => ({
+        id: n.id,
+        name: n.name,
+        hasMatch: !!byId[n.id],
+      })),
+    });
+  }
   return names.map((name) => {
     const t = byId[name.id];
     const meaningTranslations = buildMeaningTranslationsForRemoteName(locale, t);
@@ -411,4 +473,6 @@ export const PremiumContentService = {
   ): Promise<BabyName[]> {
     return attachPublicMeaningTranslations(names, meaningLocale);
   },
+
+  attachPublicMeaningTranslationsForNames,
 };

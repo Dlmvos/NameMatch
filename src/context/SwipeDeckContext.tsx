@@ -650,7 +650,7 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
     return [...prio, ...sequenceSwipeDeck(rest, ctx)];
   }, []);
 
-  // ── Core name queue builder (synchronous — guaranteed safe) ──
+  // ── Core name queue builder (async tail enriches pool with public DB meaning translations) ──
   const buildNameQueue = useCallback(() => {
     if (!profile || !isDeckReadyToBuild) {
       setIsLoadingNames(true);
@@ -658,119 +658,153 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
     }
     setIsLoadingNames(true);
 
-    const genderPref = profile.gender_preference ?? 'both';
-    const region = (profile.region_preference ?? 'WORLDWIDE') as Region;
-    const freeSwipesRemaining = profile.free_swipes_remaining ?? 0;
-    const purchasedPacks = effectiveUnlockedPacks;
-    const hasPaidPack = purchasedPacks.length > 0;
-    const hasFreeEntitlement = freeSwipesRemaining > 0;
-    const sharedRoomId = room?.id ?? profile.room_id ?? null;
+    void (async () => {
+      try {
+        if (!profile) return;
 
-    let pool: BabyName[] = [];
-    if (!hasFreeEntitlement && !hasPaidPack) {
-      // No free entitlement and no purchased packs: lock swipe deck.
-      pool = [];
-    } else if (!hasPaidPack) {
-      pool = countryWeightingService.getFreeTierCountryFirstPool(
-        deckNames,
-        region,
-        countryPreference ?? undefined,
-        genderPref,
-        sharedRoomId ?? '',
-      );
-    } else {
-      // Paid tier: keep weighted discovery flow, expanded by purchased packs.
-      pool = countryWeightingService.getWeightedPool(
-        deckNames,
-        region,
-        countryPreference ?? undefined,
-        genderPref,
-        swipedIdsRef.current.size,
-        purchasedPacks,
-        sharedRoomId ?? '',
-      );
-    }
+        const genderPref = profile.gender_preference ?? 'both';
+        const region = (profile.region_preference ?? 'WORLDWIDE') as Region;
+        const freeSwipesRemaining = profile.free_swipes_remaining ?? 0;
+        const purchasedPacks = effectiveUnlockedPacks;
+        const hasPaidPack = purchasedPacks.length > 0;
+        const hasFreeEntitlement = freeSwipesRemaining > 0;
+        const sharedRoomId = room?.id ?? profile.room_id ?? null;
 
-    // Apply active UI filters
-    if (filters.lengths.length > 0) {
-      pool = pool.filter((n) => filters.lengths.includes(getCachedNameLength(n)));
-    }
-    if (filters.startingLetter) {
-      pool = pool.filter((n) => n.name[0]?.toUpperCase() === filters.startingLetter);
-    }
-    if (filters.origins.length > 0) {
-      pool = pool.filter((n) => filters.origins.some((tag) => matchesOriginTag(n, tag)));
-    }
-    if (filters.vibes.length > 0) {
-      pool = pool.filter((n) => filters.vibes.some((tag) => matchesVibeTag(n, tag)));
-    }
-    if (filters.trends.length > 0) {
-      pool = pool.filter((n) => {
-        const trend = getCachedTrend(n);
-        return trend ? filters.trends.includes(trend) : false;
-      });
-    }
-
-    pool = applySharedRoomOrderingWithinPriorityGroups(pool, sharedRoomId, countryPreference, region);
-    if (__DEV__ && DEBUG_SWIPE_DECK && sharedRoomId) {
-      console.log('[SwipeDeck] shared-room ordering applied', {
-        roomId: sharedRoomId,
-        seedApplied: true,
-        countryPref: countryPreference ?? null,
-        regionPref: region,
-        top5: pool.slice(0, 5).map((n, index) => ({
-          index,
-          id: n.id,
-          name: n.name,
-          country: n.country ?? null,
-        })),
-      });
-    }
-
-    // Exclude already-swiped names
-    pool = pool.filter((n) => !swipedIdsRef.current.has(n.id));
-
-    // ── Priority boost: partner custom names to the front ──
-    if (partnerCustomIdsRef.current.size > 0) {
-      const priority: BabyName[] = [];
-      const rest: BabyName[] = [];
-      for (const n of pool) {
-        if (partnerCustomIdsRef.current.has(n.id)) {
-          priority.push(n);
+        let pool: BabyName[] = [];
+        if (!hasFreeEntitlement && !hasPaidPack) {
+          // No free entitlement and no purchased packs: lock swipe deck.
+          pool = [];
+        } else if (!hasPaidPack) {
+          pool = countryWeightingService.getFreeTierCountryFirstPool(
+            deckNames,
+            region,
+            countryPreference ?? undefined,
+            genderPref,
+            sharedRoomId ?? '',
+          );
         } else {
-          rest.push(n);
+          // Paid tier: keep weighted discovery flow, expanded by purchased packs.
+          pool = countryWeightingService.getWeightedPool(
+            deckNames,
+            region,
+            countryPreference ?? undefined,
+            genderPref,
+            swipedIdsRef.current.size,
+            purchasedPacks,
+            sharedRoomId ?? '',
+          );
         }
-      }
-      if (priority.length > 0) {
-        pool = [...priority, ...rest];
+
+        // Apply active UI filters
+        if (filters.lengths.length > 0) {
+          pool = pool.filter((n) => filters.lengths.includes(getCachedNameLength(n)));
+        }
+        if (filters.startingLetter) {
+          pool = pool.filter((n) => n.name[0]?.toUpperCase() === filters.startingLetter);
+        }
+        if (filters.origins.length > 0) {
+          pool = pool.filter((n) => filters.origins.some((tag) => matchesOriginTag(n, tag)));
+        }
+        if (filters.vibes.length > 0) {
+          pool = pool.filter((n) => filters.vibes.some((tag) => matchesVibeTag(n, tag)));
+        }
+        if (filters.trends.length > 0) {
+          pool = pool.filter((n) => {
+            const trend = getCachedTrend(n);
+            return trend ? filters.trends.includes(trend) : false;
+          });
+        }
+
+        pool = applySharedRoomOrderingWithinPriorityGroups(pool, sharedRoomId, countryPreference, region);
+        if (__DEV__ && DEBUG_SWIPE_DECK && sharedRoomId) {
+          console.log('[SwipeDeck] shared-room ordering applied', {
+            roomId: sharedRoomId,
+            seedApplied: true,
+            countryPref: countryPreference ?? null,
+            regionPref: region,
+            top5: pool.slice(0, 5).map((n, index) => ({
+              index,
+              id: n.id,
+              name: n.name,
+              country: n.country ?? null,
+            })),
+          });
+        }
+
+        // Exclude already-swiped names
+        pool = pool.filter((n) => !swipedIdsRef.current.has(n.id));
+
+        // ── Priority boost: partner custom names to the front ──
+        if (partnerCustomIdsRef.current.size > 0) {
+          const priority: BabyName[] = [];
+          const rest: BabyName[] = [];
+          for (const n of pool) {
+            if (partnerCustomIdsRef.current.has(n.id)) {
+              priority.push(n);
+            } else {
+              rest.push(n);
+            }
+          }
+          if (priority.length > 0) {
+            pool = [...priority, ...rest];
+            if (__DEV__ && DEBUG_SWIPE_DECK) {
+              console.log(`[SwipeDeck] boosted ${priority.length} partner custom name(s) to front`);
+            }
+          }
+        }
+
         if (__DEV__ && DEBUG_SWIPE_DECK) {
-          console.log(`[SwipeDeck] boosted ${priority.length} partner custom name(s) to front`);
+          const top10 = pool.slice(0, 10);
+          const top10CountryCounts = top10.reduce<Record<string, number>>((acc, n) => {
+            const key = (n.country ?? '').trim() || '(no country)';
+            acc[key] = (acc[key] ?? 0) + 1;
+            return acc;
+          }, {});
+          const top10DbBacked = top10.filter((n) => UUID_LIKE_ID.test(n.id)).length;
+          console.log('[SwipeDeck] final ordering top10 country counts', {
+            countryPref: countryPreference ?? null,
+            regionPref: region,
+            roomId: sharedRoomId,
+            dbBacked: top10DbBacked,
+            bundled: top10.length - top10DbBacked,
+            top10CountryCounts,
+          });
         }
+
+        let poolToUse = pool;
+        if (effectiveLanguage !== 'en' && pool.length > 0) {
+          const { names: enriched, matched } =
+            await PremiumContentService.attachPublicMeaningTranslationsForNames(pool, effectiveLanguage);
+          poolToUse = enriched;
+          if (__DEV__) {
+            console.log('[MeaningDebug] final pool translation enrichment', {
+              requested: pool.length,
+              matched,
+              locale: effectiveLanguage,
+            });
+          }
+        }
+
+        if (__DEV__) {
+          console.log('[MeaningDebug] buildNameQueue final pool', {
+            language: effectiveLanguage,
+            count: poolToUse.length,
+            first: poolToUse.slice(0, 5).map((n) => ({
+              id: n.id,
+              name: n.name,
+              hasTranslations: !!n.meaningTranslations,
+              translationKeys: Object.keys(n.meaningTranslations ?? {}),
+            })),
+          });
+        }
+
+        setNamesToSwipe(refineDeckOrder(poolToUse));
+      } finally {
+        setIsLoadingNames(false);
       }
-    }
-
-    if (__DEV__ && DEBUG_SWIPE_DECK) {
-      const top10 = pool.slice(0, 10);
-      const top10CountryCounts = top10.reduce<Record<string, number>>((acc, n) => {
-        const key = (n.country ?? '').trim() || '(no country)';
-        acc[key] = (acc[key] ?? 0) + 1;
-        return acc;
-      }, {});
-      const top10DbBacked = top10.filter((n) => UUID_LIKE_ID.test(n.id)).length;
-      console.log('[SwipeDeck] final ordering top10 country counts', {
-        countryPref: countryPreference ?? null,
-        regionPref: region,
-        roomId: sharedRoomId,
-        dbBacked: top10DbBacked,
-        bundled: top10.length - top10DbBacked,
-        top10CountryCounts,
-      });
-    }
-
-    setNamesToSwipe(refineDeckOrder(pool));
-    setIsLoadingNames(false);
+    })();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- closure reads profile/filters/packs; nameQueueRebuildKey gates when those inputs meaningfully change
-  }, [isDeckReadyToBuild, nameQueueRebuildKey, deckNames, room?.id, profile?.room_id, refineDeckOrder]);
+  }, [isDeckReadyToBuild, nameQueueRebuildKey, deckNames, room?.id, profile?.room_id, refineDeckOrder, effectiveLanguage]);
 
   useEffect(() => {
     buildNameQueueRef.current = buildNameQueue;

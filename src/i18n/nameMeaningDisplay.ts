@@ -11,11 +11,16 @@ const PLACEHOLDER_PATTERNS = [
   /\s\[(?:en|es|de|fr|nl|it|pt|zh|ja|ko|ar)\]\s*$/i,
 ];
 
-function isPlaceholder(text: string | null | undefined): boolean {
+/** True when a per-locale meaning string should be replaced by DB or other canonical sources. */
+export function isMeaningTranslationPlaceholder(text: string | null | undefined): boolean {
   if (!text) return true;
   const trimmed = text.trim();
   if (trimmed.length === 0) return true;
   return PLACEHOLDER_PATTERNS.some((p) => p.test(trimmed));
+}
+
+function isPlaceholder(text: string | null | undefined): boolean {
+  return isMeaningTranslationPlaceholder(text);
 }
 
 // NOTE:
@@ -26,6 +31,17 @@ function isPlaceholder(text: string | null | undefined): boolean {
 export function getLocalizedNameMeaning(name: BabyName, language: AppLanguage | string): string {
   const exactLanguage = String(language ?? '').trim();
   const normalizedLanguage = exactLanguage.split(/[-_]/)[0]?.toLowerCase() ?? '';
+  if (__DEV__ && (language === 'es' || language?.startsWith('es'))) {
+    console.log('[MeaningDebug] getLocalizedNameMeaning', {
+      id: name.id,
+      name: name.name,
+      language,
+      keys: Object.keys(name.meaningTranslations ?? {}),
+      exact: name.meaningTranslations?.[exactLanguage as AppLanguage],
+      base: name.meaningTranslations?.es,
+      fallback: name.meaning,
+    });
+  }
   const translatedExact = name.meaningTranslations?.[exactLanguage as AppLanguage]?.trim();
   const translatedNormalized = name.meaningTranslations?.[normalizedLanguage as AppLanguage]?.trim();
 
