@@ -8,8 +8,18 @@ import {
   ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { colors, FONTS, RADIUS, SPACING, SHADOWS } from '../theme';
-import { NameFilters, NameLength, NameStyleTag, NameTrend, DEFAULT_FILTERS } from '../types';
+import {
+  NameFilters,
+  NameLength,
+  NameOriginTag,
+  NameTrend,
+  NameVibeTag,
+  DEFAULT_FILTERS,
+  type RootStackParamList,
+} from '../types';
 import { useTranslation } from '../i18n/I18nProvider';
 
 interface FilterSheetProps {
@@ -18,51 +28,31 @@ interface FilterSheetProps {
   onApply: (filters: NameFilters) => void;
   onClose: () => void;
   isPremium: boolean;
-  onPremiumFilterPress: () => void;
 }
 
 const LENGTH_OPTIONS: { key: NameLength; labelKey: string; hintKey: string }[] = [
-  { key: 'short',  labelKey: 'filter.length.short',  hintKey: 'filter.lengthHint.short' },
+  { key: 'short', labelKey: 'filter.length.short', hintKey: 'filter.lengthHint.short' },
   { key: 'medium', labelKey: 'filter.length.medium', hintKey: 'filter.lengthHint.medium' },
-  { key: 'long',   labelKey: 'filter.length.long',   hintKey: 'filter.lengthHint.long' },
+  { key: 'long', labelKey: 'filter.length.long', hintKey: 'filter.lengthHint.long' },
 ];
 
 const TREND_OPTIONS: { key: NameTrend; labelKey: string; emoji: string }[] = [
-  { key: 'rising',  labelKey: 'filter.trend.trending', emoji: '📈' },
-  { key: 'stable',  labelKey: 'filter.trend.popular',  emoji: '✦'  },
-  { key: 'classic', labelKey: 'filter.trend.classic',  emoji: '👑' },
+  { key: 'rising', labelKey: 'filter.trend.trending', emoji: '📈' },
+  { key: 'stable', labelKey: 'filter.trend.popular', emoji: '✦' },
+  { key: 'classic', labelKey: 'filter.trend.classic', emoji: '👑' },
 ];
 
-type QuickChip =
-  | { key: 'modern' | 'classic'; trend: NameTrend }
-  | { key: 'short'; length: NameLength }
-  | { key: NameStyleTag; styleTag: NameStyleTag };
-
-const QUICK_CHIPS: QuickChip[] = [
-  { key: 'modern', trend: 'rising' },
-  { key: 'classic', trend: 'classic' },
-  { key: 'short', length: 'short' },
-  { key: 'unique', styleTag: 'unique' },
-  { key: 'international', styleTag: 'international' },
-  { key: 'spanish', styleTag: 'spanish' },
-  { key: 'dutch', styleTag: 'dutch' },
-  { key: 'soft', styleTag: 'soft' },
-  { key: 'strong', styleTag: 'strong' },
-];
+const ORIGIN_TAGS: NameOriginTag[] = ['spanish', 'dutch'];
+const VIBE_TAGS: NameVibeTag[] = ['unique', 'international', 'soft', 'strong'];
 
 const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
 const FEATURED_LETTERS = ['A', 'E', 'L', 'M', 'N', 'S'];
 
-const PREMIUM_TEASERS: readonly { labelKey: string }[] = [
-  { labelKey: 'filter.premium.microcopy.modernSpanish' },
-  { labelKey: 'filter.premium.microcopy.rareElegant' },
-  { labelKey: 'filter.premium.microcopy.lovedIntl' },
-];
-
 const normalizeFilters = (filters: NameFilters): NameFilters => ({
   ...DEFAULT_FILTERS,
   ...filters,
-  styleTags: filters.styleTags ?? [],
+  origins: filters.origins ?? [],
+  vibes: filters.vibes ?? [],
 });
 
 const sanitizeFreeFilters = (filters: NameFilters): NameFilters => {
@@ -88,9 +78,9 @@ export default function FilterSheet({
   onApply,
   onClose,
   isPremium,
-  onPremiumFilterPress,
 }: FilterSheetProps) {
   const { t } = useTranslation();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [draft, setDraft] = useState<NameFilters>(
     isPremium ? normalizeFilters(currentFilters) : sanitizeFreeFilters(currentFilters),
   );
@@ -103,86 +93,54 @@ export default function FilterSheet({
     }
   }, [currentFilters, isPremium, visible]);
 
-  const openPremium = () => {
+  const openPaywallFromLockedFilter = (contextLabel?: string) => {
     onClose();
-    onPremiumFilterPress();
+    navigation.navigate('Paywall', {
+      source: 'filter_chip',
+      ...(contextLabel ? { contextLabel } : {}),
+    });
   };
 
-  const hasAnyFreeFilter = draft.lengths.length > 0 || draft.trends.length > 0;
-
   const toggleLength = (key: NameLength) => {
-    const isActive = draft.lengths.includes(key);
-    if (!isPremium && !isActive && hasAnyFreeFilter) {
-      openPremium();
+    if (!isPremium) {
+      setDraft((prev) => ({
+        ...prev,
+        lengths: prev.lengths.includes(key) ? [] : [key],
+      }));
       return;
     }
     setDraft((prev) => ({
       ...prev,
-      lengths: prev.lengths.includes(key)
-        ? prev.lengths.filter((l) => l !== key)
-        : isPremium
-          ? [...prev.lengths, key]
-          : [key],
+      lengths: prev.lengths.includes(key) ? prev.lengths.filter((l) => l !== key) : [...prev.lengths, key],
     }));
   };
 
   const toggleTrend = (key: NameTrend) => {
-    const isActive = draft.trends.includes(key);
-    if (!isPremium && !isActive && hasAnyFreeFilter) {
-      openPremium();
-      return;
-    }
+    if (!isPremium) return;
     setDraft((prev) => ({
       ...prev,
-      trends: prev.trends.includes(key)
-        ? prev.trends.filter((t) => t !== key)
-        : isPremium
-          ? [...prev.trends, key]
-          : [key],
+      trends: prev.trends.includes(key) ? prev.trends.filter((x) => x !== key) : [...prev.trends, key],
     }));
   };
 
-  const toggleStyleTag = (key: NameStyleTag) => {
-    if (!isPremium) {
-      openPremium();
-      return;
-    }
+  const toggleVibe = (key: NameVibeTag) => {
+    if (!isPremium) return;
     setDraft((prev) => ({
       ...prev,
-      styleTags: prev.styleTags.includes(key)
-        ? prev.styleTags.filter((tag) => tag !== key)
-        : [...prev.styleTags, key],
-      originsContain: key === 'spanish' || key === 'dutch' ? '' : prev.originsContain,
+      vibes: prev.vibes.includes(key) ? prev.vibes.filter((x) => x !== key) : [...prev.vibes, key],
     }));
   };
 
-  const toggleQuickChip = (chip: QuickChip) => {
-    if (!isPremium) {
-      openPremium();
-      return;
-    }
-    if ('trend' in chip) {
-      toggleTrend(chip.trend);
-      return;
-    }
-    if ('length' in chip) {
-      toggleLength(chip.length);
-      return;
-    }
-    toggleStyleTag(chip.styleTag);
-  };
-
-  const isQuickChipActive = (chip: QuickChip): boolean => {
-    if ('trend' in chip) return draft.trends.includes(chip.trend);
-    if ('length' in chip) return draft.lengths.includes(chip.length);
-    return draft.styleTags.includes(chip.styleTag);
+  const toggleOriginTag = (key: NameOriginTag) => {
+    if (!isPremium) return;
+    setDraft((prev) => ({
+      ...prev,
+      origins: prev.origins.includes(key) ? prev.origins.filter((x) => x !== key) : [...prev.origins, key],
+    }));
   };
 
   const toggleLetter = (letter: string) => {
-    if (!isPremium) {
-      openPremium();
-      return;
-    }
+    if (!isPremium) return;
     setDraft((prev) => ({
       ...prev,
       startingLetter: prev.startingLetter === letter ? '' : letter,
@@ -200,8 +158,8 @@ export default function FilterSheet({
     (draft.lengths.length > 0 ? 1 : 0) +
     (draft.startingLetter ? 1 : 0) +
     (draft.trends.length > 0 ? 1 : 0) +
-    (draft.originsContain ? 1 : 0) +
-    (draft.styleTags.length > 0 ? 1 : 0);
+    (draft.origins.length > 0 ? 1 : 0) +
+    (draft.vibes.length > 0 ? 1 : 0);
 
   const letterOptions = showAllLetters
     ? LETTERS
@@ -213,10 +171,8 @@ export default function FilterSheet({
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={onClose} />
       <View style={styles.sheet}>
-        {/* Handle */}
         <View style={styles.handle} />
 
-        {/* Header */}
         <View style={styles.header}>
           <Text style={styles.title}>{t('filter.title')}</Text>
           <TouchableOpacity onPress={handleReset}>
@@ -225,64 +181,15 @@ export default function FilterSheet({
         </View>
 
         <ScrollView showsVerticalScrollIndicator={false}>
-          {/* Style / culture */}
-          <Text style={styles.sectionLabel}>{t('filter.section.style')}</Text>
-          <Text style={styles.sectionHint}>{t('filter.section.styleHint')}</Text>
-          <View style={!isPremium ? styles.lockedClusterWrap : undefined}>
-            {!isPremium ? (
-              <View pointerEvents="none" style={[StyleSheet.absoluteFillObject, styles.lockedFrostOverlay]} />
-            ) : null}
-            <View style={styles.chipRow}>
-            {QUICK_CHIPS.map((chip) => {
-              const active = isQuickChipActive(chip);
-              return (
-                <TouchableOpacity
-                  key={chip.key}
-                  style={[
-                    styles.filterChip,
-                    styles.quickChip,
-                    !isPremium && styles.filterChipLockedPremium,
-                    active && styles.filterChipActive,
-                  ]}
-                  onPress={() => toggleQuickChip(chip)}
-                >
-                  <Text
-                    style={[
-                      styles.filterChipText,
-                      !isPremium && styles.filterChipTextBehindLock,
-                      active && styles.filterChipTextActive,
-                    ]}
-                  >
-                    {t(`filter.chip.${chip.key}`)}
-                  </Text>
-                  {!isPremium ? (
-                    <Ionicons name="lock-closed-outline" size={13} color={'rgba(100,106,126,0.78)'} />
-                  ) : null}
-                </TouchableOpacity>
-              );
-            })}
-            {draft.originsContain ? (
-              <TouchableOpacity
-                style={[styles.filterChip, styles.customOriginChip]}
-                onPress={() => setDraft((prev) => ({ ...prev, originsContain: '' }))}
-              >
-                <Text style={styles.filterChipText}>{draft.originsContain}</Text>
-                <Ionicons name="close-circle" size={16} color={colors.neutral.gray} />
-              </TouchableOpacity>
-            ) : null}
-          </View>
-          </View>
-
-          {/* Name Length */}
+          {/* Length */}
           <Text style={styles.sectionLabel}>{t('filter.section.length')}</Text>
           <View style={styles.chipRow}>
             {LENGTH_OPTIONS.map((opt) => {
               const active = draft.lengths.includes(opt.key);
-              const locked = !isPremium && !active && hasAnyFreeFilter;
               return (
                 <TouchableOpacity
                   key={opt.key}
-                  style={[styles.filterChip, locked && styles.filterChipLocked, active && styles.filterChipActive]}
+                  style={[styles.filterChip, active && styles.filterChipActive]}
                   onPress={() => toggleLength(opt.key)}
                 >
                   <Text style={[styles.filterChipText, active && styles.filterChipTextActive]}>
@@ -291,8 +198,72 @@ export default function FilterSheet({
                   <Text style={[styles.filterChipHint, active && styles.filterChipTextActive]}>
                     {t(opt.hintKey)}
                   </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          {/* Origin */}
+          <Text style={styles.sectionLabel}>{t('filter.section.origin')}</Text>
+          <View style={styles.chipRow}>
+            {ORIGIN_TAGS.map((tag) => {
+              const active = isPremium && draft.origins.includes(tag);
+              const locked = !isPremium;
+              return (
+                <TouchableOpacity
+                  key={tag}
+                  style={[styles.filterChip, locked && styles.chipLocked, active && styles.filterChipActive]}
+                  onPress={() =>
+                    locked ? openPaywallFromLockedFilter('origin') : toggleOriginTag(tag)
+                  }
+                  activeOpacity={0.85}
+                >
+                  <Text
+                    style={[
+                      styles.filterChipText,
+                      locked && styles.chipLockedText,
+                      active && styles.filterChipTextActive,
+                    ]}
+                  >
+                    {t(`filter.chip.${tag}`)}
+                  </Text>
                   {locked ? (
-                    <Ionicons name="lock-closed-outline" size={13} color={colors.neutral.gray} />
+                    <View style={styles.lockBadgeSmall}>
+                      <Ionicons name="lock-closed-outline" size={12} color={colors.neutral.gray} />
+                    </View>
+                  ) : null}
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          {/* Vibe */}
+          <Text style={styles.sectionLabel}>{t('filter.section.style')}</Text>
+          <Text style={styles.sectionHint}>{t('filter.section.styleHint')}</Text>
+          <View style={styles.chipRow}>
+            {VIBE_TAGS.map((tag) => {
+              const active = isPremium && draft.vibes.includes(tag);
+              const locked = !isPremium;
+              return (
+                <TouchableOpacity
+                  key={tag}
+                  style={[styles.filterChip, locked && styles.chipLocked, active && styles.filterChipActive]}
+                  onPress={() => (locked ? openPaywallFromLockedFilter('vibe') : toggleVibe(tag))}
+                  activeOpacity={0.85}
+                >
+                  <Text
+                    style={[
+                      styles.filterChipText,
+                      locked && styles.chipLockedText,
+                      active && styles.filterChipTextActive,
+                    ]}
+                  >
+                    {t(`filter.chip.${tag}`)}
+                  </Text>
+                  {locked ? (
+                    <View style={styles.lockBadgeSmall}>
+                      <Ionicons name="lock-closed-outline" size={12} color={colors.neutral.gray} />
+                    </View>
                   ) : null}
                 </TouchableOpacity>
               );
@@ -303,69 +274,58 @@ export default function FilterSheet({
           <Text style={styles.sectionLabel}>{t('filter.section.trend')}</Text>
           <View style={styles.chipRow}>
             {TREND_OPTIONS.map((opt) => {
-              const active = draft.trends.includes(opt.key);
-              const locked = !isPremium && !active && hasAnyFreeFilter;
+              const active = isPremium && draft.trends.includes(opt.key);
+              const locked = !isPremium;
               return (
                 <TouchableOpacity
                   key={opt.key}
-                  style={[styles.filterChip, locked && styles.filterChipLocked, active && styles.filterChipActive]}
-                  onPress={() => toggleTrend(opt.key)}
+                  style={[styles.filterChip, locked && styles.chipLocked, active && styles.filterChipActive]}
+                  onPress={() => (locked ? openPaywallFromLockedFilter('trend') : toggleTrend(opt.key))}
+                  activeOpacity={0.85}
                 >
                   <Text style={styles.trendEmoji}>{opt.emoji}</Text>
-                  <Text style={[styles.filterChipText, active && styles.filterChipTextActive]}>
+                  <Text
+                    style={[
+                      styles.filterChipText,
+                      locked && styles.chipLockedText,
+                      active && styles.filterChipTextActive,
+                    ]}
+                  >
                     {t(opt.labelKey)}
                   </Text>
                   {locked ? (
-                    <Ionicons name="lock-closed-outline" size={13} color={colors.neutral.gray} />
+                    <View style={styles.lockBadgeSmall}>
+                      <Ionicons name="lock-closed-outline" size={12} color={colors.neutral.gray} />
+                    </View>
                   ) : null}
                 </TouchableOpacity>
               );
             })}
           </View>
 
-          {!isPremium ? (
-            <>
-              <Text style={styles.sectionLabel}>{t('filter.premium.section')}</Text>
-              <View style={styles.premiumTeaserList}>
-                {PREMIUM_TEASERS.map((row) => (
-                  <TouchableOpacity
-                    key={row.labelKey}
-                    style={styles.premiumTeaserRow}
-                    onPress={openPremium}
-                    activeOpacity={0.75}
-                  >
-                    <View style={styles.premiumTeaserGlow}>
-                      <Ionicons name="sparkles-outline" size={17} color={colors.onboarding.primary} />
-                    </View>
-                    <Text style={styles.premiumTeaserLabel}>{t(row.labelKey)}</Text>
-                    <View style={styles.lockBadge}>
-                      <Ionicons name="lock-closed" size={12} color={colors.neutral.textDark} />
-                    </View>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </>
-          ) : null}
-
-          {/* Starting Letter */}
+          {/* Starts with */}
           <Text style={styles.sectionLabel}>{t('filter.section.startsWith')}</Text>
-          <View style={!isPremium ? styles.lockedClusterWrap : undefined}>
-            {!isPremium ? (
-              <View pointerEvents="none" style={[StyleSheet.absoluteFillObject, styles.lockedFrostOverlay]} />
-            ) : null}
-            <View style={styles.compactLetterRow}>
+          <View style={styles.compactLetterRow}>
             {letterOptions.map((letter) => {
-              const active = draft.startingLetter === letter;
+              const active = isPremium && draft.startingLetter === letter;
+              const locked = !isPremium;
               return (
                 <TouchableOpacity
                   key={letter}
-                  style={[styles.letterChip, !isPremium && styles.letterChipLocked, active && styles.letterChipActive]}
-                  onPress={() => toggleLetter(letter)}
+                  style={[styles.letterChip, locked && styles.letterChipLocked, active && styles.letterChipActive]}
+                  onPress={() => (locked ? openPaywallFromLockedFilter('starts_with') : toggleLetter(letter))}
+                  activeOpacity={0.85}
                 >
-                  <Text style={[styles.letterText, !isPremium && styles.letterTextLocked, active && styles.letterTextActive]}>
+                  <Text
+                    style={[
+                      styles.letterText,
+                      locked && styles.letterTextLocked,
+                      active && styles.letterTextActive,
+                    ]}
+                  >
                     {letter}
                   </Text>
-                  {!isPremium ? (
+                  {locked ? (
                     <Ionicons
                       name="lock-closed-outline"
                       size={9}
@@ -378,13 +338,10 @@ export default function FilterSheet({
             })}
             <TouchableOpacity
               style={[styles.letterChip, styles.moreLetterChip, !isPremium && styles.letterChipLocked]}
-              onPress={() => {
-                if (!isPremium) {
-                  openPremium();
-                  return;
-                }
-                setShowAllLetters((prev) => !prev);
-              }}
+              onPress={() =>
+                !isPremium ? openPaywallFromLockedFilter('starts_with') : setShowAllLetters((prev) => !prev)
+              }
+              activeOpacity={0.85}
             >
               <Text style={styles.moreLetterText}>
                 {showAllLetters ? t('filter.letters.less') : t('filter.letters.more')}
@@ -394,11 +351,8 @@ export default function FilterSheet({
               ) : null}
             </TouchableOpacity>
           </View>
-          </View>
-
         </ScrollView>
 
-        {/* Apply button */}
         <TouchableOpacity style={styles.applyBtn} onPress={handleApply}>
           <Text style={styles.applyText}>
             {activeCount > 1
@@ -466,24 +420,6 @@ const styles = StyleSheet.create({
     marginTop: -SPACING.xs,
     marginBottom: SPACING.sm,
   },
-  lockedClusterWrap: {
-    position: 'relative',
-    borderRadius: RADIUS.lg,
-    overflow: 'hidden',
-    padding: SPACING.xs + 2,
-    marginBottom: SPACING.xs,
-    borderWidth: StyleSheet.hairlineWidth + 1,
-    borderColor: 'rgba(110,118,148,0.16)',
-    backgroundColor: 'rgba(239,241,246,0.55)',
-  },
-  lockedFrostOverlay: {
-    borderRadius: RADIUS.md,
-    margin: SPACING.xs / 2,
-    backgroundColor: 'rgba(255,255,255,0.6)',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255,255,255,0.85)',
-    opacity: 0.94,
-  },
   chipRow: {
     flexDirection: 'row',
     gap: SPACING.sm,
@@ -500,33 +436,30 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: SPACING.xs,
   },
-  quickChip: {
-    paddingHorizontal: SPACING.md + 2,
-    paddingVertical: SPACING.sm + 2,
+  chipLocked: {
+    opacity: 0.88,
+    borderStyle: 'dashed',
+    borderColor: 'rgba(118,126,146,0.38)',
+    backgroundColor: 'rgba(238,239,244,0.95)',
+  },
+  chipLockedText: {
+    color: 'rgba(88,92,108,0.82)',
+  },
+  lockBadgeSmall: {
+    marginLeft: 2,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   filterChipActive: {
     backgroundColor: colors.onboarding.primary + '18',
     borderColor: colors.onboarding.primary,
-  },
-  filterChipLocked: {
-    opacity: 0.55,
-    borderStyle: 'dashed',
-    borderColor: 'rgba(118,126,146,0.35)',
-    backgroundColor: 'rgba(235,237,243,0.92)',
-  },
-  filterChipLockedPremium: {
-    opacity: 0.5,
-    borderStyle: 'dashed',
-    borderColor: 'rgba(118,126,146,0.4)',
-    backgroundColor: 'rgba(236,237,243,0.88)',
+    borderStyle: 'solid',
+    opacity: 1,
   },
   filterChipText: {
     fontSize: FONTS.sizes.sm,
     fontWeight: '700',
     color: colors.neutral.textDark,
-  },
-  filterChipTextBehindLock: {
-    color: 'rgba(88,92,108,0.78)',
   },
   filterChipTextActive: {
     color: colors.onboarding.primary,
@@ -560,7 +493,7 @@ const styles = StyleSheet.create({
     borderColor: colors.onboarding.primary,
   },
   letterChipLocked: {
-    opacity: 0.54,
+    opacity: 0.72,
     borderStyle: 'dashed',
     borderColor: 'rgba(118,126,146,0.32)',
     backgroundColor: 'rgba(238,239,244,0.88)',
@@ -589,57 +522,6 @@ const styles = StyleSheet.create({
     fontSize: FONTS.sizes.xs,
     fontWeight: '800',
     color: colors.neutral.gray,
-  },
-  customOriginChip: {
-    borderStyle: 'dashed',
-  },
-  premiumTeaserList: {
-    gap: SPACING.sm,
-    marginBottom: SPACING.sm,
-  },
-  premiumTeaserRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.sm,
-    paddingVertical: SPACING.sm + 2,
-    paddingHorizontal: SPACING.md,
-    borderRadius: RADIUS.lg,
-    backgroundColor: 'rgba(239,241,247,0.92)',
-    borderWidth: 1,
-    borderColor: 'rgba(118,126,146,0.22)',
-    borderStyle: 'dashed',
-    opacity: 0.93,
-  },
-  premiumTeaserGlow: {
-    width: 32,
-    height: 32,
-    borderRadius: 10,
-    backgroundColor: 'rgba(246,229,239,0.55)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    opacity: 0.95,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(235,209,226,0.45)',
-  },
-  premiumTeaserLabel: {
-    flex: 1,
-    fontSize: FONTS.sizes.sm,
-    fontWeight: '600',
-    letterSpacing: 0.25,
-    color: colors.neutral.textDark,
-    opacity: 0.86,
-    fontStyle: 'italic',
-  },
-  lockBadge: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: 'rgba(229,231,238,0.88)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(148,157,173,0.32)',
-    opacity: 0.96,
   },
   applyBtn: {
     marginTop: SPACING.lg,

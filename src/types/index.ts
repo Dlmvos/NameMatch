@@ -62,28 +62,29 @@ export interface BabyName {
 // ──────────────────────────────────────────────────────────
 export type NameLength = 'short' | 'medium' | 'long';
 export type NameTrend = 'rising' | 'stable' | 'classic';
-export type NameStyleTag =
-  | 'unique'
-  | 'international'
-  | 'spanish'
-  | 'dutch'
-  | 'soft'
-  | 'strong';
+
+/** Premium quick-picks that map to origin / geography signals (OR within selection). */
+export type NameOriginTag = 'spanish' | 'dutch';
+
+/** Premium quick-picks for feel / rarity (OR within selection). */
+export type NameVibeTag = 'unique' | 'international' | 'soft' | 'strong';
 
 export interface NameFilters {
-  lengths: NameLength[];           // short ≤4, medium 5-7, long ≥8
-  startingLetter: string;          // '' = any
-  trends: NameTrend[];             // [] = any
-  originsContain: string;          // '' = any — partial match on origin field
-  styleTags: NameStyleTag[];        // [] = any — quick-pick tags derived from name metadata
+  lengths: NameLength[]; // short ≤4, medium 5-7, long ≥8
+  startingLetter: string; // '' = any
+  trends: NameTrend[]; // [] = any
+  /** [] = any — OR match: name passes if any selected tag matches. */
+  origins: NameOriginTag[];
+  /** [] = any — OR match: name passes if any selected tag matches. */
+  vibes: NameVibeTag[];
 }
 
 export const DEFAULT_FILTERS: NameFilters = {
   lengths: [],
   startingLetter: '',
   trends: [],
-  originsContain: '',
-  styleTags: [],
+  origins: [],
+  vibes: [],
 };
 
 // ──────────────────────────────────────────────────────────
@@ -227,7 +228,13 @@ export type RootStackParamList = {
   RoomManagement: undefined;
   MainTabs: NavigatorScreenParams<MainTabParamList> | undefined;
   /** Optional `source` for accurate paywall_impression attribution (auto-open vs manual). */
-  Paywall: { source?: 'onboarding' | 'post_match' } | undefined;
+  Paywall:
+    | {
+        source?: 'onboarding' | 'post_match' | 'filter_chip';
+        /** Optional UX hint when opening from a locked filter chip (not persisted). */
+        contextLabel?: string;
+      }
+    | undefined;
   DevAnalytics: undefined;
 };
 
