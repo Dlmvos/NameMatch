@@ -831,7 +831,7 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
         recentLikedRef.current = [...recentLikedRef.current, swipedName].slice(-8);
       }
 
-      const deferDeckRemoval = direction === 'right';
+      const deferDeckRemoval = false;
       const flushDeckRemoval = () => {
         setNamesToSwipe((prev) => refineDeckOrder(prev.filter((n) => n.id !== nameId)));
       };
@@ -908,12 +908,17 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
         }
       }
 
-      if (deferDeckRemoval) {
-        if (isMatch) {
-          setTimeout(flushDeckRemoval, MATCH_DECK_FLUSH_DELAY_MS);
-        } else {
-          flushDeckRemoval();
-        }
+      if (direction === 'right' && isMatch && swipedName) {
+        // Re-insert matched card at index 0 so the inhale gate
+        // `visibleNames[0]?.id === latestMatch.id` (SwipeScreen ~ln 331)
+        // is satisfied for the inhale window. Re-splice after the same
+        // MATCH_DECK_FLUSH_DELAY_MS used today.
+        setNamesToSwipe((prev) =>
+          prev[0]?.id === nameId ? prev : [swipedName, ...prev]
+        );
+        setTimeout(() => {
+          setNamesToSwipe((prev) => prev.filter((n) => n.id !== nameId));
+        }, MATCH_DECK_FLUSH_DELAY_MS);
       }
 
       // Fire-and-forget preference learning (never blocks the swipe)
