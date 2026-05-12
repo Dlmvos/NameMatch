@@ -6,6 +6,7 @@ import React, {
   useCallback,
   useRef,
 } from 'react';
+import { AppState } from 'react-native';
 import { Session, User } from '@supabase/supabase-js';
 import type { CustomerInfo } from 'react-native-purchases';
 import {
@@ -273,6 +274,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       subscription.unsubscribe();
     };
   }, [bootstrapAttempt, fetchProfile]);
+
+  useEffect(() => {
+    if (AppState.currentState === 'active') {
+      void supabase.auth.startAutoRefresh();
+    }
+
+    const sub = AppState.addEventListener('change', (next) => {
+      if (next === 'active') {
+        void supabase.auth.startAutoRefresh();
+      } else {
+        void supabase.auth.stopAutoRefresh();
+      }
+    });
+
+    return () => {
+      sub.remove();
+      void supabase.auth.stopAutoRefresh();
+    };
+  }, []);
 
   // ── Auth actions ────────────────────────────────────────
   const signUp = async (
