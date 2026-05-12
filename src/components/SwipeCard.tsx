@@ -336,24 +336,26 @@ export default function SwipeCard({
 
   if (!isTop) {
     return (
-      <Animated.View
-        pointerEvents="none"
-        style={[
-          styles.card,
-          styles.stackedCard,
-          {
-            transform: [{ scale: cardScale }, { translateY: cardTranslateY }],
-            zIndex: 10 - cardIndex,
-            opacity: safeIndex === 1 ? 0.92 : 0.7,
-          },
-        ]}
-      >
-        <CardContent name={name} isTop={false} metadataKey={metadataKey} />
-        {nextPreviewLabel && safeIndex === 1 ? (
-          <View style={styles.nextPreviewPill}>
-            <Text style={styles.nextPreviewText}>{nextPreviewLabel}</Text>
-          </View>
-        ) : null}
+      <Animated.View>
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            styles.card,
+            styles.stackedCard,
+            {
+              transform: [{ scale: cardScale }, { translateY: cardTranslateY }],
+              zIndex: 10 - cardIndex,
+              opacity: safeIndex === 1 ? 0.92 : 0.7,
+            },
+          ]}
+        >
+          <CardContent name={name} isTop={false} metadataKey={metadataKey} />
+          {nextPreviewLabel && safeIndex === 1 ? (
+            <View style={styles.nextPreviewPill}>
+              <Text style={styles.nextPreviewText}>{nextPreviewLabel}</Text>
+            </View>
+          ) : null}
+        </Animated.View>
       </Animated.View>
     );
   }
