@@ -130,7 +130,7 @@ async function attachPublicMeaningTranslations(
   const locale = String(meaningLocale ?? '').trim();
   if (!locale || names.length === 0) return names;
   const byId = await fetchPublicMeaningTranslationsForIds(
-    names.map((n) => n.id),
+    names.map((n) => ({ id: n.id, name: n.name })),
     locale,
   );
   return names.map((name) => {
