@@ -47,7 +47,11 @@
     "extract:baby-names:pt-hybrid-sources": "tsx scripts/extractPortugalHybridSourcesToCanonicalCsv.ts",
     "extract:baby-names:br-hybrid-sources": "tsx scripts/extractBrazilHybridSourcesToCanonicalCsv.ts",
     "extract:baby-names:es-hybrid-sources": "tsx scripts/extractSpainHybridSourcesToCanonicalCsv.ts",
-    "build:baby-name-meaning-enrichment": "tsx scripts/buildMeaningEnrichmentBatch.ts"
+    "build:baby-name-meaning-enrichment": "tsx scripts/buildMeaningEnrichmentBatch.ts",
+    "export:bundled-meaning-jobs": "tsx scripts/exportBundledMeaningTranslationJobs.ts",
+    "translate:bundled-meanings": "tsx scripts/translateBundledMeaningsWithOpenAI.ts",
+    "merge:bundled-meaning-translations": "tsx scripts/mergeBundledMeaningTranslations.ts",
+    "check:bundled-meaning-translations": "tsx scripts/checkBundledMeaningTranslations.ts"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
@@ -94,6 +98,7 @@
     "babel-plugin-module-resolver": "^5.0.3",
     "babel-plugin-transform-remove-console": "^6.9.4",
     "babel-preset-expo": "~54.0.10",
+    "openai": "^4.104.0",
     "pdf-parse": "^1.1.1",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3",

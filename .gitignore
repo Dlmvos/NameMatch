@@ -39,4 +39,9 @@ scripts/data/meaning-enrichment/
 .DS_Store
 **/.DS_Store
 
+# OpenAI bundled meaning pipeline outputs (large / regenerable; do not commit secrets in .env)
+data/bundled_meaning_translation_jobs.jsonl
+data/bundled_meaning_translations.generated.csv
+data/bundled_meaning_translations.failed.csv
+
 website/
