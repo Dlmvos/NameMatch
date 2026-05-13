@@ -773,29 +773,9 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
 
         let poolToUse = pool;
         if (effectiveLanguage !== 'en' && pool.length > 0) {
-          const { names: enriched, matched } =
+          const { names: enriched } =
             await PremiumContentService.attachPublicMeaningTranslationsForNames(pool, effectiveLanguage);
           poolToUse = enriched;
-          if (__DEV__) {
-            console.log('[MeaningDebug] final pool translation enrichment', {
-              requested: pool.length,
-              matched,
-              locale: effectiveLanguage,
-            });
-          }
-        }
-
-        if (__DEV__) {
-          console.log('[MeaningDebug] buildNameQueue final pool', {
-            language: effectiveLanguage,
-            count: poolToUse.length,
-            first: poolToUse.slice(0, 5).map((n) => ({
-              id: n.id,
-              name: n.name,
-              hasTranslations: !!n.meaningTranslations,
-              translationKeys: Object.keys(n.meaningTranslations ?? {}),
-            })),
-          });
         }
 
         setNamesToSwipe(refineDeckOrder(poolToUse));

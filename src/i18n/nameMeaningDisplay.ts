@@ -31,17 +31,6 @@ function isPlaceholder(text: string | null | undefined): boolean {
 export function getLocalizedNameMeaning(name: BabyName, language: AppLanguage | string): string {
   const exactLanguage = String(language ?? '').trim();
   const normalizedLanguage = exactLanguage.split(/[-_]/)[0]?.toLowerCase() ?? '';
-  if (__DEV__ && (language === 'es' || language?.startsWith('es'))) {
-    console.log('[MeaningDebug] getLocalizedNameMeaning', {
-      id: name.id,
-      name: name.name,
-      language,
-      keys: Object.keys(name.meaningTranslations ?? {}),
-      exact: name.meaningTranslations?.[exactLanguage as AppLanguage],
-      base: name.meaningTranslations?.es,
-      fallback: name.meaning,
-    });
-  }
   const translatedExact = name.meaningTranslations?.[exactLanguage as AppLanguage]?.trim();
   const translatedNormalized = name.meaningTranslations?.[normalizedLanguage as AppLanguage]?.trim();
 

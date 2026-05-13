@@ -171,29 +171,12 @@ async function attachPublicMeaningTranslations(
   names: BabyName[],
   meaningLocale: string | undefined,
 ): Promise<BabyName[]> {
-  if (__DEV__) {
-    console.log('[MeaningDebug] attachPublicMeaningTranslations', {
-      locale: meaningLocale,
-      requested: names.length,
-      first: names.slice(0, 5).map((n) => ({ id: n.id, name: n.name })),
-    });
-  }
   const locale = String(meaningLocale ?? '').trim();
   if (!locale || names.length === 0) return names;
   const byId = await fetchPublicMeaningTranslationsForIds(
     names.map((n) => ({ id: n.id, name: n.name })),
     locale,
   );
-  if (__DEV__) {
-    console.log('[MeaningDebug] attachPublicMeaningTranslations result', {
-      matched: Object.keys(byId).length,
-      sample: names.slice(0, 5).map((n) => ({
-        id: n.id,
-        name: n.name,
-        hasMatch: !!byId[n.id],
-      })),
-    });
-  }
   return names.map((name) => {
     const t = byId[name.id];
     const meaningTranslations = buildMeaningTranslationsForRemoteName(locale, t);
