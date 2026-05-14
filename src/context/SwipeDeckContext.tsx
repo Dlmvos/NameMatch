@@ -41,8 +41,6 @@ const UUID_LIKE_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{
 const DEBUG_SWIPE_DECK = false;
 /** Max wait for remote deck / swipe restores so startup cannot hang indefinitely. */
 const STARTUP_HYDRATION_TIMEOUT_MS = 12_000;
-/** Keep top card mounted briefly after a mutual match so SwipeScreen can run pre-celebration inhale (see SwipeScreen inhale duration). */
-const MATCH_DECK_FLUSH_DELAY_MS = 424;
 
 const normalizeFilterText = (value?: string): string => value?.trim().toLowerCase() ?? '';
 
@@ -174,7 +172,6 @@ interface SwipeDeckStateContextValue {
   isLoadingNames: boolean;
   filters: NameFilters;
   activeFilterCount: number;
-  pendingMatchAnticipation: BabyName | null;
 }
 
 interface SwipeDeckActionsContextValue {
@@ -231,7 +228,6 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
   );
 
   const [namesToSwipe, setNamesToSwipe] = useState<BabyName[]>([]);
-  const [pendingMatchAnticipation, setPendingMatchAnticipation] = useState<BabyName | null>(null);
   const [isLoadingNames, setIsLoadingNames] = useState(true);
   const [filters, setFiltersState] = useState<NameFilters>(DEFAULT_FILTERS);
   const [swipeStateHydrationKey, setSwipeStateHydrationKey] = useState<string | null>(null);
@@ -1004,12 +1000,6 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
                 name: swipedName.name,
               });
             }
-            setPendingMatchAnticipation(swipedName);
-            setTimeout(() => {
-              setPendingMatchAnticipation((current) =>
-                current?.id === nameId ? null : current,
-              );
-            }, MATCH_DECK_FLUSH_DELAY_MS);
             void Promise.resolve(handleConfirmedMatchRef.current?.(swipedName)).catch(() => {});
           }
         } catch (err: any) {
@@ -1065,9 +1055,8 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
       isLoadingNames: isLoadingNames || !isDeckReadyToBuild,
       filters,
       activeFilterCount,
-      pendingMatchAnticipation,
     }),
-    [namesToSwipe, isLoadingNames, isDeckReadyToBuild, filters, activeFilterCount, pendingMatchAnticipation],
+    [namesToSwipe, isLoadingNames, isDeckReadyToBuild, filters, activeFilterCount],
   );
 
   const actionsValue = useMemo(

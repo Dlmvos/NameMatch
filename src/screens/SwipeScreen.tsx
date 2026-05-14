@@ -49,7 +49,7 @@ const VISIBLE_CARDS = 4;
 const CURATED_RECOMMENDATION_UNLOCKS_STORAGE_KEY = 'AI_PACK_UNLOCKS';
 const DEV_PAYWALL_INTERVAL = 10;
 const DEBUG_SWIPE_SCREEN = false;
-/** Keep in sync with SwipeDeckContext `MATCH_DECK_FLUSH_DELAY_MS` (matched card stays mounted through inhale). */
+/** Delay before mounting celebration while inhale analytics/haptics run (no duplicate deck card in V1). */
 const PRE_MATCH_INHALE_MS = 400;
 /**
  * Session-local only: after dismiss, inhale+haptics stay muted briefly so back-to-back celebrations
@@ -133,8 +133,7 @@ const DEV_SCREENSHOT_NAMES: BabyName[] = [
 
 export default function SwipeScreen() {
   const { t } = useTranslation();
-  const { namesToSwipe, isLoadingNames, filters, activeFilterCount, pendingMatchAnticipation } =
-    useSwipeDeckState();
+  const { namesToSwipe, isLoadingNames, filters, activeFilterCount } = useSwipeDeckState();
   const { recordSwipe, loadMoreNames, setFilters } = useSwipeDeckActions();
   const { countryPreference, residenceCountry, effectiveUnlockedPacks, effectiveLanguage } = useApp();
   const { room } = useRoomState();
@@ -275,9 +274,8 @@ export default function SwipeScreen() {
   }, [beginMatchSilenceCooldown, dismissLatestMatch, trackMatchCelebrationDismissed]);
 
   /**
-   * Gate celebration mount so the top card can finish its inhale first (swipe RPC + deck order unchanged).
-   * Silence cooldown skips inhale+haptics so clustered matches still feel weighty per reveal.
-   * Analytics: inhale_started fires once per match id (never on cooldown suppression).
+   * Gate celebration mount briefly after latestMatch is set (haptics + inhale analytics timing).
+   * V1: no duplicate matched card on deck — matched card stays removed; silence cooldown skips delay.
    */
   useEffect(() => {
     if (!latestMatch) {
@@ -327,11 +325,10 @@ export default function SwipeScreen() {
     };
   }, [latestMatch, anticipationInhaleEnabled]);
 
+  /** Blocks swiping the new top card until celebration mounts (matched card already removed from deck). */
   const preMatchAnticipationActive =
     !!latestMatch &&
     !matchCelebrationReady &&
-    !!pendingMatchAnticipation &&
-    pendingMatchAnticipation.id === latestMatch.id &&
     Date.now() >= silenceCooldownUntilRef.current;
 
   useEffect(() => {
@@ -526,7 +523,7 @@ export default function SwipeScreen() {
 
   const handleDeckBlockedSwipeForCard = useCallback(
     (name: BabyName, isTopCard: boolean) => {
-      if (preMatchAnticipationActive && isTopCard && latestMatch?.id === name.id) {
+      if (preMatchAnticipationActive && isTopCard) {
         const mid = name.id;
         if (swipeBlockedForMatchIdRef.current !== mid) {
           swipeBlockedForMatchIdRef.current = mid;
@@ -537,7 +534,7 @@ export default function SwipeScreen() {
       }
       handleBlockedSwipe();
     },
-    [preMatchAnticipationActive, latestMatch?.id, handleBlockedSwipe],
+    [preMatchAnticipationActive, handleBlockedSwipe],
   );
 
   if (isLoadingNames) {
@@ -739,27 +736,13 @@ export default function SwipeScreen() {
               metadataKey={metadataKey}
               nextPreviewLabel={cardIndex === 1 ? nextPreviewLabel : undefined}
               canSwipe={!isLocked && !(preMatchAnticipationActive && isTop)}
-              preMatchAnticipation={preMatchAnticipationActive && isTop}
+              preMatchAnticipation={false}
               onBlockedSwipe={() => handleDeckBlockedSwipeForCard(name, isTop)}
               onSwipeLeft={() => handleSwipe(name, 'left')}
               onSwipeRight={() => handleSwipe(name, 'right')}
             />
           );
         })}
-        {pendingMatchAnticipation ? (
-          <SwipeCard
-            key={`inhale-${pendingMatchAnticipation.id}`}
-            name={pendingMatchAnticipation}
-            isTop
-            cardIndex={0}
-            metadataKey={getSwipeMetadataLabelKey(pendingMatchAnticipation, countryPreference)}
-            canSwipe={false}
-            preMatchAnticipation
-            onSwipeLeft={() => {}}
-            onSwipeRight={() => {}}
-            onBlockedSwipe={() => {}}
-          />
-        ) : null}
       </View>
 
       {paywallNudgeLevel ? (
