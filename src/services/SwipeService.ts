@@ -1,13 +1,17 @@
 import { supabase } from '../lib/supabase';
+import { getBundledNameById } from '../data/names';
 import { rarityFromPopularityRank } from '../lib/rarityFromPopularityRank';
 import { enrichName } from './nameEnrichment';
 import type { BabyName, Gender, Region, SwipeDirection } from '../types';
+
+const BABY_NAMES_IN_CHUNK = 100;
 
 /** Row shape returned by `swipes` for liked names. */
 interface LikedSwipeRow {
   id: string;
   name_id: string;
   direction: string;
+  liked?: boolean | null;
   created_at: string;
 }
 
@@ -29,9 +33,7 @@ export interface LikedName {
   name: BabyName;
 }
 
-function mapLikedRow(row: LikedSwipeRow, babyNamesById: Map<string, LikedBabyNameRow>): LikedName | null {
-  const bn = babyNamesById.get(row.name_id);
-  if (!bn) return null;
+function toLikedNameFromDbBabyRow(row: LikedSwipeRow, bn: LikedBabyNameRow): LikedName {
   const enriched = enrichName(bn.name);
   const popularity_rank = bn.popularity_rank ?? enriched.popularity_rank;
   return {
@@ -53,6 +55,47 @@ function mapLikedRow(row: LikedSwipeRow, babyNamesById: Map<string, LikedBabyNam
       source: bn.origin === 'Custom' ? 'custom' : 'catalog',
     },
   };
+}
+
+function toLikedNameFromBundled(row: LikedSwipeRow, bundled: BabyName): LikedName {
+  const enriched = enrichName(bundled.name);
+  const popularity_rank = bundled.popularity_rank ?? enriched.popularity_rank;
+  return {
+    swipeId: row.id,
+    swipedAt: row.created_at,
+    name: {
+      ...bundled,
+      meaning: bundled.meaning ?? '',
+      origin: bundled.origin ?? '',
+      popularity_rank,
+      rarity: rarityFromPopularityRank(popularity_rank),
+      trend: bundled.trend ?? enriched.trend,
+      pronunciation: bundled.pronunciation ?? enriched.pronunciation,
+      source:
+        bundled.source ??
+        (bundled.origin === 'Custom' ? 'custom' : 'catalog'),
+    },
+  };
+}
+
+async function fetchLikedBabyNameRows(nameIds: string[]): Promise<Map<string, LikedBabyNameRow>> {
+  const out = new Map<string, LikedBabyNameRow>();
+  if (nameIds.length === 0) return out;
+  for (let i = 0; i < nameIds.length; i += BABY_NAMES_IN_CHUNK) {
+    const chunk = nameIds.slice(i, i + BABY_NAMES_IN_CHUNK);
+    const { data, error } = await supabase
+      .from('baby_names')
+      .select('id, name, meaning, origin, gender, country, region, is_worldwide, popularity_rank')
+      .in('id', chunk);
+    if (error) {
+      console.error('[SwipeService] fetchLikedBabyNameRows error:', error.message);
+      continue;
+    }
+    for (const row of (data ?? []) as LikedBabyNameRow[]) {
+      out.set(row.id, row);
+    }
+  }
+  return out;
 }
 
 export const SwipeService = {
@@ -84,6 +127,7 @@ export const SwipeService = {
         room_id: params.roomId,
         name_id: params.nameId,
         direction: params.direction,
+        liked: params.direction === 'right',
       },
       { onConflict: 'room_id,user_id,name_id' },
     );
@@ -111,10 +155,10 @@ export const SwipeService = {
   async getLikedNames(userId: string, roomId: string): Promise<LikedName[]> {
     const { data: swipeRows, error: swipeError } = await supabase
       .from('swipes')
-      .select('id, name_id, direction, created_at')
+      .select('id, name_id, direction, liked, created_at')
       .eq('user_id', userId)
       .eq('room_id', roomId)
-      .eq('direction', 'right')
+      .or('direction.eq.right,liked.eq.true')
       .order('created_at', { ascending: false });
 
     if (swipeError) {
@@ -122,37 +166,36 @@ export const SwipeService = {
       return [];
     }
 
-    const swipes = (swipeRows ?? []) as LikedSwipeRow[];
+    const swipes = (swipeRows ?? []).filter((r) => {
+      const row = r as LikedSwipeRow;
+      return row.direction === 'right' || row.liked === true;
+    }) as LikedSwipeRow[];
     if (swipes.length === 0) {
       if (__DEV__) console.log('[SwipeService] getLikedNames: no liked swipes');
       return [];
     }
 
-    const nameIds = [...new Set(swipes.map((s) => s.name_id).filter(Boolean))];
-    const { data: babyNameRows, error: namesError } = await supabase
-      .from('baby_names')
-      .select('id, name, meaning, origin, gender, country, region, is_worldwide, popularity_rank')
-      .in('id', nameIds);
-
-    if (namesError) {
-      console.error('[SwipeService] getLikedNames baby_names error:', namesError.message);
-      return [];
-    }
-
-    const babyNamesById = new Map(
-      ((babyNameRows ?? []) as LikedBabyNameRow[]).map((row) => [row.id, row] as const),
-    );
+    const uniqueIds = [...new Set(swipes.map((s) => s.name_id).filter(Boolean))];
+    const idsNeedingDb = uniqueIds.filter((id) => !getBundledNameById(id));
+    const babyNamesById = await fetchLikedBabyNameRows(idsNeedingDb);
 
     if (__DEV__) {
       console.log('[SwipeService] getLikedNames loaded', {
         swipes: swipes.length,
-        uniqueNameIds: nameIds.length,
-        babyNames: babyNamesById.size,
+        uniqueNameIds: uniqueIds.length,
+        bundledResolvable: uniqueIds.length - idsNeedingDb.length,
+        dbBabyNames: babyNamesById.size,
       });
     }
 
     return swipes
-      .map((row) => mapLikedRow(row, babyNamesById))
+      .map((row) => {
+        const bundled = getBundledNameById(row.name_id);
+        if (bundled) return toLikedNameFromBundled(row, bundled);
+        const bn = babyNamesById.get(row.name_id);
+        if (!bn) return null;
+        return toLikedNameFromDbBabyRow(row, bn);
+      })
       .filter((x): x is LikedName => x !== null);
   },
 
@@ -253,6 +296,7 @@ export const SwipeService = {
         room_id: params.roomId,
         name_id: params.nameId,
         direction: 'left',
+        liked: false,
       },
       { onConflict: 'room_id,user_id,name_id' },
     );
