@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { colors } from '../theme';
 import {
   View,
@@ -13,6 +13,7 @@ import {
   Modal,
   Pressable,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -28,6 +29,7 @@ import { COLORS, FONTS, RADIUS, SPACING, SHADOWS } from '../theme';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useRoomActions, useRoomState } from '../context/RoomContext';
+import { supabase } from '../lib/supabase';
 
 const PRIVACY_POLICY_URL = 'https://babinom.com/privacy/';
 const SUPPORT_URL = 'https://babinom.com/support/';
@@ -37,7 +39,8 @@ export default function SettingsScreen() {
   const tr = t;
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const { profile, signOut, updateProfile, restorePurchases, deleteAccount } = useAuth();
+  const { session, user, profile, signOut, updateProfile, restorePurchases, deleteAccount } =
+    useAuth();
   const { room } = useRoomState();
   const { leaveRoom } = useRoomActions();
   const {
@@ -51,6 +54,31 @@ export default function SettingsScreen() {
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+  const passwordResetInFlightRef = useRef(false);
+
+  const accountEmail = String(session?.user?.email ?? '').trim();
+
+  const handlePasswordReset = async () => {
+    if (!accountEmail) {
+      Alert.alert(tr('common.error'), tr('settings.passwordResetNoEmail'));
+      return;
+    }
+    if (passwordResetInFlightRef.current) return;
+    passwordResetInFlightRef.current = true;
+    try {
+      const redirectTo = process.env.EXPO_PUBLIC_AUTH_PASSWORD_RESET_REDIRECT_URL?.trim();
+      const { error } = await supabase.auth.resetPasswordForEmail(
+        accountEmail,
+        redirectTo ? { redirectTo } : {},
+      );
+      if (error) throw error;
+      Alert.alert(tr('settings.passwordResetSuccessTitle'), tr('settings.passwordResetSuccessBody'));
+    } catch (err: any) {
+      Alert.alert(tr('common.error'), err?.message ?? tr('settings.passwordResetError'));
+    } finally {
+      passwordResetInFlightRef.current = false;
+    }
+  };
 
   const handleDeleteAccountPress = () => {
     setDeleteModalVisible(true);
@@ -189,6 +217,43 @@ export default function SettingsScreen() {
             </Text>
           </View>
         </View>
+
+        <SettingsSection title={tr('settings.section.account')}>
+          <View style={styles.settingsRow}>
+            <View style={styles.rowLeft}>
+              <View style={styles.rowIcon}>
+                <Ionicons name="mail-outline" size={18} color={colors.shortlist.primary} />
+              </View>
+              <View style={styles.accountTextCol}>
+                <Text style={styles.rowSubLabel}>{tr('settings.account.emailLabel')}</Text>
+                <Text style={styles.accountEmailValue} selectable>
+                  {accountEmail ? accountEmail : tr('settings.notSet')}
+                </Text>
+              </View>
+            </View>
+          </View>
+          {__DEV__ && user?.id ? (
+            <View style={styles.settingsRow}>
+              <View style={styles.rowLeft}>
+                <View style={styles.rowIcon}>
+                  <Ionicons name="finger-print-outline" size={18} color={colors.shortlist.primary} />
+                </View>
+                <View style={styles.accountTextCol}>
+                  <Text style={styles.rowSubLabel}>{tr('settings.account.userIdLabel')}</Text>
+                  <Text style={styles.accountDevUserId} selectable>
+                    {user.id}
+                  </Text>
+                </View>
+              </View>
+            </View>
+          ) : null}
+          <SettingsRow
+            icon="key-outline"
+            label={tr('settings.passwordReset')}
+            value=""
+            onPress={handlePasswordReset}
+          />
+        </SettingsSection>
 
         {/* Room section */}
         <SettingsSection title={tr('settings.partnerRoom')}>
@@ -646,6 +711,20 @@ const styles = StyleSheet.create({
     fontSize: FONTS.sizes.xs,
     color: COLORS.textMuted,
     marginTop: 1,
+  },
+  accountTextCol: {
+    flex: 1,
+    gap: 2,
+  },
+  accountEmailValue: {
+    fontSize: FONTS.sizes.md,
+    fontWeight: '600',
+    color: colors.onboarding.text,
+  },
+  accountDevUserId: {
+    fontSize: FONTS.sizes.xs,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    color: COLORS.textMuted,
   },
   languagePicker: {
     flexDirection: 'row',

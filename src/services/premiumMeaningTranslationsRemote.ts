@@ -283,14 +283,6 @@ export async function fetchPublicMeaningTranslationsForIds(
   const missing = names.filter((n) => !outPrimary[n.id]?.trim());
 
   if (missing.length === 0) {
-    if (__DEV__) {
-      const byId = names.filter((n) => outPrimary[n.id]?.trim()).length;
-      console.log('[MeaningTranslations] public fetch', {
-        requested: names.length,
-        byId,
-        byNameFallback: 0,
-      });
-    }
     return out;
   }
 
@@ -301,16 +293,6 @@ export async function fetchPublicMeaningTranslationsForIds(
     if (!nk) continue;
     const text = dict.get(nk);
     if (text) out[n.id] = text;
-  }
-
-  if (__DEV__) {
-    const byId = names.filter((n) => outPrimary[n.id]?.trim()).length;
-    const byNameFallback = names.filter((n) => out[n.id]?.trim() && !outPrimary[n.id]?.trim()).length;
-    console.log('[MeaningTranslations] public fetch', {
-      requested: names.length,
-      byId,
-      byNameFallback,
-    });
   }
 
   return out;
