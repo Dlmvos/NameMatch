@@ -110,6 +110,20 @@ export function RoomProvider({ children }: { children: React.ReactNode }) {
         setRoom(loadedRoom);
         setMatches(loadedMatches);
         setLatestMatch(null);
+        if (__DEV__) {
+          const customOrigins = loadedMatches.filter(
+            (m) =>
+              m.baby_names?.origin === 'Custom' ||
+              (m.baby_names as { source?: string })?.source === 'custom',
+          ).length;
+          if (customOrigins > 0) {
+            console.log('[CustomNameDebug] matches hydration', {
+              roomId,
+              total: loadedMatches.length,
+              withCustomBabyName: customOrigins,
+            });
+          }
+        }
         for (const row of loadedMatches) {
           seenMatchIdsRef.current.add(row.id);
         }

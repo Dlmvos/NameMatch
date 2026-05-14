@@ -50,7 +50,7 @@ async function enrichMatchesWithBabyNames(rows: RawMatchRow[]): Promise<Match[]>
 
   return rows.map((row) => ({
     ...row,
-    baby_names: bundledByNameId.get(row.name_id) ?? dbByNameId.get(row.name_id),
+    baby_names: dbByNameId.get(row.name_id) ?? bundledByNameId.get(row.name_id),
   }));
 }
 

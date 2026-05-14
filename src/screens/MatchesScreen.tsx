@@ -68,7 +68,7 @@ const DEV_SAMPLE_MATCHES: Match[] = __DEV__
 export default function MatchesScreen() {
   const { t, language } = useTranslation();
   const { matches } = useMatchState();
-  const { room } = useRoom();
+  const { room, handleConfirmedMatch } = useRoom();
   const { user, profile } = useAuth();
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [editingMatchId, setEditingMatchId] = useState<string | null>(null);
@@ -150,55 +150,12 @@ export default function MatchesScreen() {
     setIsSavingCustom(false);
   }, []);
 
-  const handleSaveCustomName = useCallback(async () => {
-    const trimmed = customNameText.trim();
-    if (!trimmed) {
-      Alert.alert('', t('matches.customName.empty'));
-      return;
-    }
-    const roomId = room?.id ?? profile?.room_id;
-    if (!user?.id || !roomId) {
-      Alert.alert('', __DEV__ ? 'Cannot add a custom name without a signed-in user and active room.' : t('matches.customName.error'));
-      return;
-    }
-
-    setIsSavingCustom(true);
-    try {
-      if (__DEV__) {
-        console.log('[MatchesScreen] saving custom name', {
-          name: trimmed,
-          gender: customGender,
-          userId: user.id,
-          roomId,
-          region: profile?.region_preference ?? 'WORLDWIDE',
-          country: profile?.country_preference ?? null,
-        });
-      }
-      const { babyName } = await CustomNameService.addCustomName({
-        name: trimmed,
-        gender: customGender,
-        userId: user.id,
-        roomId,
-        region: (profile?.region_preference as Region) ?? 'WORLDWIDE',
-        country: profile?.country_preference ?? undefined,
-      });
-      resetCustomModal();
-      Alert.alert('', t('matches.customName.success', { name: babyName.name }));
-    } catch (err: any) {
-      console.error('[MatchesScreen] custom name error:', err?.message ?? err);
-      Alert.alert('', __DEV__ && err?.message ? `${t('matches.customName.error')}\n\n${err.message}` : t('matches.customName.error'));
-      setIsSavingCustom(false);
-    }
-  }, [customNameText, customGender, user?.id, room?.id, profile?.room_id, profile?.region_preference, profile?.country_preference, resetCustomModal, t]);
-
-  // ── Tab state ──
+  // ── Tab state (needed before custom-name save reads fetchLikedNames) ──
   const [activeTab, setActiveTab] = useState<ScreenTab>('matches');
 
-  // ── Liked names state ──
   const [likedNames, setLikedNames] = useState<LikedName[]>([]);
   const [isLoadingLikes, setIsLoadingLikes] = useState(false);
 
-  // ── Name detail modal state ──
   const [detailName, setDetailName] = useState<BabyName | null>(null);
 
   const roomId = room?.id ?? profile?.room_id ?? null;
@@ -216,12 +173,56 @@ export default function MatchesScreen() {
     }
   }, [user?.id, roomId]);
 
-  // Fetch liked names when tab becomes active
   useEffect(() => {
     if (activeTab === 'likes') {
       fetchLikedNames();
     }
   }, [activeTab, fetchLikedNames]);
+
+  const handleSaveCustomName = useCallback(async () => {
+    const trimmed = customNameText.trim();
+    if (!trimmed) {
+      Alert.alert('', t('matches.customName.empty'));
+      return;
+    }
+    if (!user?.id || !roomId) {
+      Alert.alert('', __DEV__ ? 'Cannot add a custom name without a signed-in user and active room.' : t('matches.customName.error'));
+      return;
+    }
+
+    setIsSavingCustom(true);
+    try {
+      const { babyName, isMatch } = await CustomNameService.addCustomName({
+        name: trimmed,
+        gender: customGender,
+        userId: user.id,
+        roomId,
+        region: (profile?.region_preference as Region) ?? 'WORLDWIDE',
+        country: profile?.country_preference ?? undefined,
+      });
+      void fetchLikedNames();
+      if (isMatch) {
+        await handleConfirmedMatch(babyName);
+      }
+      resetCustomModal();
+      Alert.alert('', t('matches.customName.success', { name: babyName.name }));
+    } catch (err: any) {
+      console.error('[MatchesScreen] custom name error:', err?.message ?? err);
+      Alert.alert('', __DEV__ && err?.message ? `${t('matches.customName.error')}\n\n${err.message}` : t('matches.customName.error'));
+      setIsSavingCustom(false);
+    }
+  }, [
+    customNameText,
+    customGender,
+    user?.id,
+    roomId,
+    profile?.region_preference,
+    profile?.country_preference,
+    resetCustomModal,
+    fetchLikedNames,
+    handleConfirmedMatch,
+    t,
+  ]);
 
   const handleUnlike = useCallback(async (likedName: LikedName) => {
     if (!user?.id || !roomId) return;

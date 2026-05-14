@@ -981,6 +981,14 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
             roomId,
             nameId,
           });
+          if (__DEV__ && swipedName?.source === 'custom') {
+            console.log('[CustomNameDebug] swipe match RPC', {
+              roomId,
+              nameId,
+              isMatch,
+              name: swipedName.name,
+            });
+          }
           if (__DEV__ && DEBUG_SWIPE_DECK) {
             console.log('[SwipeDeck] match RPC result after right swipe', {
               userId,

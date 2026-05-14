@@ -54,18 +54,6 @@ export const CustomNameService = {
     const trimmedName = name.trim();
     const customNameId = generateCustomNameUuid();
 
-    if (__DEV__) {
-      console.log('[CustomNameService] addCustomName start', {
-        id: customNameId,
-        name: trimmedName,
-        gender,
-        userId,
-        roomId,
-        region,
-        country: country ?? null,
-      });
-    }
-
     // 1. Insert into baby_names
     const { data: inserted, error: insertErr } = await supabase
       .from('baby_names')
@@ -85,13 +73,12 @@ export const CustomNameService = {
 
     if (insertErr || !inserted) {
       const message = supabaseErrorMessage(insertErr);
-      console.error('[CustomNameService] baby_names insert error:', message);
+      if (__DEV__) {
+        console.log('[CustomNameDebug] baby_names insert failed', { message, code: insertErr?.code });
+      }
       throw new Error(`Failed to create custom name: ${message}`);
     }
-
-    if (__DEV__) {
-      console.log('[CustomNameService] baby_names insert success', { id: inserted.id });
-    }
+    if (__DEV__) console.log('[CustomNameDebug] baby_names insert ok', { id: inserted.id });
 
     const babyName: BabyName = {
       id: inserted.id,
@@ -105,28 +92,23 @@ export const CustomNameService = {
       source: 'custom',
     };
 
-    // 2. Record right-swipe for the creator
-    const { error: swipeErr } = await supabase.from('swipes').upsert(
-      {
-        user_id: userId,
-        room_id: roomId,
-        name_id: inserted.id,
-        direction: 'right',
-      },
-      { onConflict: 'room_id,user_id,name_id' },
-    );
-    if (swipeErr) {
-      const message = supabaseErrorMessage(swipeErr);
-      console.error('[CustomNameService] swipe insert error:', message);
-      throw new Error(`Custom name was created, but saving the like failed: ${message}`);
-    }
-
-    if (__DEV__) {
-      console.log('[CustomNameService] swipe upsert success', {
+    // 2. Record right-swipe for the creator (via SwipeService so `liked` stays in sync)
+    try {
+      await SwipeService.upsertSwipe({
         userId,
         roomId,
         nameId: inserted.id,
+        direction: 'right',
       });
+      if (__DEV__) {
+        console.log('[CustomNameDebug] swipe upsert ok', { roomId, nameId: inserted.id });
+      }
+    } catch (swipeErr: any) {
+      const message =
+        swipeErr?.message ??
+        supabaseErrorMessage(swipeErr?.error ?? swipeErr ?? null);
+      if (__DEV__) console.log('[CustomNameDebug] swipe upsert failed', { message });
+      throw new Error(`Custom name was created, but saving the like failed: ${message}`);
     }
 
     SwipeService.notifyPartnerCustomSurfaceHint(roomId);
@@ -134,14 +116,19 @@ export const CustomNameService = {
     // 3. Check for match (partner may have somehow swiped this name already — very unlikely but consistent)
     let isMatch = false;
     try {
-      const { data } = await supabase.rpc('check_and_create_match', {
+      const { data, error: rpcErr } = await supabase.rpc('check_and_create_match', {
         p_room_id: roomId,
         p_name_id: inserted.id,
         p_user_id: userId,
       });
-      isMatch = data === true;
-    } catch {
-      // Non-fatal
+      if (rpcErr) {
+        if (__DEV__) console.log('[CustomNameDebug] match RPC error', { message: rpcErr.message });
+      } else {
+        isMatch = data === true;
+        if (__DEV__) console.log('[CustomNameDebug] match RPC result', { isMatch, nameId: inserted.id });
+      }
+    } catch (e: any) {
+      if (__DEV__) console.log('[CustomNameDebug] match RPC threw', { message: e?.message ?? String(e) });
     }
 
     return { babyName, isMatch };
