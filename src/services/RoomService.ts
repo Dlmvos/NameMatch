@@ -1,6 +1,7 @@
+import { getBundledNameById } from '../data/names';
 import { rarityForBabyName } from '../lib/rarityFromPopularityRank';
 import { supabase } from '../lib/supabase';
-import type { Match, Room } from '../types';
+import type { BabyName, Match, Room } from '../types';
 
 export type SubscribeToMatchesCallback = (match: Match) => void;
 export type SubscribeToRoomCallback = (room: Room) => void;
@@ -11,9 +12,47 @@ function matchWithBabyNameRarity(match: Match): Match {
   return { ...match, baby_names: { ...bn, rarity: rarityForBabyName(bn) } };
 }
 
-// Narrow DTO for match list + celebration UI (avoid fetching broad `*` payloads).
-const MATCH_SELECT =
-  'id, room_id, name_id, created_at, baby_names(id, name, meaning, origin, gender, country, region, is_worldwide, popularity_rank)';
+// Raw match rows — baby_names resolved client-side (bundled ids are not DB rows).
+const MATCH_RAW_SELECT = 'id, room_id, name_id, created_at';
+
+const BABY_NAME_MATCH_SELECT =
+  'id, name, meaning, origin, gender, country, region, is_worldwide, popularity_rank';
+
+type RawMatchRow = Pick<Match, 'id' | 'room_id' | 'name_id' | 'created_at'>;
+
+const BABY_NAMES_IN_CHUNK = 100;
+
+async function enrichMatchesWithBabyNames(rows: RawMatchRow[]): Promise<Match[]> {
+  if (rows.length === 0) return [];
+
+  const bundledByNameId = new Map<string, BabyName>();
+  const uniqueNameIds = [...new Set(rows.map((r) => r.name_id))];
+  for (const nameId of uniqueNameIds) {
+    const bundled = getBundledNameById(nameId);
+    if (bundled) bundledByNameId.set(nameId, bundled);
+  }
+
+  const dbFetchIds = uniqueNameIds.filter((id) => !bundledByNameId.has(id));
+
+  const dbByNameId = new Map<string, BabyName>();
+  for (let i = 0; i < dbFetchIds.length; i += BABY_NAMES_IN_CHUNK) {
+    const chunk = dbFetchIds.slice(i, i + BABY_NAMES_IN_CHUNK);
+    const { data, error } = await supabase.from('baby_names').select(BABY_NAME_MATCH_SELECT).in('id', chunk);
+    if (error) {
+      if (__DEV__) console.warn('[RoomService] enrichMatches baby_names chunk failed:', error.message);
+      continue;
+    }
+    for (const row of data ?? []) {
+      const bn = row as BabyName;
+      if (bn?.id) dbByNameId.set(bn.id, bn);
+    }
+  }
+
+  return rows.map((row) => ({
+    ...row,
+    baby_names: bundledByNameId.get(row.name_id) ?? dbByNameId.get(row.name_id),
+  }));
+}
 
 const ROOM_CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // Excludes I, O, 0, 1
 
@@ -140,11 +179,13 @@ export const RoomService = {
   async getMatches(roomId: string): Promise<Match[]> {
     const { data, error } = await supabase
       .from('matches')
-      .select(MATCH_SELECT)
+      .select(MATCH_RAW_SELECT)
       .eq('room_id', roomId)
       .order('created_at', { ascending: false });
     if (error) return [];
-    return ((data ?? []) as unknown as Match[]).map(matchWithBabyNameRarity);
+    const rows = (data ?? []) as RawMatchRow[];
+    const enriched = await enrichMatchesWithBabyNames(rows);
+    return enriched.map(matchWithBabyNameRarity);
   },
 
   async grantRoomPremiumPacks(roomId: string, packKeys: string[]): Promise<Room | null> {
@@ -183,12 +224,10 @@ export const RoomService = {
           const insertedId = (payload as any)?.new?.id as string | undefined;
           if (!insertedId) return;
 
-          const { data } = await supabase
-            .from('matches')
-            .select(MATCH_SELECT)
-            .eq('id', insertedId)
-            .single();
-          if (data) onInsert(matchWithBabyNameRarity(data as unknown as Match));
+          const { data } = await supabase.from('matches').select(MATCH_RAW_SELECT).eq('id', insertedId).single();
+          if (!data) return;
+          const [enriched] = await enrichMatchesWithBabyNames([data as RawMatchRow]);
+          if (enriched) onInsert(matchWithBabyNameRarity(enriched));
         },
       )
       .subscribe();

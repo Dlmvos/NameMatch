@@ -633,6 +633,16 @@ export const CORE_BUNDLED_NAMES: BabyName[] =
     .map(attachExternalMeaningTranslations)
     .map(attachRarityForBundledName);
 
+const BUNDLED_BY_ID = new Map<string, BabyName>(CORE_BUNDLED_NAMES.map((n) => [n.id, n]));
+
+/** Resolve a core/free bundled name by stable local id (e.g. matches persisted from deck swipes). */
+export function getBundledNameById(id: string): BabyName | null {
+  const key = String(id ?? '').trim();
+  if (!key) return null;
+  const row = BUNDLED_BY_ID.get(key);
+  return row ? { ...row } : null;
+}
+
 /** Full name list in the app bundle (core/free only). */
 export const ALL_NAMES: BabyName[] = CORE_BUNDLED_NAMES;
 
