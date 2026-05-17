@@ -54,27 +54,47 @@ export const CustomNameService = {
     const trimmedName = name.trim();
     const customNameId = generateCustomNameUuid();
 
+    const insertPayload = {
+      id: customNameId,
+      name: trimmedName,
+      meaning: '',
+      origin: 'Custom' as const,
+      gender,
+      country: country ?? null,
+      region,
+      is_worldwide: false as const,
+      is_premium: false as const,
+      meaning_verified: false as const,
+    };
+
+    if (__DEV__) {
+      const { data: authData, error: authGetErr } = await supabase.auth.getUser();
+      const user = authData?.user ?? null;
+      console.log('[CustomNameDebug] auth before insert', {
+        userId: user?.id ?? null,
+        email: user?.email ?? null,
+        authError: authGetErr?.message ?? null,
+      });
+      console.log('[CustomNameDebug] insert payload', insertPayload);
+    }
+
     // 1. Insert into baby_names
     const { data: inserted, error: insertErr } = await supabase
       .from('baby_names')
-      .insert({
-        id: customNameId,
-        name: trimmedName,
-        meaning: '',
-        origin: 'Custom',
-        gender,
-        country: country ?? null,
-        region,
-        is_worldwide: false,
-        is_premium: false,
-      })
+      .insert(insertPayload)
       .select('id,name,meaning,origin,gender,country,region,is_worldwide')
       .single();
 
     if (insertErr || !inserted) {
       const message = supabaseErrorMessage(insertErr);
       if (__DEV__) {
-        console.log('[CustomNameDebug] baby_names insert failed', { message, code: insertErr?.code });
+        console.log('[CustomNameDebug] baby_names insert failed', {
+          code: insertErr?.code ?? null,
+          message: insertErr?.message ?? null,
+          details: insertErr?.details ?? null,
+          hint: insertErr?.hint ?? null,
+          payload: insertPayload,
+        });
       }
       throw new Error(`Failed to create custom name: ${message}`);
     }

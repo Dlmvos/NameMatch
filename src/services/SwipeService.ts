@@ -33,27 +33,31 @@ export interface LikedName {
   name: BabyName;
 }
 
-function toLikedNameFromDbBabyRow(row: LikedSwipeRow, bn: LikedBabyNameRow): LikedName {
+function likedBabyNameRowToBabyName(bn: LikedBabyNameRow): BabyName {
   const enriched = enrichName(bn.name);
   const popularity_rank = bn.popularity_rank ?? enriched.popularity_rank;
   return {
+    id: bn.id,
+    name: bn.name,
+    meaning: bn.meaning ?? '',
+    origin: bn.origin ?? '',
+    gender: bn.gender as Gender,
+    country: bn.country ?? undefined,
+    region: bn.region as Region,
+    is_worldwide: bn.is_worldwide,
+    popularity_rank,
+    rarity: rarityFromPopularityRank(popularity_rank),
+    trend: enriched.trend,
+    pronunciation: enriched.pronunciation,
+    source: bn.origin === 'Custom' ? 'custom' : 'catalog',
+  };
+}
+
+function toLikedNameFromDbBabyRow(row: LikedSwipeRow, bn: LikedBabyNameRow): LikedName {
+  return {
     swipeId: row.id,
     swipedAt: row.created_at,
-    name: {
-      id: bn.id,
-      name: bn.name,
-      meaning: bn.meaning ?? '',
-      origin: bn.origin ?? '',
-      gender: bn.gender as Gender,
-      country: bn.country ?? undefined,
-      region: bn.region as Region,
-      is_worldwide: bn.is_worldwide,
-      popularity_rank,
-      rarity: rarityFromPopularityRank(popularity_rank),
-      trend: enriched.trend,
-      pronunciation: enriched.pronunciation,
-      source: bn.origin === 'Custom' ? 'custom' : 'catalog',
-    },
+    name: likedBabyNameRowToBabyName(bn),
   };
 }
 
@@ -254,6 +258,75 @@ export const SwipeService = {
     } catch (err: any) {
       console.error('[SwipeService] getPartnerCustomNameIds error:', err?.message ?? err);
       return new Set();
+    }
+  },
+
+  /**
+   * Partner right-swipes on custom `baby_names`: full rows for surfacing into the deck when the
+   * name is not yet present in the weighted pool (IDs-only refetch is insufficient).
+   */
+  async getPartnerCustomNames(params: {
+    userId: string;
+    roomId: string;
+  }): Promise<BabyName[]> {
+    try {
+      const { data: room } = await supabase
+        .from('rooms')
+        .select('user1_id,user2_id')
+        .eq('id', params.roomId)
+        .maybeSingle();
+
+      if (!room) return [];
+      const partnerId =
+        room.user1_id === params.userId
+          ? room.user2_id
+          : room.user2_id === params.userId
+            ? room.user1_id
+            : null;
+      if (!partnerId) return [];
+
+      const { data: partnerRows, error: partnerErr } = await supabase
+        .from('swipes')
+        .select(
+          [
+            'name_id',
+            'baby_names!inner(id,name,meaning,origin,gender,country,region,is_worldwide,popularity_rank)',
+          ].join(','),
+        )
+        .eq('user_id', partnerId)
+        .eq('room_id', params.roomId)
+        .eq('direction', 'right')
+        .eq('baby_names.origin', 'Custom')
+        .order('created_at', { ascending: false });
+
+      if (partnerErr || !partnerRows?.length) return [];
+
+      const { data: mySwiped } = await supabase
+        .from('swipes')
+        .select('name_id')
+        .eq('user_id', params.userId)
+        .eq('room_id', params.roomId);
+
+      const mySwipedSet = new Set((mySwiped ?? []).map((r: { name_id: string }) => r.name_id));
+
+      const out: BabyName[] = [];
+      const seenId = new Set<string>();
+      for (const raw of partnerRows as unknown as {
+        name_id: string;
+        baby_names: LikedBabyNameRow | LikedBabyNameRow[] | null;
+      }[]) {
+        if (mySwipedSet.has(raw.name_id)) continue;
+        const bnRaw = raw.baby_names;
+        const bn = Array.isArray(bnRaw) ? bnRaw[0] : bnRaw;
+        if (!bn?.id || bn.origin !== 'Custom') continue;
+        if (seenId.has(bn.id)) continue;
+        seenId.add(bn.id);
+        out.push(likedBabyNameRowToBabyName(bn));
+      }
+      return out;
+    } catch (err: any) {
+      console.error('[SwipeService] getPartnerCustomNames error:', err?.message ?? err);
+      return [];
     }
   },
 

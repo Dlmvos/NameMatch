@@ -44,12 +44,6 @@ const STARTUP_HYDRATION_TIMEOUT_MS = 12_000;
 
 const normalizeFilterText = (value?: string): string => value?.trim().toLowerCase() ?? '';
 
-function setsEqualString(a: Set<string>, b: Set<string>): boolean {
-  if (a.size !== b.size) return false;
-  for (const x of a) if (!b.has(x)) return false;
-  return true;
-}
-
 function discoveryMatchText(name: BabyName): string {
   const nameText = normalizeFilterText(name.name);
   const origin = normalizeFilterText(name.origin);
@@ -859,10 +853,31 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
 
     const refetchPartnerCustom = async () => {
       try {
-        const next = await SwipeService.getPartnerCustomNameIds({ userId: uid, roomId });
-        if (setsEqualString(partnerCustomIdsRef.current, next)) return;
-        partnerCustomIdsRef.current = next;
-        buildNameQueueRef.current();
+        const rows = await SwipeService.getPartnerCustomNames({ userId: uid, roomId });
+        partnerCustomIdsRef.current = new Set(rows.map((n) => n.id));
+
+        setNamesToSwipe((prev) => {
+          const existingIds = new Set(prev.map((n) => n.id));
+          const toAdd = rows.filter(
+            (n) => !swipedIdsRef.current.has(n.id) && !existingIds.has(n.id),
+          );
+          if (toAdd.length === 0) return prev;
+
+          const insertAt = Math.min(2, prev.length);
+          const nextDeck = [...prev.slice(0, insertAt), ...toAdd, ...prev.slice(insertAt)];
+
+          if (__DEV__) {
+            for (let i = 0; i < toAdd.length; i++) {
+              console.log('[CustomNameDebug] partner custom surfaced', {
+                id: toAdd[i].id,
+                name: toAdd[i].name,
+                index: insertAt + i,
+              });
+            }
+          }
+
+          return nextDeck;
+        });
       } catch {
         // best-effort
       }
