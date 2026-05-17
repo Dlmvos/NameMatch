@@ -69,7 +69,7 @@ export default function MatchesScreen() {
   const { t, language } = useTranslation();
   const { matches } = useMatchState();
   const { room, handleConfirmedMatch } = useRoom();
-  const { user, profile } = useAuth();
+  const { user, profile, session } = useAuth();
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [editingMatchId, setEditingMatchId] = useState<string | null>(null);
   const [draftNote, setDraftNote] = useState('');
@@ -185,8 +185,13 @@ export default function MatchesScreen() {
       Alert.alert('', t('matches.customName.empty'));
       return;
     }
-    if (!user?.id || !roomId) {
-      Alert.alert('', __DEV__ ? 'Cannot add a custom name without a signed-in user and active room.' : t('matches.customName.error'));
+    if (!session?.access_token || !user?.id || !roomId) {
+      Alert.alert(
+        '',
+        __DEV__
+          ? 'Cannot add a custom name without an active session and room.'
+          : t('matches.customName.error'),
+      );
       return;
     }
 
@@ -214,6 +219,7 @@ export default function MatchesScreen() {
   }, [
     customNameText,
     customGender,
+    session?.access_token,
     user?.id,
     roomId,
     profile?.region_preference,
@@ -301,7 +307,7 @@ export default function MatchesScreen() {
           </Text>
         </View>
         <View style={styles.headerActions}>
-          {user?.id && (room?.id || profile?.room_id) ? (
+          {session?.access_token && user?.id && (room?.id || profile?.room_id) ? (
             <TouchableOpacity
               style={styles.addCustomBtn}
               onPress={() => setShowCustomNameModal(true)}

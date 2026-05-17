@@ -22,25 +22,16 @@ function supabaseErrorMessage(error: { message?: string; code?: string; details?
   return [error.message, error.code, error.details, error.hint].filter(Boolean).join(' | ');
 }
 
-function randomHex(length: number): string {
-  let out = '';
-  while (out.length < length) {
-    out += Math.floor(Math.random() * 0xffffffff)
-      .toString(16)
-      .padStart(8, '0');
-  }
-  return out.slice(0, length);
-}
-
-function generateCustomNameUuid(): string {
-  const chars = randomHex(32).split('');
-  const timeHex = Date.now().toString(16).padStart(12, '0').slice(-12);
-  for (let i = 0; i < timeHex.length; i++) {
-    chars[i] = timeHex[i];
-  }
-  chars[12] = '4';
-  chars[16] = ((parseInt(chars[16], 16) & 0x3) | 0x8).toString(16);
-  return `${chars.slice(0, 8).join('')}-${chars.slice(8, 12).join('')}-${chars.slice(12, 16).join('')}-${chars.slice(16, 20).join('')}-${chars.slice(20, 32).join('')}`;
+/** Row returned by `create_custom_name` RPC (matches `baby_names`). */
+interface CreateCustomNameRpcRow {
+  id: string;
+  name: string;
+  meaning: string | null;
+  origin: string | null;
+  gender: string;
+  country: string | null;
+  region: string;
+  is_worldwide: boolean;
 }
 
 /**
@@ -52,63 +43,67 @@ export const CustomNameService = {
   async addCustomName(params: AddCustomNameParams): Promise<AddCustomNameResult> {
     const { name, gender, userId, roomId, region, country } = params;
     const trimmedName = name.trim();
-    const customNameId = generateCustomNameUuid();
 
-    const insertPayload = {
-      id: customNameId,
-      name: trimmedName,
-      meaning: '',
-      origin: 'Custom' as const,
-      gender,
-      country: country ?? null,
-      region,
-      is_worldwide: false as const,
-      is_premium: false as const,
-      meaning_verified: false as const,
+    const rpcArgs = {
+      p_name: trimmedName,
+      p_gender: gender,
+      p_room_id: roomId,
+      p_region: region,
+      p_country: country ?? null,
     };
+
+    const { data: sessionWrap } = await supabase.auth.getSession();
+    const activeSession = sessionWrap.session;
+    if (!activeSession?.access_token) {
+      throw new Error('Failed to create custom name: No active session. Please sign in again.');
+    }
 
     if (__DEV__) {
       const { data: authData, error: authGetErr } = await supabase.auth.getUser();
-      const user = authData?.user ?? null;
+      const authUser = authData?.user ?? null;
+      const sessionUser = activeSession.user ?? null;
       console.log('[CustomNameDebug] auth before insert', {
-        userId: user?.id ?? null,
-        email: user?.email ?? null,
+        authUserId: authUser?.id ?? null,
+        sessionUserId: sessionUser?.id ?? null,
+        paramUserId: userId,
+        sessionMatchesParam:
+          !!sessionUser?.id && !!userId ? sessionUser.id === userId : null,
+        hasAccessToken: !!activeSession.access_token,
+        email: authUser?.email ?? null,
         authError: authGetErr?.message ?? null,
       });
-      console.log('[CustomNameDebug] insert payload', insertPayload);
+      console.log('[CustomNameDebug] create_custom_name RPC args', rpcArgs);
     }
 
-    // 1. Insert into baby_names
-    const { data: inserted, error: insertErr } = await supabase
-      .from('baby_names')
-      .insert(insertPayload)
-      .select('id,name,meaning,origin,gender,country,region,is_worldwide')
-      .single();
+    // 1. Insert via SECURITY DEFINER RPC (RLS-safe; validates room membership server-side).
+    const { data: inserted, error: insertErr } = await supabase.rpc('create_custom_name', rpcArgs);
 
     if (insertErr || !inserted) {
       const message = supabaseErrorMessage(insertErr);
       if (__DEV__) {
-        console.log('[CustomNameDebug] baby_names insert failed', {
+        console.log('[CustomNameDebug] create_custom_name RPC failed', {
           code: insertErr?.code ?? null,
           message: insertErr?.message ?? null,
           details: insertErr?.details ?? null,
           hint: insertErr?.hint ?? null,
-          payload: insertPayload,
+          rpcArgs,
         });
       }
       throw new Error(`Failed to create custom name: ${message}`);
     }
-    if (__DEV__) console.log('[CustomNameDebug] baby_names insert ok', { id: inserted.id });
+
+    const row = inserted as CreateCustomNameRpcRow;
+    if (__DEV__) console.log('[CustomNameDebug] create_custom_name RPC ok', { id: row.id });
 
     const babyName: BabyName = {
-      id: inserted.id,
-      name: inserted.name,
-      meaning: inserted.meaning ?? '',
-      origin: inserted.origin ?? 'Custom',
-      gender: inserted.gender as Gender,
-      country: inserted.country ?? undefined,
-      region: inserted.region as Region,
-      is_worldwide: inserted.is_worldwide ?? false,
+      id: row.id,
+      name: row.name,
+      meaning: row.meaning ?? '',
+      origin: row.origin ?? 'Custom',
+      gender: row.gender as Gender,
+      country: row.country ?? undefined,
+      region: row.region as Region,
+      is_worldwide: row.is_worldwide ?? false,
       source: 'custom',
     };
 
@@ -117,11 +112,11 @@ export const CustomNameService = {
       await SwipeService.upsertSwipe({
         userId,
         roomId,
-        nameId: inserted.id,
+        nameId: row.id,
         direction: 'right',
       });
       if (__DEV__) {
-        console.log('[CustomNameDebug] swipe upsert ok', { roomId, nameId: inserted.id });
+        console.log('[CustomNameDebug] swipe upsert ok', { roomId, nameId: row.id });
       }
     } catch (swipeErr: any) {
       const message =
@@ -138,14 +133,14 @@ export const CustomNameService = {
     try {
       const { data, error: rpcErr } = await supabase.rpc('check_and_create_match', {
         p_room_id: roomId,
-        p_name_id: inserted.id,
+        p_name_id: row.id,
         p_user_id: userId,
       });
       if (rpcErr) {
         if (__DEV__) console.log('[CustomNameDebug] match RPC error', { message: rpcErr.message });
       } else {
         isMatch = data === true;
-        if (__DEV__) console.log('[CustomNameDebug] match RPC result', { isMatch, nameId: inserted.id });
+        if (__DEV__) console.log('[CustomNameDebug] match RPC result', { isMatch, nameId: row.id });
       }
     } catch (e: any) {
       if (__DEV__) console.log('[CustomNameDebug] match RPC threw', { message: e?.message ?? String(e) });
