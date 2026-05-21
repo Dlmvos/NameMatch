@@ -115,6 +115,15 @@ function mergeDeckSourcesByNameGender(
   return out;
 }
 
+/** True when `curr` contains every id from `prev` and has strictly more ids (merged deck grew, none removed). */
+function isMergedDeckIdSetStrictGrowth(prev: ReadonlySet<string>, curr: ReadonlySet<string>): boolean {
+  if (prev.size === 0 || curr.size <= prev.size) return false;
+  for (const id of prev) {
+    if (!curr.has(id)) return false;
+  }
+  return true;
+}
+
 function applySharedRoomOrdering(names: BabyName[], roomId: string | null): BabyName[] {
   if (!roomId) return names;
   return names
@@ -231,6 +240,10 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
   const partnerCustomIdsRef = useRef<Set<string>>(new Set());
   /** Bumps when `buildNameQueue` runs a new deck build; stale async meaning merges ignore it. */
   const meaningEnrichmentGenerationRef = useRef(0);
+  /** Snapshot of merged `deckNames` ids after last build — used to detect supplement/premium-only growth. */
+  const lastMergedDeckIdSetRef = useRef<Set<string>>(new Set());
+  /** With `nameQueueRebuildKey` + swipe/room/language — must match for additive tail-append. */
+  const lastDeckMergeContextKeyRef = useRef<string | null>(null);
   const buildNameQueueRef = useRef<() => void>(() => {});
   const countryPreferenceRef = useRef<string | null>(null);
   const regionPreferenceRef = useRef<Region>('WORLDWIDE');
@@ -363,6 +376,28 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
     countryPreference,
     filters,
   ]);
+
+  const deckRebuildContextKey = useMemo(
+    () =>
+      [
+        nameQueueRebuildKey,
+        expectedSwipeStateHydrationKey,
+        String(room?.id ?? profile?.room_id ?? ''),
+        effectiveLanguage,
+      ].join('\u0001'),
+    [
+      nameQueueRebuildKey,
+      expectedSwipeStateHydrationKey,
+      room?.id,
+      profile?.room_id,
+      effectiveLanguage,
+    ],
+  );
+
+  useEffect(() => {
+    lastDeckMergeContextKeyRef.current = null;
+    lastMergedDeckIdSetRef.current = new Set();
+  }, [profile?.id]);
 
   useEffect(() => {
     if (!profile?.id || !isCountryPrefHydrated) {
@@ -757,8 +792,36 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
         });
       }
 
+      const currDeckIds = new Set(deckNames.map((n) => n.id));
+      const prevMergedIds = lastMergedDeckIdSetRef.current;
+      const prevContext = lastDeckMergeContextKeyRef.current;
+
+      const contextUnchanged = prevContext !== null && prevContext === deckRebuildContextKey;
+      const deckGrewWithoutRemoval = isMergedDeckIdSetStrictGrowth(prevMergedIds, currDeckIds);
+      const prevVisible = namesToSwipeRef.current;
+
+      const useAdditiveAppend =
+        contextUnchanged && deckGrewWithoutRemoval && prevVisible.length > 0;
+
+      const poolById = new Map(pool.map((n) => [n.id, n]));
       const gen = ++meaningEnrichmentGenerationRef.current;
-      setNamesToSwipe(refineDeckOrder(pool));
+
+      if (useAdditiveAppend) {
+        const headIds = new Set(prevVisible.map((n) => n.id));
+        const stableHead = prevVisible
+          .filter((n) => !swipedIdsRef.current.has(n.id))
+          .map((n) => poolById.get(n.id) ?? n);
+        const fullRefined = refineDeckOrder(pool);
+        const tail = fullRefined.filter(
+          (n) => !headIds.has(n.id) && !swipedIdsRef.current.has(n.id),
+        );
+        setNamesToSwipe([...stableHead, ...tail]);
+      } else {
+        setNamesToSwipe(refineDeckOrder(pool));
+      }
+
+      lastDeckMergeContextKeyRef.current = deckRebuildContextKey;
+      lastMergedDeckIdSetRef.current = currDeckIds;
 
       if (effectiveLanguage !== 'en' && pool.length > 0) {
         void (async () => {
@@ -777,7 +840,16 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
       setIsLoadingNames(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- closure reads profile/filters/packs; nameQueueRebuildKey gates when those inputs meaningfully change
-  }, [isSwipeDeckInputReady, nameQueueRebuildKey, deckNames, room?.id, profile?.room_id, refineDeckOrder, effectiveLanguage]);
+  }, [
+    isSwipeDeckInputReady,
+    nameQueueRebuildKey,
+    deckNames,
+    deckRebuildContextKey,
+    room?.id,
+    profile?.room_id,
+    refineDeckOrder,
+    effectiveLanguage,
+  ]);
 
   useEffect(() => {
     buildNameQueueRef.current = buildNameQueue;
