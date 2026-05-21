@@ -42,7 +42,10 @@ export default function RoomManagementScreen({ navigation }: Props) {
     if (!room?.code) return;
     try {
       await Share.share({
-        message: t('partner.share.message', { code: room.code }),
+        message: t('partner.share.message', {
+          code: room.code,
+          url: createRoomJoinPayload(room.code),
+        }),
         title: t('partner.share.title'),
       });
     } catch (_) {}

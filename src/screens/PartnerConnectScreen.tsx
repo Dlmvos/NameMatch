@@ -101,7 +101,10 @@ export default function PartnerConnectScreen({ navigation }: Props) {
   const handleShare = async () => {
     try {
       await Share.share({
-        message: t('partner.share.message', { code: effectiveCode }),
+        message: t('partner.share.message', {
+          code: effectiveCode,
+          url: createRoomJoinPayload(effectiveCode),
+        }),
         title: t('partner.share.title'),
       });
     } catch (_) {}

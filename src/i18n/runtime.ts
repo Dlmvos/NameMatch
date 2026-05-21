@@ -83,7 +83,7 @@ const EN: TranslationMap = {
   'partner.code.label': 'Your room code',
   'partner.code.hint':
     'Share this with your partner. They open Enter Code and type the room code in.',
-  'partner.qr.hint': 'Partner can scan this to join quickly',
+  'partner.qr.hint': 'Scan to open the join page, then enter the code.',
   'partner.share': 'Share Code',
   'partner.solo': 'Continue without partner',
   'partner.info.join':
@@ -363,7 +363,8 @@ const EN: TranslationMap = {
   'partner.error.invalidCodeBody': 'Please enter a valid room code.',
   'partner.error.joinTitle': 'Could not join room',
   'partner.error.joinBody': 'Check the code and try again.',
-  'partner.share.message': "Join me on Babinom! Enter code: {{code}}\n\nLet's find a name we both love.",
+  'partner.share.message':
+    "Join me on Babinom!\n\nCode: {{code}}\n\nJoin page (opens in browser): {{url}}\n\nLet's find a name we both love.",
   'partner.share.title': 'Join my Babinom room!',
   'match.share.message': 'We both chose the name "{{name}}"\n\n{{origin}} · {{meaning}}\n\nFind your baby\'s perfect name together on Babinom!',
   'match.share.title': '{{name}} — We both chose it!',
@@ -811,7 +812,8 @@ const TRANSLATIONS: Record<string, Partial<TranslationMap>> = {
     'partner.code.label': 'Jouw kamercode',
     'partner.code.hint':
       'Deel dit met je partner — die kiest Code invoeren en vult de code in.',
-    'partner.qr.hint': 'Partner kan dit scannen om snel mee te doen',
+    'partner.qr.hint':
+      'Scan de code om de join-pagina te openen, voer hierna de kamercode in.',
     'partner.share': 'Code delen',
     'partner.solo': 'Doorgaan zonder partner',
     'partner.info.join':
@@ -826,7 +828,7 @@ const TRANSLATIONS: Record<string, Partial<TranslationMap>> = {
     'partner.error.joinTitle': 'Kon niet deelnemen',
     'partner.error.joinBody': 'Controleer de code en probeer opnieuw.',
     'partner.share.message':
-      "Doe mee op Babinom! Code: {{code}}\n\nDownload de app en laten we samen de perfecte babynaam zoeken!",
+      "Doe mee op Babinom!\n\nCode: {{code}}\n\nJoinpagina (opent in browser): {{url}}\n\nDownload de app en laten we samen de perfecte babynaam zoeken!",
     'partner.share.title': 'Doe mee met mijn Babinom-kamer!',
     'name.meaningText.fleur': 'Bloem',
     'name.meaningText.emma': 'Heel; universeel',
@@ -1407,7 +1409,7 @@ const TRANSLATIONS: Record<string, Partial<TranslationMap>> = {
     'partner.code.label': 'Dein Raumcode',
     'partner.code.hint':
       'Teile ihn mit deinem Partner — er öffnet Code eingeben und gibt den Code ein.',
-    'partner.qr.hint': 'Partner kann scannen, um schnell beizutreten',
+    'partner.qr.hint': 'Scannt den Code, um die Join-Webseite zu öffnen, und gebt dann den Code ein.',
     'partner.share': 'Code teilen',
     'partner.solo': 'Ohne Partner fortfahren',
     'partner.info.join':
@@ -1422,7 +1424,7 @@ const TRANSLATIONS: Record<string, Partial<TranslationMap>> = {
     'partner.error.joinTitle': 'Beitritt fehlgeschlagen',
     'partner.error.joinBody': 'Prüfe den Code und versuche es erneut.',
     'partner.share.message':
-      "Mach mit bei Babinom! Code: {{code}}\n\nLade die App und findet gemeinsam den perfekten Babynamen!",
+      "Mach mit bei Babinom!\n\nCode: {{code}}\n\nJoin-Seite (öffnet im Browser): {{url}}\n\nLade die App und findet gemeinsam den perfekten Babynamen!",
     'partner.share.title': 'Tritt meinem Babinom-Raum bei!',
     'name.meaningText.fleur': 'Blume',
     'name.meaningText.emma': 'Ganz; universal',
@@ -2013,7 +2015,8 @@ const TRANSLATIONS: Record<string, Partial<TranslationMap>> = {
     'partner.code.label': 'Votre code de salle',
     'partner.code.hint':
       'Partagez-le — votre partenaire ouvre Entrer le code et saisit le code.',
-    'partner.qr.hint': 'Votre partenaire peut scanner pour rejoindre vite',
+    'partner.qr.hint':
+      'Scannez pour ouvrir la page rejoindre, puis saisissez le code dans l app.',
     'partner.share': 'Partager le code',
     'partner.solo': 'Continuer sans partenaire',
     'partner.info.join':
@@ -2028,7 +2031,7 @@ const TRANSLATIONS: Record<string, Partial<TranslationMap>> = {
     'partner.error.joinTitle': 'Impossible de rejoindre',
     'partner.error.joinBody': 'Verifiez le code et reessayez.',
     'partner.share.message':
-      "Rejoins-moi sur Babinom ! Code : {{code}}\n\nTelecharge l app et trouvons le prenom parfait ensemble !",
+      'Rejoins-moi sur Babinom !\n\nCode : {{code}}\n\nPage pour rejoindre (ouvre le navigateur) : {{url}}\n\nTelecharge l app et trouvons le prenom parfait ensemble !',
     'partner.share.title': 'Rejoins ma salle Babinom !',
     'name.meaningText.fleur': 'Fleur',
     'name.meaningText.emma': 'Entiere ; universelle',
@@ -2662,7 +2665,7 @@ const TRANSLATIONS: Record<string, Partial<TranslationMap>> = {
     'partner.code.label': 'Tu codigo de sala',
     'partner.code.hint':
       'Compartelo — tu pareja abre Introducir codigo e introduce el codigo.',
-    'partner.qr.hint': 'Tu pareja puede escanear para unirse rapido',
+    'partner.qr.hint': 'Escanea para abrir la pagina de union e introduce despues el codigo.',
     'partner.share': 'Compartir codigo',
     'partner.solo': 'Continuar sin pareja',
     'partner.info.join':
@@ -2677,7 +2680,7 @@ const TRANSLATIONS: Record<string, Partial<TranslationMap>> = {
     'partner.error.joinTitle': 'No se pudo unir',
     'partner.error.joinBody': 'Revisa el codigo e intenta de nuevo.',
     'partner.share.message':
-      "Unete a Babinom! Codigo: {{code}}\n\nDescarga la app y encontremos el nombre perfecto juntos!",
+      'Unete a Babinom!\n\nCodigo: {{code}}\n\nPagina para unirse (abre el navegador): {{url}}\n\nDescarga la app y encontremos el nombre perfecto juntos!',
     'partner.share.title': 'Unete a mi sala de Babinom!',
     'name.meaningText.fleur': 'Flor',
     'name.meaningText.emma': 'Entera; universal',
@@ -3222,7 +3225,7 @@ const TRANSLATIONS: Record<string, Partial<TranslationMap>> = {
     'partner.code.label': 'Il tuo codice stanza',
     'partner.code.hint':
       'Condividilo — il partner apre Inserisci codice e inserisce il codice.',
-    'partner.qr.hint': 'Il partner puo scansionare per unirsi in fretta',
+    'partner.qr.hint': 'Scansiona per aprire la pagina di accesso, poi inserisci il codice.',
     'partner.share': 'Condividi codice',
     'partner.solo': 'Continua senza partner',
     'partner.info.join':
@@ -3237,7 +3240,7 @@ const TRANSLATIONS: Record<string, Partial<TranslationMap>> = {
     'partner.error.joinTitle': 'Impossibile unirsi',
     'partner.error.joinBody': 'Controlla il codice e riprova.',
     'partner.share.message':
-      "Unisciti a Babinom! Codice: {{code}}\n\nScarica l app e troviamo il nome perfetto insieme!",
+      "Unisciti a Babinom!\n\nCodice: {{code}}\n\nPagina di accesso (si apre nel browser): {{url}}\n\nScarica l app e troviamo il nome perfetto insieme!",
     'partner.share.title': 'Unisciti alla mia stanza Babinom!',
     'name.meaningText.fleur': 'Fiore',
     'name.meaningText.emma': 'Intera; universale',
@@ -3825,7 +3828,7 @@ const TRANSLATIONS: Record<string, Partial<TranslationMap>> = {
     'partner.code.label': 'Seu codigo da sala',
     'partner.code.hint':
       'Compartilhe — seu parceiro abre Inserir codigo e digita o codigo.',
-    'partner.qr.hint': 'Seu parceiro pode escanear para entrar rapido',
+    'partner.qr.hint': 'Escaneie para abrir a pagina de entrada e depois informe o codigo.',
     'partner.share': 'Compartilhar codigo',
     'partner.solo': 'Continuar sem parceiro',
     'partner.info.join':
@@ -3840,7 +3843,7 @@ const TRANSLATIONS: Record<string, Partial<TranslationMap>> = {
     'partner.error.joinTitle': 'Nao foi possivel entrar',
     'partner.error.joinBody': 'Verifique o codigo e tente de novo.',
     'partner.share.message':
-      "Entre no Babinom! Codigo: {{code}}\n\nBaixe o app e vamos achar o nome perfeito juntos!",
+      'Entre no Babinom!\n\nCodigo: {{code}}\n\nPagina para entrar (abre no navegador): {{url}}\n\nBaixe o app e vamos achar o nome perfeito juntos!',
     'partner.share.title': 'Entre na minha sala Babinom!',
     'name.meaningText.fleur': 'Flor',
     'name.meaningText.emma': 'Inteira; universal',
@@ -4336,7 +4339,7 @@ const TRANSLATIONS: Record<string, Partial<TranslationMap>> = {
     'partner.create.loading': '创建中...',
     'partner.code.label': '你的房间代码',
     'partner.code.hint': '分享给伴侣 — 对方点「输入代码」并输入房间代码。',
-    'partner.qr.hint': '伴侣可扫码快速加入',
+    'partner.qr.hint': '扫码打开加入页面，然后在应用中输入房间代码。',
     'partner.share': '分享代码',
     'partner.solo': '不与伴侣连接，继续',
     'partner.info.join': '切换到输入代码，在下方输入伴侣的房间代码。',
@@ -4350,7 +4353,7 @@ const TRANSLATIONS: Record<string, Partial<TranslationMap>> = {
     'partner.error.joinTitle': '无法加入',
     'partner.error.joinBody': '请检查代码后重试。',
     'partner.share.message':
-      "来 Babinom 一起玩！代码：{{code}}\n\n下载应用，一起找到完美的宝宝名字！",
+      '和我一起在 Babinom 选名吧！\n\n房间代码：{{code}}\n\n加入页面（在浏览器打开）：{{url}}\n\n下载 App，我们一起找到最合适的宝宝名字！',
     'partner.share.title': '加入我的 Babinom 房间！',
     'name.meaningText.fleur': '花',
     'name.meaningText.emma': '完整；普遍',
@@ -5024,7 +5027,7 @@ const TRANSLATIONS: Record<string, Partial<TranslationMap>> = {
     'partner.code.label': 'ルームコード',
     'partner.code.hint':
       'パートナーと共有 — 相手は「コードを入力」からコードを入力します。',
-    'partner.qr.hint': 'スキャンで素早く参加できます',
+    'partner.qr.hint': '読み取ると参加用ページが開きます。その後コードを入力してください。',
     'partner.share': 'コードを共有',
     'partner.solo': 'パートナーなしで続ける',
     'partner.info.join':
@@ -5039,7 +5042,7 @@ const TRANSLATIONS: Record<string, Partial<TranslationMap>> = {
     'partner.error.joinTitle': '参加できませんでした',
     'partner.error.joinBody': 'コードを確認して再試行してください。',
     'partner.share.message':
-      'Babinomで一緒に！コード: {{code}}\n\nアプリをダウンロードして、ふたりで最高の名前を見つけよう！',
+      'Babinom で一緒に！\n\nコード: {{code}}\n\n参加ページ（ブラウザで開きます）: {{url}}\n\nアプリをダウンロードして、ふたりで最高の名前を見つけよう！',
     'partner.share.title': '私のBabinomルームに参加！',
     'name.meaningText.fleur': '花',
     'name.meaningText.emma': '全体；普遍的',
@@ -5646,7 +5649,7 @@ const TRANSLATIONS: Record<string, Partial<TranslationMap>> = {
     'partner.code.label': '내 방 코드',
     'partner.code.hint':
       '파트너와 공유하세요 — 상대는 코드 입력으로 들어가 코드를 입력합니다.',
-    'partner.qr.hint': '스캔하면 빠르게 참여할 수 있어요',
+    'partner.qr.hint': '스캔하면 참가 페이지가 열립니다. 이어서 코드를 입력해 주세요.',
     'partner.share': '코드 공유',
     'partner.solo': '파트너 없이 계속',
     'partner.info.join':
@@ -5661,7 +5664,7 @@ const TRANSLATIONS: Record<string, Partial<TranslationMap>> = {
     'partner.error.joinTitle': '참여할 수 없습니다',
     'partner.error.joinBody': '코드를 확인하고 다시 시도하세요.',
     'partner.share.message':
-      'Babinom에서 만나요! 코드: {{code}}\n\n앱을 다운로드하고 완벽한 아기 이름을 함께 찾아요!',
+      'Babinom에서 함께해요!\n\n코드: {{code}}\n\n참가 페이지(브라우저에서 열림): {{url}}\n\n앱을 다운로드하고 완벽한 아기 이름을 함께 찾아요!',
     'partner.share.title': '내 Babinom 방에 참여하세요!',
     'name.meaningText.fleur': '꽃',
     'name.meaningText.emma': '전체; 보편적',
@@ -6218,7 +6221,7 @@ const TRANSLATIONS: Record<string, Partial<TranslationMap>> = {
     'partner.code.label': 'رمز غرفتك',
     'partner.code.hint':
       'شاركه مع شريكك — يفتح ادخل الرمز ويدخل الرمز.',
-    'partner.qr.hint': 'يمكن لشريكك المسح للانضمام بسرعة',
+    'partner.qr.hint': 'المسح يفتح صفحة الانضمام، ثم ادخل الرمز في التطبيق.',
     'partner.share': 'مشاركة الرمز',
     'partner.solo': 'المتابعة بدون شريك',
     'partner.info.join':
@@ -6233,7 +6236,7 @@ const TRANSLATIONS: Record<string, Partial<TranslationMap>> = {
     'partner.error.joinTitle': 'تعذر الانضمام',
     'partner.error.joinBody': 'تحقق من الرمز وحاول مرة اخرى.',
     'partner.share.message':
-      'انضم الي على Babinom! الرمز: {{code}}\n\nحمّل التطبيق ولنجد اسم المولود المثالي معا!',
+      'انضم الي على Babinom!\n\nالرمز: {{code}}\n\nصفحة الانضمام (تفتح في المتصفح): {{url}}\n\nحمّل التطبيق ولنجد اسم المولود المثالي معا!',
     'partner.share.title': 'انضم الى غرفتي على Babinom!',
     'name.meaningText.fleur': 'زهرة',
     'name.meaningText.emma': 'كاملة؛ عالمية',
