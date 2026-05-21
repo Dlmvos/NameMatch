@@ -14,7 +14,12 @@ export const ENTITLEMENT_ID = 'premium_couple';
 export const PREMIUM_ENTITLEMENT_DISPLAY_NAME = 'Babinom Premium';
 export const RC_API_KEY_IOS = process.env.EXPO_PUBLIC_REVENUECAT_IOS_API_KEY?.trim() ?? '';
 export const RC_API_KEY_ANDROID = process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY?.trim() ?? '';
-export const RC_TEST_STORE_API_KEY = process.env.EXPO_PUBLIC_REVENUECAT_TEST_STORE_API_KEY?.trim() ?? '';
+// Dev/Expo Go only. Gated by __DEV__ so the env var is dead-code-eliminated from
+// production bundles (Metro replaces __DEV__ with false, the minifier drops the branch),
+// guaranteeing EXPO_PUBLIC_REVENUECAT_TEST_STORE_API_KEY is never inlined into release JS.
+export const RC_TEST_STORE_API_KEY = __DEV__
+  ? (process.env.EXPO_PUBLIC_REVENUECAT_TEST_STORE_API_KEY?.trim() ?? '')
+  : '';
 
 export type PremiumOfferingPackages = {
   lifetime: PurchasesPackage | null;
@@ -63,7 +68,9 @@ function getPlatformApiKey(): string {
 }
 
 function resolveRevenueCatApiKey(): { apiKey: string | null; reason?: string } {
-  if (isExpoGo()) {
+  // Expo Go only runs the dev bundle, so __DEV__ is always true here; gating with
+  // __DEV__ lets the minifier strip this test-store branch from production builds.
+  if (__DEV__ && isExpoGo()) {
     return isValidTestStoreKey(RC_TEST_STORE_API_KEY)
       ? { apiKey: RC_TEST_STORE_API_KEY }
       : { apiKey: null, reason: 'RevenueCat Test Store key is missing or invalid in Expo Go.' };
@@ -103,7 +110,8 @@ function warnPurchasesUnavailable(method: string): void {
   warnedDisabledMethods.add(method);
   const reason = purchasesDisabledReason ?? 'RevenueCat has not been configured.';
   const message = `[PurchaseService] ${method} skipped: ${reason}`;
-  if (isExpoGo()) {
+  // __DEV__-gated so the help text naming the test-store env var is stripped from release builds.
+  if (__DEV__ && isExpoGo()) {
     console.warn(
       `${message} ` +
         'Use a native development build, production build, or set EXPO_PUBLIC_REVENUECAT_TEST_STORE_API_KEY.',

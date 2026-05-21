@@ -6,6 +6,17 @@ import type { BabyName, Gender, Region, SwipeDirection } from '../types';
 
 const BABY_NAMES_IN_CHUNK = 100;
 
+/**
+ * PostgREST `onConflict` must match the DB unique constraint column order exactly.
+ * Production: `swipes_room_id_user_id_name_id_key` = UNIQUE(room_id, user_id, name_id).
+ */
+const SWIPES_ON_CONFLICT = 'room_id,user_id,name_id' as const;
+
+/** Normalize persisted UUID/text ids for consistent bundled + DB map lookups. */
+function normalizeBabyNameId(id: string): string {
+  return String(id ?? '').trim().toLowerCase();
+}
+
 /** Row shape returned by `swipes` for liked names. */
 interface LikedSwipeRow {
   id: string;
@@ -84,9 +95,10 @@ function toLikedNameFromBundled(row: LikedSwipeRow, bundled: BabyName): LikedNam
 
 async function fetchLikedBabyNameRows(nameIds: string[]): Promise<Map<string, LikedBabyNameRow>> {
   const out = new Map<string, LikedBabyNameRow>();
-  if (nameIds.length === 0) return out;
-  for (let i = 0; i < nameIds.length; i += BABY_NAMES_IN_CHUNK) {
-    const chunk = nameIds.slice(i, i + BABY_NAMES_IN_CHUNK);
+  const unique = [...new Set(nameIds.map(normalizeBabyNameId).filter(Boolean))];
+  if (unique.length === 0) return out;
+  for (let i = 0; i < unique.length; i += BABY_NAMES_IN_CHUNK) {
+    const chunk = unique.slice(i, i + BABY_NAMES_IN_CHUNK);
     const { data, error } = await supabase
       .from('baby_names')
       .select('id, name, meaning, origin, gender, country, region, is_worldwide, popularity_rank')
@@ -96,7 +108,7 @@ async function fetchLikedBabyNameRows(nameIds: string[]): Promise<Map<string, Li
       continue;
     }
     for (const row of (data ?? []) as LikedBabyNameRow[]) {
-      out.set(row.id, row);
+      out.set(normalizeBabyNameId(row.id), row);
     }
   }
   return out;
@@ -125,15 +137,16 @@ export const SwipeService = {
     nameId: string;
     direction: SwipeDirection;
   }): Promise<void> {
+    const nameId = normalizeBabyNameId(params.nameId);
     const { error } = await supabase.from('swipes').upsert(
       {
         user_id: params.userId,
         room_id: params.roomId,
-        name_id: params.nameId,
+        name_id: nameId,
         direction: params.direction,
         liked: params.direction === 'right',
       },
-      { onConflict: 'room_id,user_id,name_id' },
+      { onConflict: SWIPES_ON_CONFLICT },
     );
     if (error) throw error;
   },
@@ -143,9 +156,10 @@ export const SwipeService = {
     roomId: string;
     nameId: string;
   }): Promise<boolean> {
+    const nameId = normalizeBabyNameId(params.nameId);
     const { data, error } = await supabase.rpc('check_and_create_match', {
       p_room_id: params.roomId,
-      p_name_id: params.nameId,
+      p_name_id: nameId,
       p_user_id: params.userId,
     });
     if (error) throw error;
@@ -175,28 +189,19 @@ export const SwipeService = {
       return row.direction === 'right' || row.liked === true;
     }) as LikedSwipeRow[];
     if (swipes.length === 0) {
-      if (__DEV__) console.log('[SwipeService] getLikedNames: no liked swipes');
       return [];
     }
 
-    const uniqueIds = [...new Set(swipes.map((s) => s.name_id).filter(Boolean))];
+    const uniqueIds = [...new Set(swipes.map((s) => normalizeBabyNameId(s.name_id)).filter(Boolean))];
     const idsNeedingDb = uniqueIds.filter((id) => !getBundledNameById(id));
     const babyNamesById = await fetchLikedBabyNameRows(idsNeedingDb);
 
-    if (__DEV__) {
-      console.log('[SwipeService] getLikedNames loaded', {
-        swipes: swipes.length,
-        uniqueNameIds: uniqueIds.length,
-        bundledResolvable: uniqueIds.length - idsNeedingDb.length,
-        dbBabyNames: babyNamesById.size,
-      });
-    }
-
     return swipes
       .map((row) => {
-        const bundled = getBundledNameById(row.name_id);
+        const nid = normalizeBabyNameId(row.name_id);
+        const bundled = getBundledNameById(nid);
         if (bundled) return toLikedNameFromBundled(row, bundled);
-        const bn = babyNamesById.get(row.name_id);
+        const bn = babyNamesById.get(nid);
         if (!bn) return null;
         return toLikedNameFromDbBabyRow(row, bn);
       })
@@ -349,43 +354,75 @@ export const SwipeService = {
   },
 
   /**
-   * Unlike a name: flip the swipe to 'left' and clean up any match.
-   * Uses upsert (existing unique constraint on user_id+room_id+name_id).
-   *
-   * Match cleanup: attempts DELETE on the match row. If RLS blocks it
-   * (no DELETE policy yet), we silently skip — the match list is still
-   * accurate because the swipe direction changed and the match only existed
-   * because both users swiped right.
+   * Unlike a name: flip the swipe to 'left'. Prefers UPDATE (existing row); falls back to
+   * normalized vs raw name_id retry, then upsert ON CONFLICT. Never touches partner swipes.
    */
   async unlikeName(params: {
     userId: string;
     roomId: string;
     nameId: string;
   }): Promise<void> {
-    // 1. Flip swipe to 'left'
-    const { error: swipeErr } = await supabase.from('swipes').upsert(
-      {
-        user_id: params.userId,
-        room_id: params.roomId,
-        name_id: params.nameId,
-        direction: 'left',
-        liked: false,
-      },
-      { onConflict: 'room_id,user_id,name_id' },
-    );
-    if (swipeErr) throw swipeErr;
+    const normalizedId = normalizeBabyNameId(params.nameId);
+    const rawTrimmed = params.nameId.trim();
 
-    // 2. Best-effort match cleanup (may fail without DELETE RLS — that's OK)
-    try {
+    const tryUpdateWithNameId = async (nid: string) => {
+      const { error, data } = await supabase
+        .from('swipes')
+        .update({
+          direction: 'left',
+          liked: false,
+        })
+        .eq('room_id', params.roomId)
+        .eq('user_id', params.userId)
+        .eq('name_id', nid)
+        .select('id');
+
+      const rows = Array.isArray(data) ? data.length > 0 : !!data;
+
+      return { error, rows };
+    };
+
+    const finalizeSuccess = async () => {
       await supabase
         .from('matches')
         .delete()
         .eq('room_id', params.roomId)
-        .eq('name_id', params.nameId);
-    } catch {
-      // Non-fatal: match row stays but is now inconsistent.
-      // The UI hides it once user refreshes matches.
+        .eq('name_id', normalizedId);
+    };
+
+    // 1) UPDATE by normalized id (preferred when row matches getLikedNames hydration).
+    let { error: u1e, rows: r1 } = await tryUpdateWithNameId(normalizedId);
+    if (u1e) {
+      throw u1e;
     }
+    if (r1) return await finalizeSuccess();
+
+    // 2) UPDATE by raw trimmed id when storage differs only by casing/format.
+    if (rawTrimmed !== normalizedId) {
+      const { error: u2e, rows: r2 } = await tryUpdateWithNameId(rawTrimmed);
+      if (u2e) {
+        throw u2e;
+      }
+      if (r2) return await finalizeSuccess();
+    }
+
+    // 3) UPSERT — creates or replaces row for this room/user/name (onConflict matches DB).
+    const { error: upErr } = await supabase.from('swipes').upsert(
+      {
+        room_id: params.roomId,
+        user_id: params.userId,
+        name_id: normalizedId,
+        direction: 'left',
+        liked: false,
+      },
+      { onConflict: SWIPES_ON_CONFLICT },
+    );
+
+    if (upErr) {
+      throw upErr;
+    }
+
+    await finalizeSuccess();
   },
 };
 
