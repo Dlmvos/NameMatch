@@ -241,14 +241,6 @@ export default function MatchesScreen() {
           text: t('matches.likes.unlikeYes'),
           style: 'destructive',
           onPress: async () => {
-            if (__DEV__) {
-              console.log('[MatchesScreen] unlike attempt', {
-                roomId,
-                userId: user.id,
-                nameId: likedName.name.id,
-                swipeId: likedName.swipeId,
-              });
-            }
             try {
               await SwipeService.unlikeName({
                 userId: user.id,

@@ -259,8 +259,11 @@ create table public.swipes (
   id uuid primary key default uuid_generate_v4(),
   user_id uuid not null references public.profiles(id) on delete cascade,
   room_id uuid not null references public.rooms(id) on delete cascade,
-  name_id uuid not null references public.baby_names(id) on delete cascade,
+  -- text (not uuid) + no FK: bundled names live client-side with string ids like '00000001'.
+  name_id text not null,
   direction text not null check (direction in ('left', 'right')),
+  -- mirrors `direction = 'right'` for My Likes / partner queries (added 20260516).
+  liked boolean,
   created_at timestamptz not null default now(),
   unique(user_id, room_id, name_id)
 );
@@ -294,7 +297,8 @@ create policy "Users can update their own swipes"
 create table public.matches (
   id uuid primary key default uuid_generate_v4(),
   room_id uuid not null references public.rooms(id) on delete cascade,
-  name_id uuid not null references public.baby_names(id) on delete cascade,
+  -- text (not uuid) + no FK: matches store bundled/custom name ids (string), not baby_names.id.
+  name_id text not null,
   created_at timestamptz not null default now(),
   unique(room_id, name_id)
 );
@@ -619,7 +623,28 @@ create policy "baby_names read for matched names in user rooms"
       select 1
       from public.matches m
       inner join public.rooms r on r.id = m.room_id
-      where m.name_id = baby_names.id
+      where m.name_id = baby_names.id::text
+        and (r.user1_id = auth.uid() or r.user2_id = auth.uid())
+    )
+  );
+
+-- Authenticated: customs + any name referenced by own-room swipes (hydrates Liked Names reliably).
+drop policy if exists "baby_names readable custom or swiped in member rooms" on public.baby_names;
+
+create policy "baby_names readable custom or swiped in member rooms"
+  on public.baby_names
+  for select
+  to authenticated
+  using (
+    (
+      coalesce(origin, '') = 'Custom'
+      and not coalesce(is_premium, false)
+    )
+    or exists (
+      select 1
+      from public.swipes s
+      inner join public.rooms r on r.id = s.room_id
+      where s.name_id = baby_names.id::text
         and (r.user1_id = auth.uid() or r.user2_id = auth.uid())
     )
   );

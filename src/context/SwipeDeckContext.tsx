@@ -866,16 +866,6 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
           const insertAt = Math.min(2, prev.length);
           const nextDeck = [...prev.slice(0, insertAt), ...toAdd, ...prev.slice(insertAt)];
 
-          if (__DEV__) {
-            for (let i = 0; i < toAdd.length; i++) {
-              console.log('[CustomNameDebug] partner custom surfaced', {
-                id: toAdd[i].id,
-                name: toAdd[i].name,
-                index: insertAt + i,
-              });
-            }
-          }
-
           return nextDeck;
         });
       } catch {
@@ -996,14 +986,6 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
             roomId,
             nameId,
           });
-          if (__DEV__ && swipedName?.source === 'custom') {
-            console.log('[CustomNameDebug] swipe match RPC', {
-              roomId,
-              nameId,
-              isMatch,
-              name: swipedName.name,
-            });
-          }
           if (__DEV__ && DEBUG_SWIPE_DECK) {
             console.log('[SwipeDeck] match RPC result after right swipe', {
               userId,
