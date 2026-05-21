@@ -196,6 +196,7 @@ export function RoomProvider({ children }: { children: React.ReactNode }) {
     setIsLoadingRoom(true);
     try {
       const { room: newRoom, code } = await RoomService.createRoom(user.id);
+      AnalyticsService.track('invite_create', { room_code_length: code.length });
       // Set room state immediately so the screen can display the code
       // before refreshProfile triggers a navigator key change.
       setRoom(newRoom);
@@ -212,6 +213,10 @@ export function RoomProvider({ children }: { children: React.ReactNode }) {
     try {
       await RoomService.joinRoom(user.id, code);
       await refreshProfile();
+      AnalyticsService.track('invite_join_success', { room_code_length: code.length });
+    } catch (err) {
+      AnalyticsService.track('invite_join_failed', { room_code_length: code.length });
+      throw err;
     } finally {
       setIsLoadingRoom(false);
     }

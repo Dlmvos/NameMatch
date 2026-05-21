@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { colors } from '../theme';
 import {
   View,
@@ -20,6 +20,7 @@ import { useRoomActions, useRoomState } from '../context/RoomContext';
 import { useAuth } from '../context/AuthContext';
 import { useTranslation } from '../i18n/I18nProvider';
 import { createRoomJoinPayload } from '../lib/roomJoinPayload';
+import { AnalyticsService } from '../services/AnalyticsService';
 import { RootStackParamList } from '../types';
 import { COLORS, FONTS, RADIUS, SPACING, SHADOWS } from '../theme';
 
@@ -65,6 +66,17 @@ export default function PartnerConnectScreen({ navigation }: Props) {
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.9)).current;
+  const inviteQrViewLogged = useRef(false);
+
+  useEffect(() => {
+    if (!effectiveCode) inviteQrViewLogged.current = false;
+  }, [effectiveCode]);
+
+  const onInviteQrLayout = useCallback(() => {
+    if (inviteQrViewLogged.current || !effectiveCode || isConnected) return;
+    inviteQrViewLogged.current = true;
+    AnalyticsService.track('invite_qr_view', { room_code_length: effectiveCode.length });
+  }, [effectiveCode, isConnected]);
 
   useEffect(() => {
     Animated.parallel([
@@ -99,6 +111,9 @@ export default function PartnerConnectScreen({ navigation }: Props) {
   };
 
   const handleShare = async () => {
+    if (effectiveCode) {
+      AnalyticsService.track('invite_share_tap', { room_code_length: effectiveCode.length });
+    }
     try {
       await Share.share({
         message: t('partner.share.message', {
@@ -267,7 +282,7 @@ export default function PartnerConnectScreen({ navigation }: Props) {
                   {t('partner.code.hint')}
                 </Text>
 
-                <View style={[styles.qrCard, SHADOWS.card]}>
+                <View style={[styles.qrCard, SHADOWS.card]} onLayout={onInviteQrLayout}>
                   <QRCode value={joinPayload} size={170} />
                   <Text style={styles.qrHint}>{t('partner.qr.hint')}</Text>
                 </View>

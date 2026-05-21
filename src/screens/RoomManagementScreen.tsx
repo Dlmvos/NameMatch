@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -19,6 +19,7 @@ import { useTranslation } from '../i18n/I18nProvider';
 import { createRoomJoinPayload } from '../lib/roomJoinPayload';
 import { COMPATIBILITY_MIN_CODETERMINED, type CompatibilityMetrics } from '../lib/compatibilityScore';
 import { fetchRoomCompatibilityMetrics } from '../services/compatibilitySwipeService';
+import { AnalyticsService } from '../services/AnalyticsService';
 import { RootStackParamList } from '../types';
 import { colors, COLORS, FONTS, RADIUS, SPACING, SHADOWS } from '../theme';
 
@@ -31,6 +32,11 @@ export default function RoomManagementScreen({ navigation }: Props) {
   const [copiedFeedback, setCopiedFeedback] = useState(false);
   const [compatibility, setCompatibility] = useState<CompatibilityMetrics | null>(null);
   const [compatibilityLoading, setCompatibilityLoading] = useState(false);
+  const roomQrViewLoggedForId = useRef<string | null>(null);
+
+  useEffect(() => {
+    roomQrViewLoggedForId.current = null;
+  }, [room?.id]);
 
   useEffect(() => {
     if (!copiedFeedback) return;
@@ -40,6 +46,7 @@ export default function RoomManagementScreen({ navigation }: Props) {
 
   const handleShare = async () => {
     if (!room?.code) return;
+    AnalyticsService.track('invite_share_tap', { room_code_length: room.code.length });
     try {
       await Share.share({
         message: t('partner.share.message', {
@@ -113,6 +120,13 @@ export default function RoomManagementScreen({ navigation }: Props) {
 
   const joinPayload = createRoomJoinPayload(room.code);
 
+  const onRoomQrLayout = useCallback(() => {
+    if (!room?.code || !room.id) return;
+    if (roomQrViewLoggedForId.current === room.id) return;
+    roomQrViewLoggedForId.current = room.id;
+    AnalyticsService.track('invite_qr_view', { room_code_length: room.code.length });
+  }, [room?.id, room?.code]);
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <LinearGradient colors={[colors.onboarding.background, colors.neutral.white]} style={StyleSheet.absoluteFill} />
@@ -132,7 +146,7 @@ export default function RoomManagementScreen({ navigation }: Props) {
           <Text style={styles.codeValue}>{room.code}</Text>
         </View>
 
-        <View style={[styles.qrCard, SHADOWS.card]}>
+        <View style={[styles.qrCard, SHADOWS.card]} onLayout={onRoomQrLayout}>
           <QRCode value={joinPayload} size={190} />
           <Text style={styles.qrHint}>{t('partner.qr.hint')}</Text>
         </View>

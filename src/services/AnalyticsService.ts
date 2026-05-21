@@ -22,7 +22,12 @@ type AnalyticsEvent =
   | 'anticipation_swipe_blocked'
   | 'anticipation_cooldown_entered'
   | 'swipe_partner_room_session_started'
-  | 'swipe_partner_room_session_ended';
+  | 'swipe_partner_room_session_ended'
+  | 'invite_create'
+  | 'invite_share_tap'
+  | 'invite_qr_view'
+  | 'invite_join_success'
+  | 'invite_join_failed';
 
 type AnalyticsProperties = Record<string, string | number | boolean | null | undefined>;
 export type StoredAnalyticsEvent = {
