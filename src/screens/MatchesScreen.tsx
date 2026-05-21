@@ -241,22 +241,33 @@ export default function MatchesScreen() {
           text: t('matches.likes.unlikeYes'),
           style: 'destructive',
           onPress: async () => {
+            if (__DEV__) {
+              console.log('[MatchesScreen] unlike attempt', {
+                roomId,
+                userId: user.id,
+                nameId: likedName.name.id,
+                swipeId: likedName.swipeId,
+              });
+            }
             try {
               await SwipeService.unlikeName({
                 userId: user.id,
                 roomId,
                 nameId: likedName.name.id,
               });
-              // Optimistic removal from local state
               setLikedNames((prev) => prev.filter((l) => l.swipeId !== likedName.swipeId));
+              await fetchLikedNames();
             } catch (err: any) {
               console.error('[MatchesScreen] unlikeName error:', err?.message ?? err);
+              if (__DEV__) {
+                Alert.alert('Unlike failed', err?.message ?? String(err));
+              }
             }
           },
         },
       ],
     );
-  }, [user?.id, roomId, t]);
+  }, [user?.id, roomId, t, fetchLikedNames]);
 
   // Load saved notes
   useEffect(() => {
@@ -646,46 +657,58 @@ function LikedNameCard({
   });
 
   return (
-    <TouchableOpacity style={[styles.matchCard, SHADOWS.card]} activeOpacity={0.7} onPress={onPress}>
-      {/* Gender badge */}
-      <View style={[styles.rankBadge, { backgroundColor: genderColor + '22' }]}>
-        <Text style={{ fontSize: 20 }}>{genderEmoji}</Text>
-      </View>
-
-      {/* Name info */}
-      <View style={styles.matchInfo}>
-        <View style={styles.matchNameRow}>
-          <Text
-            style={styles.matchName}
-            numberOfLines={1}
-            adjustsFontSizeToFit
-            minimumFontScale={0.72}
-          >
-            {name.name}
-          </Text>
+    <View style={[styles.matchCard, styles.likedNameCard, SHADOWS.card]} accessibilityRole="none">
+      <TouchableOpacity
+        style={styles.likedCardTouchable}
+        activeOpacity={0.7}
+        onPress={onPress}
+        accessibilityRole="button"
+        accessibilityLabel={name.name}
+      >
+        <View style={[styles.rankBadge, { backgroundColor: genderColor + '22' }]}>
+          <Text style={{ fontSize: 20 }}>{genderEmoji}</Text>
         </View>
-        {isCustom ? (
-          <View style={styles.originRow}>
-            <View style={styles.customBadge}>
-              <Text style={styles.customBadgeText}>{t('matches.customName.badge')}</Text>
-            </View>
-          </View>
-        ) : null}
-        {likedSubtitle ? (
-          <Text style={styles.matchMeaning} numberOfLines={2}>
-            {likedSubtitle}
-          </Text>
-        ) : null}
-      </View>
 
-      {/* Meta + unlike */}
-      <View style={styles.matchMeta}>
+        <View style={styles.matchInfo}>
+          <View style={styles.matchNameRow}>
+            <Text
+              style={styles.matchName}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.72}
+            >
+              {name.name}
+            </Text>
+          </View>
+          {isCustom ? (
+            <View style={styles.originRow}>
+              <View style={styles.customBadge}>
+                <Text style={styles.customBadgeText}>{t('matches.customName.badge')}</Text>
+              </View>
+            </View>
+          ) : null}
+          {likedSubtitle ? (
+            <Text style={styles.matchMeaning} numberOfLines={2}>
+              {likedSubtitle}
+            </Text>
+          ) : null}
+        </View>
+      </TouchableOpacity>
+
+      <View style={styles.likedCardSideActions}>
         <Text style={styles.matchDate}>{dateStr}</Text>
-        <TouchableOpacity onPress={onUnlike} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Ionicons name="heart-dislike-outline" size={18} color={colors.neutral.gray} />
+        <TouchableOpacity
+          style={styles.likedRemoveButton}
+          onPress={onUnlike}
+          accessibilityRole="button"
+          accessibilityLabel={`${t('matches.likes.unlike')}: ${name.name}`}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <Ionicons name="trash-outline" size={18} color={colors.match.primary} />
+          <Text style={styles.likedRemoveButtonText}>{t('matches.likes.unlike')}</Text>
         </TouchableOpacity>
       </View>
-    </TouchableOpacity>
+    </View>
   );
 }
 
@@ -791,6 +814,41 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: SPACING.md,
     flexWrap: 'wrap',
+  },
+  likedNameCard: {
+    flexWrap: 'nowrap',
+    alignItems: 'flex-start',
+  },
+  likedCardTouchable: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: SPACING.md,
+    minWidth: 0,
+  },
+  likedCardSideActions: {
+    alignItems: 'flex-end',
+    justifyContent: 'flex-start',
+    gap: SPACING.sm,
+    flexShrink: 0,
+    alignSelf: 'stretch',
+    paddingTop: 2,
+  },
+  likedRemoveButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: SPACING.sm,
+    borderRadius: RADIUS.md,
+    backgroundColor: colors.neutral.bgSoft,
+    borderWidth: 1,
+    borderColor: colors.match.primary + '44',
+  },
+  likedRemoveButtonText: {
+    fontSize: FONTS.sizes.sm,
+    fontWeight: '700',
+    color: colors.match.primary,
   },
   rankBadge: {
     width: 44,
