@@ -184,6 +184,10 @@ const EN: TranslationMap = {
   'paywall.couple.feature.curatedNames': 'Real-time partner matching',
   'paywall.couple.feature.advancedFilters': 'Advanced filters',
   'paywall.couple.feature.meaningInsights': 'Deeper meanings',
+  'paywall.legal.subscriptionDisclosure':
+    'Subscriptions renew automatically unless cancelled at least 24 hours before the end of the current period. You can manage or cancel in your App Store account settings.',
+  'paywall.legal.privacyPolicy': 'Privacy Policy',
+  'paywall.legal.termsOfUse': 'Terms of Use (EULA)',
   'tab.swipe': 'Discover',
   'tab.matches': 'Matches',
   'tab.shop': 'Shop',
@@ -930,6 +934,10 @@ const TRANSLATIONS: Record<string, Partial<TranslationMap>> = {
     'paywall.couple.feature.curatedNames': 'Realtime partnermatching',
     'paywall.couple.feature.advancedFilters': 'Geavanceerde filters',
     'paywall.couple.feature.meaningInsights': 'Diepere betekenissen',
+    'paywall.legal.subscriptionDisclosure':
+      'Abonnementen worden automatisch verlengd tenzij je minstens 24 uur voor het einde van de lopende periode opzegt. Je kunt je abonnement beheren of opzeggen in je App Store-accountinstellingen.',
+    'paywall.legal.privacyPolicy': 'Privacybeleid',
+    'paywall.legal.termsOfUse': 'Gebruiksvoorwaarden (EULA)',
     'name.meaningLabel': 'BETEKENIS',
     'name.category.classic': 'Klassiek',
     'name.category.modern': 'Modern',
@@ -1519,6 +1527,10 @@ const TRANSLATIONS: Record<string, Partial<TranslationMap>> = {
     'paywall.couple.feature.curatedNames': 'Echtzeit-Partnermatching',
     'paywall.couple.feature.advancedFilters': 'Erweiterte Filter',
     'paywall.couple.feature.meaningInsights': 'Tiefere Bedeutungen',
+    'paywall.legal.subscriptionDisclosure':
+      'Abonnements verlängern sich automatisch, sofern sie nicht mindestens 24 Stunden vor Ende des aktuellen Zeitraums gekündigt werden. Verwaltung oder Kündigung in den Einstellungen deines Apple-IDs-/App‑Store‑Kontos.',
+    'paywall.legal.privacyPolicy': 'Datenschutzerklärung',
+    'paywall.legal.termsOfUse': 'Nutzungsbedingungen (EULA)',
     'name.meaningLabel': 'BEDEUTUNG',
     'name.category.classic': 'Klassisch',
     'name.category.modern': 'Modern',
@@ -2051,6 +2063,10 @@ const TRANSLATIONS: Record<string, Partial<TranslationMap>> = {
     'paywall.couple.feature.curatedNames': 'Matching partenaire en temps reel',
     'paywall.couple.feature.advancedFilters': 'Filtres avances',
     'paywall.couple.feature.meaningInsights': 'Significations approfondies',
+    'paywall.legal.subscriptionDisclosure':
+      'Les abonnements se renouvellent automatiquement, sauf resiliation au moins 24 heures avant la fin de la periode en cours. Vous pouvez les gerer ou les annuler dans les reglages de votre compte App Store.',
+    'paywall.legal.privacyPolicy': 'Politique de confidentialite',
+    'paywall.legal.termsOfUse': "Conditions d'utilisation (CLUF)",
     'filter.title': 'Filtrer les prenoms',
     'filter.sheet.title': 'Filtres',
     'filter.sheet.subtitle':
@@ -2471,6 +2487,10 @@ const TRANSLATIONS: Record<string, Partial<TranslationMap>> = {
     'paywall.couple.feature.curatedNames': 'Matching con tu pareja en tiempo real',
     'paywall.couple.feature.advancedFilters': 'Filtros avanzados',
     'paywall.couple.feature.meaningInsights': 'Significados mas profundos',
+    'paywall.legal.subscriptionDisclosure':
+      'Las suscripciones se renuevan automaticamente salvo cancelacion al menos 24 horas antes del fin del periodo en curso. Puedes gestionarlas o cancelarlas en los ajustes de la cuenta del App Store.',
+    'paywall.legal.privacyPolicy': 'Politica de privacidad',
+    'paywall.legal.termsOfUse': 'Condiciones de uso (EULA)',
     'tab.swipe': 'Descubrir',
     'tab.matches': 'Matches',
     'tab.shop': 'Tienda',
@@ -3246,6 +3266,10 @@ const TRANSLATIONS: Record<string, Partial<TranslationMap>> = {
     'paywall.couple.feature.curatedNames': 'Matching partner in tempo reale',
     'paywall.couple.feature.advancedFilters': 'Filtri avanzati',
     'paywall.couple.feature.meaningInsights': 'Significati approfonditi',
+    'paywall.legal.subscriptionDisclosure':
+      'Gli abbonamenti si rinnovano automaticamente salvo cancellazione almeno 24 ore prima della fine del periodo in corso. Puoi gestirli o annullarli nelle impostazioni dell account App Store.',
+    'paywall.legal.privacyPolicy': 'Informativa sulla privacy',
+    'paywall.legal.termsOfUse': 'Termini di utilizzo (EULA)',
     'filter.title': 'Filtra nomi',
     'filter.sheet.title': 'Filtri',
     'filter.sheet.subtitle':
@@ -3842,6 +3866,10 @@ const TRANSLATIONS: Record<string, Partial<TranslationMap>> = {
     'paywall.couple.feature.curatedNames': 'Matching com parceiro em tempo real',
     'paywall.couple.feature.advancedFilters': 'Filtros avancados',
     'paywall.couple.feature.meaningInsights': 'Significados mais profundos',
+    'paywall.legal.subscriptionDisclosure':
+      'As subscrições renovam-se automaticamente, salvo cancelamento com pelo menos 24 horas de antecedência do fim do período atual. Podes gerir ou cancelar nas definições da conta da App Store.',
+    'paywall.legal.privacyPolicy': 'Política de privacidade',
+    'paywall.legal.termsOfUse': 'Termos de uso (EULA)',
     'filter.title': 'Filtrar nomes',
     'filter.sheet.title': 'Filtros',
     'filter.sheet.subtitle':
@@ -4442,6 +4470,10 @@ const TRANSLATIONS: Record<string, Partial<TranslationMap>> = {
     'paywall.couple.feature.curatedNames': '实时伴侣匹配',
     'paywall.couple.feature.advancedFilters': '高级筛选',
     'paywall.couple.feature.meaningInsights': '更深层含义',
+    'paywall.legal.subscriptionDisclosure':
+      '订阅会在当前周期结束前自动续订，除非你在结束前至少提前 24 小时取消。可在 Apple ID / App Store 账户设置中管理或取消。',
+    'paywall.legal.privacyPolicy': '隐私政策',
+    'paywall.legal.termsOfUse': '使用条款（EULA）',
     'name.meaningLabel': '含义',
     'name.category.classic': '经典',
     'name.category.modern': '现代',
@@ -5027,6 +5059,10 @@ const TRANSLATIONS: Record<string, Partial<TranslationMap>> = {
     'paywall.couple.feature.curatedNames': 'リアルタイムパートナーマッチング',
     'paywall.couple.feature.advancedFilters': '高度なフィルター',
     'paywall.couple.feature.meaningInsights': '深い意味',
+    'paywall.legal.subscriptionDisclosure':
+      'サブスクは、現在の期間が終わるのに少なくとも24時間前に解約しない限り自動更新されます。Apple IDまたはApp Storeアカウント設定で管理・解約できます。',
+    'paywall.legal.privacyPolicy': 'プライバシーポリシー',
+    'paywall.legal.termsOfUse': '利用規約（EULA）',
     'filter.title': '名前をフィルター',
     'filter.sheet.title': 'フィルター',
     'filter.sheet.subtitle':
@@ -5511,6 +5547,10 @@ const TRANSLATIONS: Record<string, Partial<TranslationMap>> = {
     'paywall.couple.feature.curatedNames': '실시간 파트너 매칭',
     'paywall.couple.feature.advancedFilters': '고급 필터',
     'paywall.couple.feature.meaningInsights': '깊은 의미',
+    'paywall.legal.subscriptionDisclosure':
+      '구독은 현재 기간이 끝나기 최소 24시간 전에 취소하지 않으면 자동으로 갱신됩니다. Apple ID 또는 App Store 계정 설정에서 관리하거나 취소할 수 있습니다.',
+    'paywall.legal.privacyPolicy': '개인정보 처리방침',
+    'paywall.legal.termsOfUse': '이용약관(EULA)',
     'name.meaningLabel': '의미',
     'name.category.classic': '클래식',
     'name.category.modern': '모던',
@@ -6207,6 +6247,10 @@ const TRANSLATIONS: Record<string, Partial<TranslationMap>> = {
     'paywall.couple.feature.curatedNames': 'مطابقة الشريك في الوقت الفعلي',
     'paywall.couple.feature.advancedFilters': 'فلاتر متقدمة',
     'paywall.couple.feature.meaningInsights': 'معاني اعمق',
+    'paywall.legal.subscriptionDisclosure':
+      'تتجدد الاشتراكات تلقائياً ما لم يُلغ قبل 24 ساعة على الأقل من نهاية الفترة الحالية. يمكنك الإدارة أو الإلغاء من إعدادات حساب App Store أو Apple ID.',
+    'paywall.legal.privacyPolicy': 'سياسة الخصوصية',
+    'paywall.legal.termsOfUse': 'شروط الاستخدام (EULA)',
     'filter.title': 'تصفية الاسماء',
     'filter.sheet.title': 'الفلاتر',
     'filter.sheet.subtitle':

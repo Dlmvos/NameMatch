@@ -1,5 +1,14 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  ScrollView,
+  Alert,
+  Linking,
+  ActivityIndicator,
+} from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -18,6 +27,9 @@ import { AnalyticsService } from '../services/AnalyticsService';
 
 /** Same key as ShopScreen — dev-only mock premium unlocks. */
 const DEV_UNLOCKED_PACKS_KEY = 'NAMEMATCH_DEV_UNLOCKED_PACKS';
+
+const PAYWALL_PRIVACY_URL = 'https://babinom.com/privacy/';
+const PAYWALL_TERMS_URL = 'https://www.apple.com/legal/internet-services/itunes/dev/stdeula/';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Paywall'>;
 
@@ -39,6 +51,7 @@ export default function PaywallScreen({ navigation, route }: Props) {
   const [selectedPremium, setSelectedPremium] = useState<PurchasesPackage | null>(null);
   const [offersHydrated, setOffersHydrated] = useState(false);
   const [isBusy, setIsBusy] = useState(false);
+  const [isPurchasing, setIsPurchasing] = useState(false);
   const premiumFeatures = [
     t('paywall.couple.feature.unlimitedSwipes'),
     t('paywall.couple.feature.curatedNames'),
@@ -47,6 +60,10 @@ export default function PaywallScreen({ navigation, route }: Props) {
   ];
 
   const showDualOffers = Boolean(lifetimePkg && monthlyPkg);
+
+  /** Primary Unlock: wait for RevenueCat + a concrete package — never purchasePremium(undefined). */
+  const unlockEnabled =
+    offersHydrated && selectedPremium !== null && !isPurchasing && !isBusy;
 
   useFocusEffect(
     useCallback(() => {
@@ -135,12 +152,14 @@ export default function PaywallScreen({ navigation, route }: Props) {
   };
 
   const handlePurchase = async () => {
-    if (isBusy) return;
+    if (!offersHydrated || selectedPremium === null || isBusy || isPurchasing) return;
+
     AnalyticsService.track('paywall_cta_tap');
     AnalyticsService.track('purchase_started');
+    setIsPurchasing(true);
     setIsBusy(true);
     try {
-      const result = await PurchaseService.purchasePremium(selectedPremium ?? undefined);
+      const result = await PurchaseService.purchasePremium(selectedPremium);
       if (!result.success) {
         if ('unavailable' in result && result.unavailable) {
           AnalyticsService.track('purchase_failed', { reason: 'purchases_unavailable' });
@@ -165,6 +184,7 @@ export default function PaywallScreen({ navigation, route }: Props) {
       AnalyticsService.track('purchase_failed', { reason: err?.message ?? 'unknown' });
       Alert.alert(t('common.error'), err?.message ?? t('shop.purchaseError'));
     } finally {
+      setIsPurchasing(false);
       setIsBusy(false);
     }
   };
@@ -282,12 +302,17 @@ export default function PaywallScreen({ navigation, route }: Props) {
         </View>
 
         <TouchableOpacity
-          style={[styles.primaryButton, isBusy && styles.disabledButton]}
+          style={[styles.primaryButton, !unlockEnabled && styles.disabledButton]}
           onPress={handlePurchase}
-          disabled={isBusy}
+          disabled={!unlockEnabled}
+          accessibilityState={{ disabled: !unlockEnabled }}
           activeOpacity={0.9}
         >
-          <Text style={styles.primaryButtonText}>{t('paywall.couple.primaryCta')}</Text>
+          {!offersHydrated ? (
+            <ActivityIndicator color={colors.neutral.textDark} />
+          ) : (
+            <Text style={styles.primaryButtonText}>{t('paywall.couple.primaryCta')}</Text>
+          )}
         </TouchableOpacity>
 
         <Text style={styles.urgencyText}>{t('paywall.couple.urgencyCopy')}</Text>
@@ -306,6 +331,34 @@ export default function PaywallScreen({ navigation, route }: Props) {
         <Text style={styles.footerText}>
           {t('paywall.couple.footer')}
         </Text>
+
+        <View style={styles.legalSection} accessibilityRole="text">
+          <Text style={styles.legalDisclosureText}>{t('paywall.legal.subscriptionDisclosure')}</Text>
+          <View style={styles.legalLinksRow}>
+            <TouchableOpacity
+              activeOpacity={0.85}
+              accessibilityRole="link"
+              accessibilityLabel={t('paywall.legal.privacyPolicy')}
+              onPress={() => {
+                void Linking.openURL(PAYWALL_PRIVACY_URL).catch(() => {});
+              }}
+            >
+              <Text style={styles.legalLinkText}>{t('paywall.legal.privacyPolicy')}</Text>
+            </TouchableOpacity>
+            <Text style={styles.legalLinkSeparator}>·</Text>
+            <TouchableOpacity
+              activeOpacity={0.85}
+              accessibilityRole="link"
+              accessibilityLabel={t('paywall.legal.termsOfUse')}
+              onPress={() => {
+                void Linking.openURL(PAYWALL_TERMS_URL).catch(() => {});
+              }}
+            >
+              <Text style={styles.legalLinkText}>{t('paywall.legal.termsOfUse')}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
         <TouchableOpacity
           style={[styles.restoreLink, isBusy && styles.disabledButton]}
           onPress={handleRestore}
@@ -553,6 +606,39 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     textAlign: 'center',
     color: colors.neutral.textBody,
+  },
+  legalSection: {
+    marginTop: 8,
+    marginBottom: 4,
+    paddingHorizontal: 4,
+  },
+  legalDisclosureText: {
+    fontSize: 11,
+    lineHeight: 16,
+    textAlign: 'center',
+    color: colors.neutral.textBody,
+    marginBottom: 10,
+    opacity: 0.92,
+  },
+  legalLinksRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginBottom: 6,
+  },
+  legalLinkText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.match?.primary || colors.swipe.primary,
+    textDecorationLine: 'underline',
+  },
+  legalLinkSeparator: {
+    fontSize: 13,
+    color: colors.neutral.darkGray,
+    fontWeight: '600',
+    paddingHorizontal: 2,
   },
   restoreLink: {
     alignItems: 'center',
