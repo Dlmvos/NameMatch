@@ -38,6 +38,44 @@ function isSamePackage(a: PurchasesPackage | null, b: PurchasesPackage | null): 
   return a.identifier === b.identifier && a.product.identifier === b.product.identifier;
 }
 
+type PaywallT = (
+  key: string,
+  vars?: Record<string, string | number>,
+) => string;
+
+/** Prefer StoreKit/RevenueCat `priceString`; never show fabricated currency when hydrating or after failure. */
+function paywallPriceLabel(
+  t: PaywallT,
+  priceString: string | null | undefined,
+  offersHydrated: boolean,
+  kind: 'lifetime' | 'monthly',
+): string {
+  const trimmed = typeof priceString === 'string' ? priceString.trim() : '';
+  if (trimmed.length > 0) return trimmed;
+  if (!offersHydrated) return '…';
+  return t(
+    kind === 'monthly'
+      ? 'paywall.couple.priceUnavailableMonthly'
+      : 'paywall.couple.priceUnavailableOneTime',
+  );
+}
+
+function singleSkuPaywallPriceLabel(opts: {
+  t: PaywallT;
+  pkg: PurchasesPackage | null;
+  monthlyPkg: PurchasesPackage | null;
+  offersHydrated: boolean;
+}): string {
+  const { t, pkg, monthlyPkg, offersHydrated } = opts;
+  const trimmed = pkg?.product.priceString?.trim() ?? '';
+  if (trimmed.length > 0) return trimmed;
+  if (!offersHydrated) return '…';
+  if (!pkg) return t('paywall.couple.pricingUnavailable');
+  return monthlyPkg && isSamePackage(pkg, monthlyPkg)
+    ? t('paywall.couple.priceUnavailableMonthly')
+    : t('paywall.couple.priceUnavailableOneTime');
+}
+
 // TODO: If react-native-purchases-ui is added later, this screen can present RevenueCat's paywall UI.
 
 export default function PaywallScreen({ navigation, route }: Props) {
@@ -82,7 +120,7 @@ export default function PaywallScreen({ navigation, route }: Props) {
         setLegacyPkg(legacy);
       })
       .catch(() => {
-        /** Fall back to localized static prices via UI */
+        /** Offerings unavailable — UI avoids fake localized currency amounts */
       })
       .finally(() => {
         if (mounted) setOffersHydrated(true);
@@ -102,13 +140,20 @@ export default function PaywallScreen({ navigation, route }: Props) {
     setSelectedPremium(def ?? null);
   }, [lifetimePkg, monthlyPkg, legacyPkg]);
 
-  const singleSkuPrice = (() => {
-    if (showDualOffers) return '';
-    const pkg = lifetimePkg ?? monthlyPkg ?? legacyPkg;
-    if (pkg) return pkg.product.priceString;
-    if (!offersHydrated) return '…';
-    return t('paywall.couple.price');
-  })();
+  const singleSkuPkg = showDualOffers
+    ? null
+    : legacyPkg && !lifetimePkg && !monthlyPkg
+      ? legacyPkg
+      : lifetimePkg ?? monthlyPkg ?? legacyPkg;
+
+  const singleSkuPrice = showDualOffers
+    ? ''
+    : singleSkuPaywallPriceLabel({
+        t,
+        pkg: singleSkuPkg,
+        monthlyPkg,
+        offersHydrated,
+      });
 
   const navigateAfterPremiumVerified = () => {
     navigation.replace('MainTabs');
@@ -250,7 +295,12 @@ export default function PaywallScreen({ navigation, route }: Props) {
                   <Text style={styles.planRowCaption}>{t('paywall.couple.planLifetimeCaption')}</Text>
                 </View>
                 <Text style={styles.planRowPricePrimary}>
-                  {lifetimePkg?.product.priceString ?? t('paywall.couple.price')}
+                  {paywallPriceLabel(
+                    t,
+                    lifetimePkg?.product.priceString,
+                    offersHydrated,
+                    'lifetime',
+                  )}
                 </Text>
               </TouchableOpacity>
 
@@ -271,7 +321,12 @@ export default function PaywallScreen({ navigation, route }: Props) {
                 </View>
                 <View style={{ alignItems: 'flex-end' }}>
                   <Text style={styles.planRowPriceSecondary}>
-                    {monthlyPkg?.product.priceString ?? t('paywall.couple.priceMonthly')}
+                    {paywallPriceLabel(
+                      t,
+                      monthlyPkg?.product.priceString,
+                      offersHydrated,
+                      'monthly',
+                    )}
                   </Text>
                   {monthlyPkg?.product.pricePerYearString ? (
                     <Text style={styles.yearlyHint}>
