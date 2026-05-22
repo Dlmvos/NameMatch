@@ -798,10 +798,16 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
 
       const contextUnchanged = prevContext !== null && prevContext === deckRebuildContextKey;
       const deckGrewWithoutRemoval = isMergedDeckIdSetStrictGrowth(prevMergedIds, currDeckIds);
+      // Same id-set with same context (e.g. a partner-custom-only rebuild, where deckNames
+      // is unchanged): also treat as additive so the visible head is preserved and cards
+      // are not reordered (the full-resequence else-branch can shift order via session ctx).
+      const deckUnchanged =
+        prevMergedIds.size === currDeckIds.size &&
+        Array.from(currDeckIds).every((id) => prevMergedIds.has(id));
       const prevVisible = namesToSwipeRef.current;
 
       const useAdditiveAppend =
-        contextUnchanged && deckGrewWithoutRemoval && prevVisible.length > 0;
+        contextUnchanged && (deckGrewWithoutRemoval || deckUnchanged) && prevVisible.length > 0;
 
       const poolById = new Map(pool.map((n) => [n.id, n]));
       const gen = ++meaningEnrichmentGenerationRef.current;
@@ -887,32 +893,54 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
     }
 
     let cancelled = false;
+    const authUserId = user.id;
 
+    // Critical path: ONLY the swiped-id set gates first paint. It is light
+    // (single indexed query on swipes(user_id, room_id)) and is required so the
+    // deck can exclude already-swiped names on the first build.
     const loadSwipedIds = async () => {
       try {
-        const [ids, partnerCustom] = await Promise.race([
-          Promise.all([
-            SwipeService.getSwipedNameIds(user.id, roomId),
-            SwipeService.getPartnerCustomNameIds({ userId: user.id, roomId }),
-          ]),
+        const ids = await Promise.race([
+          SwipeService.getSwipedNameIds(authUserId, roomId),
           new Promise<never>((_, reject) =>
             setTimeout(() => reject(new Error('swipe state timeout')), STARTUP_HYDRATION_TIMEOUT_MS),
           ),
         ]);
         if (cancelled) return;
         swipedIdsRef.current = ids;
-        partnerCustomIdsRef.current = partnerCustom;
       } catch {
-        if (!cancelled) {
-          swipedIdsRef.current = new Set();
-          partnerCustomIdsRef.current = new Set();
-        }
+        if (!cancelled) swipedIdsRef.current = new Set();
       } finally {
         if (!cancelled) setSwipeStateHydrationKey(hydrationKey);
       }
     };
 
-    void loadSwipedIds();
+    // Background: partner-custom ids only feed the front-boost. This lookup is
+    // heavier (partner resolve + RLS-joined query), so it must NEVER gate first paint.
+    const loadPartnerCustomIds = async () => {
+      try {
+        const partnerCustom = await Promise.race([
+          SwipeService.getPartnerCustomNameIds({ userId: authUserId, roomId }),
+          new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error('partner custom timeout')), STARTUP_HYDRATION_TIMEOUT_MS),
+          ),
+        ]);
+        if (cancelled) return;
+        partnerCustomIdsRef.current = partnerCustom;
+        // Rebuild to apply the boost. deckNames is unchanged here, so buildNameQueue
+        // takes the stable-head additive path — visible cards are not reordered.
+        buildNameQueueRef.current();
+      } catch {
+        // best-effort: leave partnerCustomIdsRef empty; the realtime hook still
+        // surfaces newly right-swiped partner customs.
+      }
+    };
+
+    void (async () => {
+      await loadSwipedIds();
+      if (cancelled) return;
+      void loadPartnerCustomIds();
+    })();
 
     return () => {
       cancelled = true;
