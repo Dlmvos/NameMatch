@@ -41,6 +41,7 @@ import { AnalyticsService } from '../services/AnalyticsService';
 import { copresenceSampleEligible } from '../services/anticipationAnalytics';
 import { FEATURE_FLAGS, PAYWALL_PLACEMENT_VARIANTS } from '../services/featureFlags';
 import type { BabyName, RootStackParamList } from '../types';
+import { stableHash } from '../lib/stableHash';
 import { colors, COLORS, FONTS, RADIUS, SHADOWS, SPACING } from '../theme';
 
 /** Slice depth: keep one extra card mounted under the stack so the next name is already rendered before it surfaces. */
@@ -56,6 +57,13 @@ const PRE_MATCH_INHALE_MS = 400;
  * don't flatten emotional contrast — future anticipation hooks can read the same deadline.
  */
 const MATCH_SILENCE_COOLDOWN_MS = 90_000;
+
+/** Solo-only preview celebration: once per install/profile, not a saved match — must stay honest in copy and analytics payloads. */
+const PREVIEW_MATCH_SHOWN_ASYNC_KEY = 'babinom_preview_match_celebration_shown_v1';
+const PREVIEW_MATCH_RIGHT_SWIPE_THRESHOLD_MIN = 6;
+/** With min 6 yields thresholds 6, 7, 8 (never the first handful of solo likes). */
+const PREVIEW_MATCH_RIGHT_SWIPE_THRESHOLD_SPAN = 3;
+
 const DEV_PREVIEW_MATCH: BabyName = {
   id: 'dev-match-preview',
   name: 'Noah',
@@ -179,12 +187,73 @@ export default function SwipeScreen() {
   const copresenceSwipeSessionActiveRef = useRef(false);
   const copresenceStartedAtMsRef = useRef(0);
 
+  /** Solo preview match (“PREVIEW”) — not persisted as a mutual match */
+  const [soloPreviewName, setSoloPreviewName] = useState<BabyName | null>(null);
+  const soloPreviewRightSwipeCountRef = useRef(0);
+  const previewMatchThresholdRef = useRef<number | null>(null);
+  const previewCelebrationMountedAtMsRef = useRef(0);
+  const pendingMilestoneRef = useRef(false);
+  const hasPartnerRef = useRef(false);
+
   // Completion-bias: progress toward curated packs (~40 swipes); offers first near ~40 swipes then on 45-swipe rhythm (min gap 45).
   const RECOMMENDATION_CADENCE = 40;
 
   const freeSwipesLeft = profile?.free_swipes_remaining ?? 0;
   const hasUnlockedPacks = effectiveUnlockedPacks.length > 0;
   const hasPartner = !!(room?.user2_id);
+
+  useEffect(() => {
+    previewMatchThresholdRef.current = profile?.id
+      ? PREVIEW_MATCH_RIGHT_SWIPE_THRESHOLD_MIN +
+        (stableHash(`${profile.id}:preview_celebration`) %
+          PREVIEW_MATCH_RIGHT_SWIPE_THRESHOLD_SPAN)
+      : null;
+    soloPreviewRightSwipeCountRef.current = 0;
+  }, [profile?.id]);
+
+  useEffect(() => {
+    pendingMilestoneRef.current = !!pendingMilestone;
+  }, [pendingMilestone]);
+
+  useEffect(() => {
+    hasPartnerRef.current = hasPartner;
+  }, [hasPartner]);
+
+  useEffect(() => {
+    if (latestMatch && soloPreviewName) {
+      setSoloPreviewName(null);
+      previewCelebrationMountedAtMsRef.current = 0;
+    }
+  }, [latestMatch, soloPreviewName]);
+
+  useEffect(() => {
+    if (!soloPreviewName) return;
+    previewCelebrationMountedAtMsRef.current = Date.now();
+    const thr = previewMatchThresholdRef.current ?? -1;
+    AnalyticsService.track('preview_match_shown', {
+      trigger_threshold: thr >= 6 && thr <= 8 ? thr : undefined,
+    });
+  }, [soloPreviewName]);
+
+  const dismissSoloPreview = useCallback(() => {
+    const now = Date.now();
+    const dwell_ms =
+      previewCelebrationMountedAtMsRef.current > 0
+        ? Math.max(0, now - previewCelebrationMountedAtMsRef.current)
+        : 0;
+    AnalyticsService.track('preview_match_dismissed', {
+      dwell_ms,
+    });
+    setSoloPreviewName(null);
+    previewCelebrationMountedAtMsRef.current = 0;
+  }, []);
+
+  const onPreviewInvitePartner = useCallback(() => {
+    AnalyticsService.track('preview_match_invite_tapped');
+    setSoloPreviewName(null);
+    previewCelebrationMountedAtMsRef.current = 0;
+    navigation.navigate('PartnerConnect');
+  }, [navigation]);
   const screenshotNames =
     __DEV__ && useDevScreenshotDeck
       ? (devScreenshotDeckNames ?? DEV_SCREENSHOT_NAMES)
@@ -228,6 +297,10 @@ export default function SwipeScreen() {
   );
   const suppressSwipeAutoPaywall =
     paywallPlacement === 'shop_only' || paywallPlacement === 'post_onboarding';
+  const previewMatchEnabled = useBooleanFlag(
+    'preview_match_enabled',
+    FEATURE_FLAGS.preview_match_enabled.defaultValue,
+  );
   const shouldShowProgressCue =
     swipeCountRef.current > 0 &&
     swipesToCurated > 0 &&
@@ -471,6 +544,35 @@ export default function SwipeScreen() {
       isSwipingRef.current = false;
     }
     await swipePromise;
+
+    if (
+      direction === 'right' &&
+      previewMatchEnabled &&
+      !hasPartnerRef.current &&
+      !useDevScreenshotDeck &&
+      profile?.id &&
+      previewMatchThresholdRef.current != null
+    ) {
+      soloPreviewRightSwipeCountRef.current += 1;
+      const countNow = soloPreviewRightSwipeCountRef.current;
+      const threshold = previewMatchThresholdRef.current;
+      const tappedNameSnapshot = name;
+      void (async () => {
+        try {
+          const previewStorageKey = `${PREVIEW_MATCH_SHOWN_ASYNC_KEY}:${profile!.id}`;
+          if (countNow !== threshold) return;
+          if (latestMatchRef.current || pendingMilestoneRef.current || hasPartnerRef.current) return;
+          const marker = await AsyncStorage.getItem(previewStorageKey);
+          if (marker === '1') return;
+          if (latestMatchRef.current || pendingMilestoneRef.current || hasPartnerRef.current) return;
+          await AsyncStorage.setItem(previewStorageKey, '1');
+          if (latestMatchRef.current || pendingMilestoneRef.current || hasPartnerRef.current) return;
+          setSoloPreviewName(tappedNameSnapshot);
+        } catch {
+          // Fail closed: never block swiping on preview storage failures.
+        }
+      })();
+    }
 
     swipeCountRef.current += 1;
     swipeSignalsRef.current = [
@@ -765,6 +867,14 @@ export default function SwipeScreen() {
         </TouchableOpacity>
       ) : null}
 
+      {soloPreviewName && !latestMatch && (
+        <MatchCelebration
+          variant="preview"
+          name={soloPreviewName}
+          onDismiss={dismissSoloPreview}
+          onInvitePartner={onPreviewInvitePartner}
+        />
+      )}
       {latestMatch && matchCelebrationReady && (
         <MatchCelebration
           name={latestMatch}

@@ -27,7 +27,10 @@ type AnalyticsEvent =
   | 'invite_share_tap'
   | 'invite_qr_view'
   | 'invite_join_success'
-  | 'invite_join_failed';
+  | 'invite_join_failed'
+  | 'preview_match_shown'
+  | 'preview_match_invite_tapped'
+  | 'preview_match_dismissed';
 
 type AnalyticsProperties = Record<string, string | number | boolean | null | undefined>;
 export type StoredAnalyticsEvent = {

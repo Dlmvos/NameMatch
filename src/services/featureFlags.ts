@@ -46,6 +46,12 @@ export const FEATURE_FLAGS = {
    * Default off so the full flow remains the baseline.
    */
   onboarding_short: { defaultValue: false as const },
+
+  /**
+   * Solo-only emotional preview celebrating a right-swipe moment (labeled PREVIEW — not a real partner match).
+   * Default off; enable when rollout copy and analytics are validated.
+   */
+  preview_match_enabled: { defaultValue: false as const },
 } as const;
 
 export type FeatureFlagKey = keyof typeof FEATURE_FLAGS;

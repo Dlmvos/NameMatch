@@ -37,11 +37,21 @@ const TEAL = colors.onboarding.primary;
 /** Parent (`SwipeScreen`) delays mounting until after card inhale; it applies a silence window after dismiss. */
 interface MatchCelebrationProps {
   name: BabyName;
+  variant?: 'match' | 'preview';
   onDismiss: () => void;
+  /** Real match variant: navigate to Matches. */
   onViewMatches?: () => void;
+  /** Preview variant primary CTA (e.g. navigate to PartnerConnect). */
+  onInvitePartner?: () => void;
 }
 
-export default function MatchCelebration({ name, onDismiss, onViewMatches }: MatchCelebrationProps) {
+export default function MatchCelebration({
+  name,
+  variant = 'match',
+  onDismiss,
+  onViewMatches,
+  onInvitePartner,
+}: MatchCelebrationProps) {
   const { t, language } = useTranslation();
   const scaleAnim = useRef(new Animated.Value(0.82)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -277,6 +287,8 @@ export default function MatchCelebration({ name, onDismiss, onViewMatches }: Mat
     });
   }, [fadeAnim, glowPulse, heartScale, nameReveal, nameScale, oneTextFade, ringScale1, ringScale2, ringScale3, scaleAnim, shimmerPos, sparkles]);
 
+  const isPreview = variant === 'preview';
+
   return (
     <Modal transparent animationType="none" visible statusBarTranslucent>
       {/* Soft blush backdrop — full-screen, but still part of the app */}
@@ -329,28 +341,65 @@ export default function MatchCelebration({ name, onDismiss, onViewMatches }: Mat
         <Animated.View style={[styles.ring, styles.ring2, { borderColor: theme.ring, transform: [{ scale: ringScale2 }] }]} />
         <Animated.View style={[styles.ring, styles.ring3, { borderColor: theme.ring, transform: [{ scale: ringScale1 }] }]} />
 
-        {/* Headline: "You both chose {name}" */}
-        <Text
-          style={styles.headline}
-          numberOfLines={2}
-          adjustsFontSizeToFit
-          minimumFontScale={0.7}
-        >
-          {t('match.title', { name: name.name })}
-        </Text>
+        {/* Headline — real match UI unchanged; PREVIEW labeled solo moment */}
+        {isPreview ? (
+          <>
+            <View style={styles.previewBadgeWrap}>
+              <Text style={[styles.previewBadgeText, { color: theme.accent, borderColor: theme.accent }]}>
+                {t('match.preview.badge')}
+              </Text>
+            </View>
+            <Text
+              style={styles.headline}
+              numberOfLines={2}
+              adjustsFontSizeToFit
+              minimumFontScale={0.7}
+            >
+              {t('match.preview.title', { name: name.name })}
+            </Text>
 
-        <Text style={styles.subtitle} numberOfLines={2}>
-          {t('match.subtitle')}
-        </Text>
+            <Text style={[styles.subtitle, styles.previewSubtitleBelow]} numberOfLines={3}>
+              {t('match.preview.subtitle')}
+            </Text>
 
-        <View style={styles.partnerAvatars} accessibilityLabel={t('match.partnerAvatarsA11y')}>
-          <View style={[styles.partnerAvatar, { borderColor: theme.accent }]}>
-            <Text style={styles.partnerAvatarText}>{t('match.avatarYou')}</Text>
-          </View>
-          <View style={[styles.partnerAvatar, styles.partnerAvatarOverlap, { borderColor: theme.accent }]}>
-            <Text style={styles.partnerAvatarText}>♥</Text>
-          </View>
-        </View>
+            <Text style={styles.previewExplainer} numberOfLines={4}>
+              {t('match.preview.explainer')}
+            </Text>
+
+            <View style={styles.partnerAvatars} accessibilityLabel={t('match.preview.partnerSlotA11y')}>
+              <View style={[styles.partnerAvatar, { borderColor: theme.accent }]}>
+                <Text style={styles.partnerAvatarText}>{t('match.avatarYou')}</Text>
+              </View>
+              <View style={[styles.partnerAvatar, styles.partnerAvatarOverlap, styles.partnerAvatarPlaceholder]}>
+                <Text style={styles.partnerAvatarPlaceholderGlyph}>…</Text>
+              </View>
+            </View>
+          </>
+        ) : (
+          <>
+            <Text
+              style={styles.headline}
+              numberOfLines={2}
+              adjustsFontSizeToFit
+              minimumFontScale={0.7}
+            >
+              {t('match.title', { name: name.name })}
+            </Text>
+
+            <Text style={[styles.subtitle, styles.subtitleMatchBelow]} numberOfLines={2}>
+              {t('match.subtitle')}
+            </Text>
+
+            <View style={styles.partnerAvatars} accessibilityLabel={t('match.partnerAvatarsA11y')}>
+              <View style={[styles.partnerAvatar, { borderColor: theme.accent }]}>
+                <Text style={styles.partnerAvatarText}>{t('match.avatarYou')}</Text>
+              </View>
+              <View style={[styles.partnerAvatar, styles.partnerAvatarOverlap, { borderColor: theme.accent }]}>
+                <Text style={styles.partnerAvatarText}>♥</Text>
+              </View>
+            </View>
+          </>
+        )}
 
         {/* The name — hero, centered, large */}
         <Animated.View style={[styles.nameArea, { opacity: nameReveal, transform: [{ scale: nameScale }] }]}>
@@ -376,9 +425,11 @@ export default function MatchCelebration({ name, onDismiss, onViewMatches }: Mat
           >
             {name.name}
           </Text>
-          <Animated.Text style={[styles.oneText, { color: theme.accent, opacity: oneTextFade }]}>
-            {t('match.theOne')}
-          </Animated.Text>
+          {!isPreview ? (
+            <Animated.Text style={[styles.oneText, { color: theme.accent, opacity: oneTextFade }]}>
+              {t('match.theOne')}
+            </Animated.Text>
+          ) : null}
 
           {/* Origin + meaning below name */}
           {(() => {
@@ -403,46 +454,67 @@ export default function MatchCelebration({ name, onDismiss, onViewMatches }: Mat
           </View>
         </Animated.View>
 
-        {/* Actions — bottom-anchored, de-emphasized */}
+        {/* Actions — bottom-anchored */}
         <View style={styles.actionsArea}>
-          {/* Primary: Keep Swiping */}
-          <TouchableOpacity
-            style={[styles.primaryBtn, { backgroundColor: theme.accent }]}
-            onPress={onDismiss}
-            activeOpacity={0.85}
-          >
-            <Text
-              style={styles.primaryBtnText}
-              numberOfLines={1}
-              adjustsFontSizeToFit
-              minimumFontScale={0.76}
-            >
-              {t('match.keepSwiping')}
-            </Text>
-          </TouchableOpacity>
+          {isPreview ? (
+            <>
+              <TouchableOpacity
+                style={[styles.primaryBtn, { backgroundColor: theme.accent }]}
+                onPress={() => onInvitePartner?.()}
+                activeOpacity={0.85}
+              >
+                <Text
+                  style={styles.primaryBtnText}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.76}
+                >
+                  {t('match.preview.invitePartner')}
+                </Text>
+              </TouchableOpacity>
 
-          {/* Secondary: Share — text-only, soft */}
-          <TouchableOpacity
-            style={styles.secondaryBtn}
-            onPress={handleShare}
-            activeOpacity={0.7}
-          >
-            <Text style={[styles.secondaryBtnText, { color: theme.accent }]}>
-              {t('match.share')}
-            </Text>
-          </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.secondaryBtn}
+                onPress={onDismiss}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.secondaryBtnText, { color: theme.accent }]}>
+                  {t('match.preview.keepDiscovering')}
+                </Text>
+              </TouchableOpacity>
+            </>
+          ) : (
+            <>
+              {/* Primary: Keep Swiping */}
+              <TouchableOpacity
+                style={[styles.primaryBtn, { backgroundColor: theme.accent }]}
+                onPress={onDismiss}
+                activeOpacity={0.85}
+              >
+                <Text
+                  style={styles.primaryBtnText}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.76}
+                >
+                  {t('match.keepSwiping')}
+                </Text>
+              </TouchableOpacity>
 
-          {/* Tertiary: View Matches — barely visible, no pressure */}
-          {onViewMatches && (
-            <TouchableOpacity
-              style={styles.tertiaryBtn}
-              onPress={onViewMatches}
-              activeOpacity={0.6}
-            >
-              <Text style={[styles.tertiaryBtnText, { color: theme.accent }]}>
-                {t('match.viewAll')}
-              </Text>
-            </TouchableOpacity>
+              {/* Secondary: Share — text-only, soft */}
+              <TouchableOpacity style={styles.secondaryBtn} onPress={handleShare} activeOpacity={0.7}>
+                <Text style={[styles.secondaryBtnText, { color: theme.accent }]}>{t('match.share')}</Text>
+              </TouchableOpacity>
+
+              {/* Tertiary: View Matches — barely visible, no pressure */}
+              {onViewMatches && (
+                <TouchableOpacity style={styles.tertiaryBtn} onPress={onViewMatches} activeOpacity={0.6}>
+                  <Text style={[styles.tertiaryBtnText, { color: theme.accent }]}>
+                    {t('match.viewAll')}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </>
           )}
         </View>
       </Animated.View>
@@ -509,7 +581,37 @@ const styles = StyleSheet.create({
     color: TEXT_BODY,
     textAlign: 'center',
     opacity: 0.78,
+  },
+  subtitleMatchBelow: {
     marginBottom: SPACING.xl,
+  },
+  previewSubtitleBelow: {
+    marginBottom: SPACING.sm,
+  },
+  previewBadgeWrap: {
+    marginBottom: SPACING.sm,
+  },
+  previewBadgeText: {
+    alignSelf: 'center',
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 2,
+    textTransform: 'uppercase',
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 999,
+    borderWidth: 1.5,
+    overflow: 'hidden',
+  },
+  previewExplainer: {
+    fontSize: FONTS.sizes.sm,
+    fontWeight: '400',
+    color: TEXT_BODY,
+    textAlign: 'center',
+    opacity: 0.88,
+    lineHeight: 20,
+    marginBottom: SPACING.lg,
+    paddingHorizontal: SPACING.sm,
   },
   partnerAvatars: {
     flexDirection: 'row',
@@ -533,6 +635,18 @@ const styles = StyleSheet.create({
   },
   partnerAvatarOverlap: {
     marginLeft: -10,
+  },
+  partnerAvatarPlaceholder: {
+    borderStyle: 'dashed',
+    backgroundColor: 'rgba(255,255,255,0.55)',
+    borderColor: TEXT_MUTED,
+  },
+  partnerAvatarPlaceholderGlyph: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: TEXT_MUTED,
+    opacity: 0.95,
+    letterSpacing: 2,
   },
   partnerAvatarText: {
     fontSize: FONTS.sizes.xs,
