@@ -13,7 +13,7 @@ const BABY_NAMES_IN_CHUNK = 100;
 const SWIPES_ON_CONFLICT = 'room_id,user_id,name_id' as const;
 
 /** Normalize persisted UUID/text ids for consistent bundled + DB map lookups. */
-function normalizeBabyNameId(id: string): string {
+export function normalizeBabyNameId(id: string): string {
   return String(id ?? '').trim().toLowerCase();
 }
 
@@ -36,6 +36,26 @@ interface LikedBabyNameRow {
   region: string;
   is_worldwide: boolean;
   popularity_rank: number | null;
+  is_premium?: boolean | null;
+  /** Set on rows created via `create_custom_name` (partner suggestion). */
+  suggested_by_user_id?: string | null;
+}
+
+const PARTNER_SUGGESTED_BABY_NAME_SELECT =
+  'id,name,meaning,origin,gender,country,region,is_worldwide,popularity_rank,is_premium,suggested_by_user_id';
+
+function isPremiumBabyNameRow(bn: LikedBabyNameRow): boolean {
+  return bn.is_premium === true;
+}
+
+/** Partner-suggested / user-authored swipe surface (not arbitrary catalog likes). */
+function isPartnerSuggestedBabyRow(partnerProfileId: string, bn: LikedBabyNameRow): boolean {
+  if (isPremiumBabyNameRow(bn)) return false;
+  const proposer = bn.suggested_by_user_id;
+  if (proposer && normalizeBabyNameId(proposer) === normalizeBabyNameId(partnerProfileId)) {
+    return true;
+  }
+  return (bn.origin ?? '').trim().toLowerCase() === 'custom';
 }
 
 export interface LikedName {
@@ -47,6 +67,8 @@ export interface LikedName {
 function likedBabyNameRowToBabyName(bn: LikedBabyNameRow): BabyName {
   const enriched = enrichName(bn.name);
   const popularity_rank = bn.popularity_rank ?? enriched.popularity_rank;
+  const customSuggestion =
+    (bn.origin ?? '').trim().toLowerCase() === 'custom' || !!bn.suggested_by_user_id;
   return {
     id: bn.id,
     name: bn.name,
@@ -60,7 +82,7 @@ function likedBabyNameRowToBabyName(bn: LikedBabyNameRow): BabyName {
     rarity: rarityFromPopularityRank(popularity_rank),
     trend: enriched.trend,
     pronunciation: enriched.pronunciation,
-    source: bn.origin === 'Custom' ? 'custom' : 'catalog',
+    source: customSuggestion ? 'custom' : 'catalog',
   };
 }
 
@@ -233,18 +255,15 @@ export const SwipeService = {
           : null;
       if (!partnerId) return new Set();
 
-      // 2. Partner's right-swiped custom names
-      const { data: partnerCustomSwipes } = await supabase
+      const { data: partnerRows } = await supabase
         .from('swipes')
-        .select('name_id, baby_names!inner(origin)')
+        .select(`name_id, baby_names!inner(${PARTNER_SUGGESTED_BABY_NAME_SELECT})`)
         .eq('user_id', partnerId)
         .eq('room_id', params.roomId)
-        .eq('direction', 'right')
-        .eq('baby_names.origin', 'Custom');
+        .eq('direction', 'right');
 
-      if (!partnerCustomSwipes?.length) return new Set();
+      if (!partnerRows?.length) return new Set();
 
-      // 3. Exclude names the current user already swiped
       const { data: mySwiped } = await supabase
         .from('swipes')
         .select('name_id')
@@ -252,14 +271,21 @@ export const SwipeService = {
         .eq('room_id', params.roomId);
 
       const mySwipedSet = new Set(
-        (mySwiped ?? []).map((r: { name_id: string }) => r.name_id),
+        (mySwiped ?? []).map((r: { name_id: string }) => normalizeBabyNameId(r.name_id)),
       );
 
-      return new Set(
-        (partnerCustomSwipes as unknown as { name_id: string }[])
-          .map((r) => r.name_id)
-          .filter((id) => !mySwipedSet.has(id)),
-      );
+      const out = new Set<string>();
+      for (const raw of partnerRows as unknown as {
+        name_id: string;
+        baby_names: LikedBabyNameRow | LikedBabyNameRow[] | null;
+      }[]) {
+        if (mySwipedSet.has(normalizeBabyNameId(raw.name_id))) continue;
+        const bnRaw = raw.baby_names;
+        const bn = Array.isArray(bnRaw) ? bnRaw[0] : bnRaw;
+        if (!bn?.id || !isPartnerSuggestedBabyRow(partnerId, bn)) continue;
+        out.add(raw.name_id);
+      }
+      return out;
     } catch (err: any) {
       console.error('[SwipeService] getPartnerCustomNameIds error:', err?.message ?? err);
       return new Set();
@@ -292,16 +318,10 @@ export const SwipeService = {
 
       const { data: partnerRows, error: partnerErr } = await supabase
         .from('swipes')
-        .select(
-          [
-            'name_id',
-            'baby_names!inner(id,name,meaning,origin,gender,country,region,is_worldwide,popularity_rank)',
-          ].join(','),
-        )
+        .select(`name_id, baby_names!inner(${PARTNER_SUGGESTED_BABY_NAME_SELECT})`)
         .eq('user_id', partnerId)
         .eq('room_id', params.roomId)
         .eq('direction', 'right')
-        .eq('baby_names.origin', 'Custom')
         .order('created_at', { ascending: false });
 
       if (partnerErr || !partnerRows?.length) return [];
@@ -312,7 +332,9 @@ export const SwipeService = {
         .eq('user_id', params.userId)
         .eq('room_id', params.roomId);
 
-      const mySwipedSet = new Set((mySwiped ?? []).map((r: { name_id: string }) => r.name_id));
+      const mySwipedSet = new Set(
+        (mySwiped ?? []).map((r: { name_id: string }) => normalizeBabyNameId(r.name_id)),
+      );
 
       const out: BabyName[] = [];
       const seenId = new Set<string>();
@@ -320,10 +342,10 @@ export const SwipeService = {
         name_id: string;
         baby_names: LikedBabyNameRow | LikedBabyNameRow[] | null;
       }[]) {
-        if (mySwipedSet.has(raw.name_id)) continue;
+        if (mySwipedSet.has(normalizeBabyNameId(raw.name_id))) continue;
         const bnRaw = raw.baby_names;
         const bn = Array.isArray(bnRaw) ? bnRaw[0] : bnRaw;
-        if (!bn?.id || bn.origin !== 'Custom') continue;
+        if (!bn?.id || !isPartnerSuggestedBabyRow(partnerId, bn)) continue;
         if (seenId.has(bn.id)) continue;
         seenId.add(bn.id);
         out.push(likedBabyNameRowToBabyName(bn));
@@ -343,14 +365,36 @@ export const SwipeService = {
     const channel = supabase.channel(`partner-swipe-deck:${roomId}`, {
       config: { broadcast: { self: true } },
     });
-    void channel.subscribe((status) => {
-      if (status !== 'SUBSCRIBED') return;
+    let sent = false;
+    const teardown = () => {
+      try {
+        void supabase.removeChannel(channel);
+      } catch {
+        // ignore duplicate teardown
+      }
+    };
+    const sendHint = () => {
+      if (sent) return;
+      sent = true;
       void channel
         .send({ type: 'broadcast', event: 'refetch_partner_custom', payload: {} })
         .finally(() => {
-          void supabase.removeChannel(channel);
+          setTimeout(teardown, 900);
         });
+    };
+
+    channel.subscribe((status) => {
+      if (status === 'SUBSCRIBED') {
+        sendHint();
+        return;
+      }
+      if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+        teardown();
+      }
     });
+
+    setTimeout(sendHint, 1800);
+    setTimeout(teardown, 12_000);
   },
 
   /**

@@ -272,6 +272,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const shouldFallbackCountry = remoteCountry === null;
     const shouldFallbackResidence = remoteResidence === null;
 
+    // Canonical remote row already has both — avoid flipping hydration off/on (would gate SwipeDeck
+    // via isCountryPrefHydrated and skip queued deck rebuilds until AsyncStorage settles).
+    if (!shouldFallbackCountry && !shouldFallbackResidence) {
+      setCountryPreferenceState(remoteCountry);
+      setResidenceCountryState(remoteResidence);
+      setIsCountryPrefHydrated(true);
+      return;
+    }
+
     setIsCountryPrefHydrated(false);
 
     const migrationPromise = ensureNameNestStorageMigration().catch(() => {});

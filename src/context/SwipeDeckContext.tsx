@@ -2,7 +2,7 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useR
 import { supabase } from '../lib/supabase';
 import { useAuth } from './AuthContext';
 import { useRoom } from './RoomContext';
-import { SwipeService } from '../services/SwipeService';
+import { SwipeService, normalizeBabyNameId } from '../services/SwipeService';
 import {
   BabyName,
   NameFilters,
@@ -43,6 +43,11 @@ const DEBUG_SWIPE_DECK = false;
 const STARTUP_HYDRATION_TIMEOUT_MS = 12_000;
 
 const normalizeFilterText = (value?: string): string => value?.trim().toLowerCase() ?? '';
+
+function isSwipedId(nameId: string, swiped: ReadonlySet<string>): boolean {
+  const key = normalizeBabyNameId(nameId);
+  return swiped.has(key) || swiped.has(nameId);
+}
 
 function discoveryMatchText(name: BabyName): string {
   const nameText = normalizeFilterText(name.name);
@@ -661,7 +666,7 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
     const rawRoom = roomIdRef.current ?? '';
     const ctx = {
       roomId: rawRoom || '__solo_deck__',
-      countryPreference: countryPreferenceRef.current,
+      countryPreference: countryPreference ?? null,
       region: regionPreferenceRef.current,
       sessionSwipeDepth: swipedIdsRef.current.size,
       learningProfile: learningProfileRef.current,
@@ -672,7 +677,24 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
     const prio = deck.filter((n) => custom.has(n.id));
     const rest = deck.filter((n) => !custom.has(n.id));
     return [...prio, ...sequenceSwipeDeck(rest, ctx)];
-  }, []);
+  }, [countryPreference]);
+
+  /** Inject partner suggested rows immediately; does not rebuild from pool (those rows may lack deckNames ids). */
+  const mergePartnerSuggestedRowsIntoDeck = (rows: BabyName[]) => {
+    if (!rows.length) return;
+    partnerCustomIdsRef.current = new Set(rows.map((r) => r.id));
+    setNamesToSwipe((prev) => {
+      const existingIds = new Set(prev.map((n) => n.id));
+      const toAdd = rows.filter(
+        (r) => !isSwipedId(r.id, swipedIdsRef.current) && !existingIds.has(r.id),
+      );
+      if (!toAdd.length) return prev;
+      const insertAt = Math.min(3, prev.length);
+      const next = [...prev.slice(0, insertAt), ...toAdd, ...prev.slice(insertAt)];
+      namesToSwipeRef.current = next;
+      return next;
+    });
+  };
 
   // ── Core name queue builder: first paint uses bundled/local meanings; optional async meaning patch for non-EN. ──
   const buildNameQueue = useCallback(() => {
@@ -753,7 +775,7 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
       }
 
       // Exclude already-swiped names
-      pool = pool.filter((n) => !swipedIdsRef.current.has(n.id));
+      pool = pool.filter((n) => !isSwipedId(n.id, swipedIdsRef.current));
 
       // ── Priority boost: partner custom names to the front ──
       if (partnerCustomIdsRef.current.size > 0) {
@@ -815,11 +837,11 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
       if (useAdditiveAppend) {
         const headIds = new Set(prevVisible.map((n) => n.id));
         const stableHead = prevVisible
-          .filter((n) => !swipedIdsRef.current.has(n.id))
+          .filter((n) => !isSwipedId(n.id, swipedIdsRef.current))
           .map((n) => poolById.get(n.id) ?? n);
         const fullRefined = refineDeckOrder(pool);
         const tail = fullRefined.filter(
-          (n) => !headIds.has(n.id) && !swipedIdsRef.current.has(n.id),
+          (n) => !headIds.has(n.id) && !isSwipedId(n.id, swipedIdsRef.current),
         );
         setNamesToSwipe([...stableHead, ...tail]);
       } else {
@@ -836,7 +858,11 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
               await PremiumContentService.attachPublicMeaningTranslationsForNames(pool, effectiveLanguage);
             if (meaningEnrichmentGenerationRef.current !== gen) return;
             const byId = new Map(enriched.map((n) => [n.id, n] as const));
-            setNamesToSwipe((prev) => prev.map((n) => byId.get(n.id) ?? n));
+            setNamesToSwipe((prev) =>
+              prev
+                .filter((n) => !isSwipedId(n.id, swipedIdsRef.current))
+                .map((n) => byId.get(n.id) ?? n),
+            );
           } catch {
             // non-fatal — bundled/local meanings remain
           }
@@ -853,6 +879,7 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
     deckRebuildContextKey,
     room?.id,
     profile?.room_id,
+    countryPreference,
     refineDeckOrder,
     effectiveLanguage,
   ]);
@@ -876,6 +903,10 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
         countryPref: countryPreference ?? null,
       });
     }
+    // Country/region reshuffle must not reuse the additive "stable head" path with the prior pool —
+    // that path preserves visible order and defeats country-first reprioritisation.
+    lastDeckMergeContextKeyRef.current = null;
+    lastMergedDeckIdSetRef.current = new Set();
     buildNameQueue();
   }, [profile?.region_preference, countryPreference, isSwipeDeckInputReady, profile?.id, buildNameQueue]);
 
@@ -907,9 +938,17 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
           ),
         ]);
         if (cancelled) return;
-        swipedIdsRef.current = ids;
+        // Union with in-flight optimistic swipes — a stale snapshot must not resurrect cards
+        // the user swiped during this fetch / during supplement hydration-driven rebuilds.
+        const fetched = [...ids];
+        const union = new Set(swipedIdsRef.current);
+        for (const id of fetched) {
+          union.add(normalizeBabyNameId(id));
+          union.add(id);
+        }
+        swipedIdsRef.current = union;
       } catch {
-        if (!cancelled) swipedIdsRef.current = new Set();
+        // Best-effort: keep optimistic swipedIdsRef on fetch failure so queued rebuilds can't resurrect cards swiped mid-flight.
       } finally {
         if (!cancelled) setSwipeStateHydrationKey(hydrationKey);
       }
@@ -919,20 +958,16 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
     // heavier (partner resolve + RLS-joined query), so it must NEVER gate first paint.
     const loadPartnerCustomIds = async () => {
       try {
-        const partnerCustom = await Promise.race([
-          SwipeService.getPartnerCustomNameIds({ userId: authUserId, roomId }),
+        const rows = await Promise.race([
+          SwipeService.getPartnerCustomNames({ userId: authUserId, roomId }),
           new Promise<never>((_, reject) =>
             setTimeout(() => reject(new Error('partner custom timeout')), STARTUP_HYDRATION_TIMEOUT_MS),
           ),
         ]);
         if (cancelled) return;
-        partnerCustomIdsRef.current = partnerCustom;
-        // Rebuild to apply the boost. deckNames is unchanged here, so buildNameQueue
-        // takes the stable-head additive path — visible cards are not reordered.
-        buildNameQueueRef.current();
+        mergePartnerSuggestedRowsIntoDeck(rows);
       } catch {
-        // best-effort: leave partnerCustomIdsRef empty; the realtime hook still
-        // surfaces newly right-swiped partner customs.
+        // best-effort — realtime broadcast still refreshes partner suggestions.
       }
     };
 
@@ -952,25 +987,12 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const roomId = room?.id ?? profile?.room_id ?? null;
     const uid = user?.id;
-    if (!roomId || !uid || !isSwipeStateHydrated) return;
+    if (!roomId || !uid) return;
 
     const refetchPartnerCustom = async () => {
       try {
         const rows = await SwipeService.getPartnerCustomNames({ userId: uid, roomId });
-        partnerCustomIdsRef.current = new Set(rows.map((n) => n.id));
-
-        setNamesToSwipe((prev) => {
-          const existingIds = new Set(prev.map((n) => n.id));
-          const toAdd = rows.filter(
-            (n) => !swipedIdsRef.current.has(n.id) && !existingIds.has(n.id),
-          );
-          if (toAdd.length === 0) return prev;
-
-          const insertAt = Math.min(2, prev.length);
-          const nextDeck = [...prev.slice(0, insertAt), ...toAdd, ...prev.slice(insertAt)];
-
-          return nextDeck;
-        });
+        mergePartnerSuggestedRowsIntoDeck(rows);
       } catch {
         // best-effort
       }
@@ -1011,7 +1033,7 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
     return () => {
       void supabase.removeChannel(partnerDeckChannel);
     };
-  }, [room?.id, profile?.room_id, user?.id, isSwipeStateHydrated]);
+  }, [room?.id, profile?.room_id, user?.id]);
 
   // ── Swipe recording ─────────────────────────────────────────
   const loadMoreNames = useCallback(() => buildNameQueue(), [buildNameQueue]);
@@ -1024,28 +1046,33 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
         return false;
       }
 
+      const nid = normalizeBabyNameId(nameId);
       const currentDeck = namesToSwipeRef.current;
-      const originalIndex = currentDeck.findIndex((n) => n.id === nameId);
+      const originalIndex = currentDeck.findIndex((n) => normalizeBabyNameId(n.id) === nid);
       const swipedName = originalIndex >= 0 ? currentDeck[originalIndex] : undefined;
       if (__DEV__ && DEBUG_SWIPE_DECK) {
-        console.log('[SwipeDeck] recordSwipe', nameId);
+        console.log('[SwipeDeck] recordSwipe', nid);
       }
 
       const rollbackOptimisticSwipe = () => {
         swipedIdsRef.current.delete(nameId);
+        swipedIdsRef.current.delete(nid);
         if (!swipedName) return;
         setNamesToSwipe((prev) => {
-          if (prev.some((n) => n.id === nameId)) return prev;
+          if (prev.some((n) => normalizeBabyNameId(n.id) === nid)) return prev;
           const insertAt =
             originalIndex < 0 ? prev.length : Math.min(Math.max(0, originalIndex), prev.length);
           return [...prev.slice(0, insertAt), swipedName, ...prev.slice(insertAt)];
         });
       };
 
-      swipedIdsRef.current.add(nameId);
+      swipedIdsRef.current.add(nid);
+      if (nameId !== nid) swipedIdsRef.current.add(nameId);
 
       const flushDeckRemoval = () => {
-        setNamesToSwipe((prev) => prev.filter((n) => n.id !== nameId));
+        const next = namesToSwipeRef.current.filter((n) => normalizeBabyNameId(n.id) !== nid);
+        namesToSwipeRef.current = next;
+        setNamesToSwipe((prev) => prev.filter((n) => normalizeBabyNameId(n.id) !== nid));
       };
 
       flushDeckRemoval();
