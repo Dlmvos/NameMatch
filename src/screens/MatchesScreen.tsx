@@ -173,11 +173,11 @@ export default function MatchesScreen() {
     }
   }, [user?.id, roomId]);
 
+  // Hydrate likes count for tab label on screen open — not only when My Likes tab is active.
   useEffect(() => {
-    if (activeTab === 'likes') {
-      fetchLikedNames();
-    }
-  }, [activeTab, fetchLikedNames]);
+    if (!user?.id || !roomId) return;
+    void fetchLikedNames();
+  }, [user?.id, roomId, fetchLikedNames]);
 
   const handleSaveCustomName = useCallback(async () => {
     const trimmed = customNameText.trim();
