@@ -249,6 +249,8 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
   const lastMergedDeckIdSetRef = useRef<Set<string>>(new Set());
   /** With `nameQueueRebuildKey` + swipe/room/language — must match for additive tail-append. */
   const lastDeckMergeContextKeyRef = useRef<string | null>(null);
+  /** Guards swipe-state reset: stray effect re-entry with the same `${user}:${room}` must not wipe optimistic `swipedIdsRef`. */
+  const lastSwipeStateHydrationIdentityRef = useRef<string | null>(null);
   const buildNameQueueRef = useRef<() => void>(() => {});
   const countryPreferenceRef = useRef<string | null>(null);
   const regionPreferenceRef = useRef<Region>('WORLDWIDE');
@@ -913,14 +915,24 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const roomId = room?.id ?? profile?.room_id ?? null;
     const hydrationKey = expectedSwipeStateHydrationKey;
+    const swipeScopeChanged =
+      lastSwipeStateHydrationIdentityRef.current !== hydrationKey;
 
-    swipedIdsRef.current = new Set();
-    partnerCustomIdsRef.current = new Set();
-    setSwipeStateHydrationKey(null);
+    if (swipeScopeChanged) {
+      lastSwipeStateHydrationIdentityRef.current = hydrationKey;
+      swipedIdsRef.current = new Set();
+      partnerCustomIdsRef.current = new Set();
+      setSwipeStateHydrationKey(null);
 
-    if (!user || !roomId) {
-      setSwipeStateHydrationKey(hydrationKey);
-      return;
+      if (!user || !roomId) {
+        setSwipeStateHydrationKey(hydrationKey);
+        return;
+      }
+    } else {
+      // Same user+room scope; effect can re-fire from unrelated parent renders. Never clear
+      // `swipedIdsRef` here — a brief empty set lets the next `buildNameQueue` resurrect the
+      // country-weighted head before `getSwipedNameIds` unions.
+      if (!user || !roomId) return;
     }
 
     let cancelled = false;
@@ -980,7 +992,10 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, [expectedSwipeStateHydrationKey, room?.id, profile?.room_id, user?.id]);
+    // Intentionally only `expectedSwipeStateHydrationKey`: it already encodes user + room.
+    // Extra deps on `room?.id` / `profile?.room_id` caused duplicate runs with the same key and
+    // wiped optimistic swipes mid-session.
+  }, [expectedSwipeStateHydrationKey]);
 
   // Partner right-swipes on custom names: postgres_changes when `swipes` is in the Realtime publication,
   // plus broadcast hint (see SwipeService.notifyPartnerCustomSurfaceHint) for environments without it.
