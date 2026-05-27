@@ -167,6 +167,9 @@ export default function SwipeScreen() {
   const [devScreenshotDeckNames, setDevScreenshotDeckNames] = useState<BabyName[] | null>(null);
   const [showFinalSwipePaywallPreview, setShowFinalSwipePaywallPreview] = useState(false);
   const didShowFinalSwipePreviewRef = useRef(false);
+  /** One-shot per lock episode: auto-open Paywall when deck transitions to locked (not on each blocked swipe). */
+  const didNavigateExhaustedPaywallRef = useRef(false);
+  const prevIsLockedRef = useRef(false);
   const didRefillAttemptRef = useRef(false);
   const lockedAttemptRef = useRef(0);
   /** Ephemeral (session): future anticipation UIs can skip extras while `Date.now() < this`. */
@@ -475,7 +478,8 @@ export default function SwipeScreen() {
       isFocused &&
       !hasUnlockedPacks &&
       !useDevScreenshotDeck &&
-      freeSwipesLeft === 1 &&
+      freeSwipesLeft <= 1 &&
+      freeSwipesLeft > 0 &&
       !didShowFinalSwipePreviewRef.current &&
       !suppressSwipeAutoPaywall
     ) {
@@ -483,6 +487,30 @@ export default function SwipeScreen() {
       setShowFinalSwipePaywallPreview(true);
     }
   }, [freeSwipesLeft, hasUnlockedPacks, isFocused, useDevScreenshotDeck, suppressSwipeAutoPaywall]);
+
+  useEffect(() => {
+    if (freeSwipesLeft > 0 || hasUnlockedPacks || !isLocked) {
+      didNavigateExhaustedPaywallRef.current = false;
+    }
+  }, [freeSwipesLeft, hasUnlockedPacks, isLocked]);
+
+  useEffect(() => {
+    const wasLocked = prevIsLockedRef.current;
+    prevIsLockedRef.current = isLocked;
+
+    if (!isLocked || wasLocked) return;
+    if (!isFocused || useDevScreenshotDeck || suppressSwipeAutoPaywall) return;
+    if (didNavigateExhaustedPaywallRef.current) return;
+
+    didNavigateExhaustedPaywallRef.current = true;
+    navigation.navigate('Paywall', { source: 'free_swipes_exhausted' });
+  }, [
+    isLocked,
+    isFocused,
+    useDevScreenshotDeck,
+    suppressSwipeAutoPaywall,
+    navigation,
+  ]);
 
   useEffect(() => {
     if (

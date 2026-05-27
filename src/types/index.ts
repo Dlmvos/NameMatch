@@ -230,7 +230,7 @@ export type RootStackParamList = {
   /** Optional `source` for accurate paywall_impression attribution (auto-open vs manual). */
   Paywall:
     | {
-        source?: 'onboarding' | 'post_match' | 'filter_chip';
+        source?: 'onboarding' | 'post_match' | 'filter_chip' | 'free_swipes_exhausted';
         /** Optional UX hint when opening from a locked filter chip (not persisted). */
         contextLabel?: string;
       }
