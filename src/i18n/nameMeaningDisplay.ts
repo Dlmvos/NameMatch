@@ -54,3 +54,8 @@ export function cleanOriginForDisplay(origin: string | null | undefined): string
     .replace(/\s*\(registry\)\s*/gi, '')
     .trim();
 }
+
+/** True for user-authored names (custom origin); used to render the fallback meaning UX. */
+export function isCustomName(name: BabyName): boolean {
+  return name.source === 'custom' || name.origin === 'Custom';
+}

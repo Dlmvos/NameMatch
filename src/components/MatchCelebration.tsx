@@ -12,7 +12,7 @@ import {
 import * as Haptics from 'expo-haptics';
 import { BabyName } from '../types';
 import { useTranslation } from '../i18n/I18nProvider';
-import { getLocalizedNameMeaning, cleanOriginForDisplay } from '../i18n/nameMeaningDisplay';
+import { getLocalizedNameMeaning, cleanOriginForDisplay, isCustomName } from '../i18n/nameMeaningDisplay';
 import { colors, FONTS, SHADOWS, SPACING } from '../theme';
 
 // ── Floating sparkle particles ──
@@ -438,11 +438,15 @@ export default function MatchCelebration({
               <Text style={styles.originText}>{cleanedOrigin}</Text>
             ) : null;
           })()}
-          {!!localizedMeaning && (
+          {localizedMeaning ? (
             <Text style={styles.meaningText} numberOfLines={2}>
               &ldquo;{localizedMeaning}&rdquo;
             </Text>
-          )}
+          ) : isCustomName(name) ? (
+            <Text style={styles.meaningText} numberOfLines={2}>
+              {t('name.meaning.notAvailableYet')}
+            </Text>
+          ) : null}
         </Animated.View>
 
         {/* Heart pulse — emotional anchor with heartbeat */}

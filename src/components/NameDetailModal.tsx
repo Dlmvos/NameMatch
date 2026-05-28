@@ -11,7 +11,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import type { BabyName } from '../types';
 import { useTranslation } from '../i18n/I18nProvider';
-import { getLocalizedNameMeaning, cleanOriginForDisplay } from '../i18n/nameMeaningDisplay';
+import { getLocalizedNameMeaning, cleanOriginForDisplay, isCustomName } from '../i18n/nameMeaningDisplay';
 import { enrichName, getTrendLabel } from '../services/nameEnrichment';
 import { colors, COLORS, FONTS, SPACING } from '../theme';
 
@@ -172,13 +172,18 @@ export default function NameDetailModal({ name, visible, onClose }: NameDetailMo
           {/* Divider */}
           <View style={s.divider} />
 
-          {/* Meaning section */}
-          {!!detail.meaning && (
+          {/* Meaning section — show a localized fallback for custom names without a meaning. */}
+          {detail.meaning ? (
             <View style={s.section}>
               <Text style={s.sectionLabel}>{t('nameDetail.section.meaning')}</Text>
               <Text style={s.meaningText}>&ldquo;{detail.meaning}&rdquo;</Text>
             </View>
-          )}
+          ) : isCustomName(name) ? (
+            <View style={s.section}>
+              <Text style={s.sectionLabel}>{t('nameDetail.section.meaning')}</Text>
+              <Text style={s.meaningText}>{t('name.meaning.notAvailableYet')}</Text>
+            </View>
+          ) : null}
 
           {/* Popularity section */}
           {detail.popularity.level > 0 && (

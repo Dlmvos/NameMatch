@@ -13,7 +13,7 @@ import * as Haptics from 'expo-haptics';
 import type { BabyName, NameRarity } from '../types';
 import { useTranslation } from '../i18n/I18nProvider';
 import { translateCountryName } from '../i18n/display';
-import { getLocalizedNameMeaning, cleanOriginForDisplay } from '../i18n/nameMeaningDisplay';
+import { getLocalizedNameMeaning, cleanOriginForDisplay, isCustomName } from '../i18n/nameMeaningDisplay';
 import type { SwipeMetadataLabelKey } from '../lib/swipeMetadataLabel';
 import { colors, COLORS, FONTS, RADIUS, SPACING, SHADOWS } from '../theme';
 import { enrichName, getTrendBg, getTrendFg } from '../services/nameEnrichment';
@@ -591,15 +591,17 @@ function CardContent({
 
       <View style={styles.divider} />
 
-      {/* Meaning — hidden when empty/placeholder */}
+      {/* Meaning — hidden when empty/placeholder for catalog names; custom names show a
+          localized fallback notice instead of a blank card. */}
       {(() => {
         const meaningText = getLocalizedNameMeaning(name, language);
-        if (!meaningText) return null;
+        const isCustom = isCustomName(name);
+        if (!meaningText && !isCustom) return null;
         return (
           <View style={styles.meaningSection}>
             <Text style={styles.meaningLabel}>{t('name.meaningLabel')}</Text>
             <Text style={styles.meaningText} numberOfLines={3}>
-              {meaningText}
+              {meaningText || t('name.meaning.notAvailableYet')}
             </Text>
           </View>
         );

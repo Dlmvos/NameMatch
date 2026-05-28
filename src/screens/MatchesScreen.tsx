@@ -22,7 +22,7 @@ import { useMatchState } from '../context/RoomContext';
 import { useRoom } from '../context/RoomContext';
 import { useAuth } from '../context/AuthContext';
 import { useTranslation } from '../i18n/I18nProvider';
-import { getLocalizedNameMeaning, cleanOriginForDisplay } from '../i18n/nameMeaningDisplay';
+import { getLocalizedNameMeaning, cleanOriginForDisplay, isCustomName } from '../i18n/nameMeaningDisplay';
 import { CustomNameService } from '../services/CustomNameService';
 import { SwipeService, LikedName } from '../services/SwipeService';
 import { PremiumContentService } from '../services/PremiumContentService';
@@ -545,6 +545,10 @@ function MatchCard({
         : t('swipe.card.gender.neutral');
   const origin = cleanOriginForDisplay(name.origin);
   const localizedMeaning = getLocalizedNameMeaning(name, language);
+  // Custom names without a known meaning render a localized fallback line; catalog names
+  // with no meaning stay hidden (existing behavior).
+  const meaningDisplay =
+    localizedMeaning || (isCustomName(name) ? t('name.meaning.notAvailableYet') : '');
   const preview = [genderLabel, origin].filter(Boolean).join(' • ');
 
   const date = new Date(match.created_at);
@@ -589,9 +593,9 @@ function MatchCard({
             </View>
           ) : null}
         </View>
-        {localizedMeaning ? (
+        {meaningDisplay ? (
           <Text style={styles.matchMeaning} numberOfLines={2}>
-            {localizedMeaning}
+            {meaningDisplay}
           </Text>
         ) : null}
         {!note ? (
@@ -638,9 +642,13 @@ function LikedNameCard({
 
   const genderEmoji =
     name.gender === 'boy' ? '💙' : name.gender === 'girl' ? '💗' : '💜';
-  const isCustom = name.source === 'custom' || name.origin === 'Custom';
+  const isCustom = isCustomName(name);
   const localizedMeaning = getLocalizedNameMeaning(name, language);
-  const likedSubtitle = localizedMeaning || (isCustom ? '' : cleanOriginForDisplay(name.origin));
+  // Custom + no meaning → localized fallback. Catalog + no meaning keeps the existing
+  // origin-as-subtitle behavior so the liked-name card never goes blank.
+  const likedSubtitle =
+    localizedMeaning ||
+    (isCustom ? t('name.meaning.notAvailableYet') : cleanOriginForDisplay(name.origin));
 
   const date = new Date(likedName.swipedAt);
   const dateStr = date.toLocaleDateString(language, {
