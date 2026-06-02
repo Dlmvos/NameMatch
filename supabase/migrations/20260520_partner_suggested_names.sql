@@ -21,7 +21,6 @@ inner join public.rooms r on r.id = s.room_id
 where s.direction = 'right'
   and s.name_id::text = bn.id::text
   and coalesce(bn.is_premium, false) = false
-  and bn.canonical_name_id is null
   and bn.suggested_by_user_id is null
   and lower(btrim(coalesce(bn.origin, ''))) <> 'custom'
   and (s.user_id = r.user1_id or s.user_id = r.user2_id);
