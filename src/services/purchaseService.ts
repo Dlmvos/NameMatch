@@ -209,6 +209,98 @@ function isPurchaseCancelled(err: unknown): boolean {
   );
 }
 
+/** Dev and release device logs (TestFlight / App Store connect) — never surfaces in UI. */
+function shouldLogPurchaseFailureDiagnostics(): boolean {
+  if (__DEV__) return true;
+  return (
+    Constants.executionEnvironment === 'standalone' ||
+    Constants.executionEnvironment === 'bare'
+  );
+}
+
+export type PurchaseFailureDiagnosticContext = {
+  selectedPackage?: PurchasesPackage | null;
+  offeringsLoadedCount?: number;
+  customerInfo?: CustomerInfo | null;
+  /** e.g. paywall_purchase, missing_entitlement */
+  phase?: string;
+};
+
+function readRevenueCatErrorFields(err: unknown): {
+  code: string | number | null;
+  message: string | null;
+  userCancelled: boolean | null;
+  underlyingErrorMessage: string | null;
+  readableErrorCode: string | null;
+} {
+  const e = err as {
+    code?: string | number;
+    message?: string;
+    userCancelled?: boolean | null;
+    underlyingErrorMessage?: string;
+    readableErrorCode?: string;
+  };
+  return {
+    code: e?.code ?? null,
+    message: typeof e?.message === 'string' ? e.message : null,
+    userCancelled: e?.userCancelled ?? null,
+    underlyingErrorMessage:
+      typeof e?.underlyingErrorMessage === 'string' ? e.underlyingErrorMessage : null,
+    readableErrorCode: typeof e?.readableErrorCode === 'string' ? e.readableErrorCode : null,
+  };
+}
+
+function summarizeCustomerInfoEntitlements(customerInfo: CustomerInfo | null | undefined): {
+  customerInfoLoaded: boolean;
+  premiumEntitlementActive: boolean;
+  activeEntitlementKeys: string[];
+  premiumExpirationDate: string | null;
+  premiumWillRenew: boolean | null;
+} {
+  if (!customerInfo) {
+    return {
+      customerInfoLoaded: false,
+      premiumEntitlementActive: false,
+      activeEntitlementKeys: [],
+      premiumExpirationDate: null,
+      premiumWillRenew: null,
+    };
+  }
+  const premium = customerInfo.entitlements.active[ENTITLEMENT_ID];
+  return {
+    customerInfoLoaded: true,
+    premiumEntitlementActive: Boolean(premium),
+    activeEntitlementKeys: Object.keys(customerInfo.entitlements.active),
+    premiumExpirationDate: premium?.expirationDate ?? null,
+    premiumWillRenew: premium?.willRenew ?? null,
+  };
+}
+
+/** Structured purchase-failure snapshot for __DEV__ / TestFlight device console. */
+export function logPurchaseFailureDiagnostics(
+  err: unknown,
+  context: PurchaseFailureDiagnosticContext = {},
+): void {
+  if (!shouldLogPurchaseFailureDiagnostics()) return;
+
+  const rc = readRevenueCatErrorFields(err);
+  const pkg = context.selectedPackage ?? null;
+
+  console.warn('[PurchaseService] purchase failure diagnostics', {
+    phase: context.phase ?? 'purchase',
+    code: rc.code,
+    message: rc.message,
+    userCancelled: rc.userCancelled,
+    underlyingErrorMessage: rc.underlyingErrorMessage,
+    readableErrorCode: rc.readableErrorCode,
+    packageIdentifier: pkg?.identifier ?? null,
+    productIdentifier: pkg?.product.identifier ?? null,
+    selectedPackageType: pkg?.packageType ?? null,
+    offeringsLoadedCount: context.offeringsLoadedCount ?? null,
+    ...summarizeCustomerInfoEntitlements(context.customerInfo),
+  });
+}
+
 function logDevConfigureAttempt(resolved: { apiKey: string | null }): void {
   if (!__DEV__) return;
   const usedTestStore = Boolean(resolved.apiKey && isValidTestStoreKey(resolved.apiKey));

@@ -13,7 +13,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import type { PurchasesPackage } from 'react-native-purchases';
+import type { CustomerInfo, PurchasesPackage } from 'react-native-purchases';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useFocusEffect } from '@react-navigation/native';
 import { useTranslation } from '../i18n/I18nProvider';
@@ -22,7 +22,7 @@ import { colors } from '../theme/colors';
 import { useAuth } from '../context/AuthContext';
 import { useApp } from '../context/AppContext';
 import { useSwipeDeckActions } from '../context/SwipeDeckContext';
-import { PurchaseService } from '../services/purchaseService';
+import { logPurchaseFailureDiagnostics, PurchaseService } from '../services/purchaseService';
 import { AnalyticsService } from '../services/AnalyticsService';
 
 /** Same key as ShopScreen — dev-only mock premium unlocks. */
@@ -196,6 +196,30 @@ export default function PaywallScreen({ navigation, route }: Props) {
     navigation.replace('MainTabs');
   };
 
+  const paywallOfferingsLoadedCount = (): number =>
+    [lifetimePkg, monthlyPkg, legacyPkg].filter(Boolean).length;
+
+  const logPaywallPurchaseFailure = async (
+    err: unknown,
+    phase: string,
+    customerInfo?: CustomerInfo | null,
+  ) => {
+    let info = customerInfo ?? null;
+    if (!info) {
+      try {
+        info = await PurchaseService.getCustomerInfo();
+      } catch {
+        // Diagnostics only — purchase outcome unchanged.
+      }
+    }
+    logPurchaseFailureDiagnostics(err, {
+      selectedPackage: selectedPremium,
+      offeringsLoadedCount: paywallOfferingsLoadedCount(),
+      customerInfo: info,
+      phase,
+    });
+  };
+
   const handlePurchase = async () => {
     if (!offersHydrated || selectedPremium === null || isBusy || isPurchasing) return;
 
@@ -218,6 +242,11 @@ export default function PaywallScreen({ navigation, route }: Props) {
       }
       if (!PurchaseService.hasPremiumEntitlement(result.customerInfo)) {
         AnalyticsService.track('purchase_failed', { reason: 'missing_entitlement' });
+        await logPaywallPurchaseFailure(
+          new Error('premium_entitlement_missing_after_purchase'),
+          'paywall_missing_entitlement',
+          result.customerInfo,
+        );
         Alert.alert(t('common.error'), t('shop.purchaseError'));
         return;
       }
@@ -225,9 +254,12 @@ export default function PaywallScreen({ navigation, route }: Props) {
       AnalyticsService.track('purchase_completed');
       Alert.alert(t('shop.purchaseSuccessTitle'), t('shop.purchaseSuccessBody'));
       navigateAfterPremiumVerified();
-    } catch (err: any) {
-      AnalyticsService.track('purchase_failed', { reason: err?.message ?? 'unknown' });
-      Alert.alert(t('common.error'), err?.message ?? t('shop.purchaseError'));
+    } catch (err: unknown) {
+      const reason =
+        err instanceof Error ? err.message : typeof err === 'string' ? err : 'unknown';
+      AnalyticsService.track('purchase_failed', { reason });
+      await logPaywallPurchaseFailure(err, 'paywall_purchase_catch');
+      Alert.alert(t('common.error'), t('shop.purchaseError'));
     } finally {
       setIsPurchasing(false);
       setIsBusy(false);
