@@ -30,7 +30,8 @@ type AnalyticsEvent =
   | 'invite_join_failed'
   | 'preview_match_shown'
   | 'preview_match_invite_tapped'
-  | 'preview_match_dismissed';
+  | 'preview_match_dismissed'
+  | 'filter_relax_banner_tap';
 
 type AnalyticsProperties = Record<string, string | number | boolean | null | undefined>;
 export type StoredAnalyticsEvent = {

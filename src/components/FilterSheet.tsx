@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -14,12 +14,13 @@ import { colors, FONTS, RADIUS, SPACING, SHADOWS } from '../theme';
 import {
   NameFilters,
   NameLength,
-  NameOriginTag,
   NameTrend,
   NameVibeTag,
   DEFAULT_FILTERS,
   type RootStackParamList,
 } from '../types';
+import { useSwipeDeckActions } from '../context/SwipeDeckContext';
+import { translateCountryName } from '../i18n/display';
 import { useTranslation } from '../i18n/I18nProvider';
 
 interface FilterSheetProps {
@@ -42,8 +43,8 @@ const TREND_OPTIONS: { key: NameTrend; labelKey: string; emoji: string }[] = [
   { key: 'classic', labelKey: 'filter.trend.classic', emoji: '👑' },
 ];
 
-const ORIGIN_TAGS: NameOriginTag[] = ['spanish', 'dutch'];
 const VIBE_TAGS: NameVibeTag[] = ['unique', 'international', 'soft', 'strong'];
+const LEGACY_ORIGIN_TAGS = new Set(['spanish', 'dutch']);
 
 const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
 const FEATURED_LETTERS = ['A', 'E', 'L', 'M', 'N', 'S'];
@@ -51,7 +52,7 @@ const FEATURED_LETTERS = ['A', 'E', 'L', 'M', 'N', 'S'];
 const normalizeFilters = (filters: NameFilters): NameFilters => ({
   ...DEFAULT_FILTERS,
   ...filters,
-  origins: filters.origins ?? [],
+  origins: (filters.origins ?? []).filter((c) => !LEGACY_ORIGIN_TAGS.has(c)),
   vibes: filters.vibes ?? [],
 });
 
@@ -81,6 +82,7 @@ export default function FilterSheet({
 }: FilterSheetProps) {
   const { t } = useTranslation();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const { getOriginCountryChips } = useSwipeDeckActions();
   const [draft, setDraft] = useState<NameFilters>(
     isPremium ? normalizeFilters(currentFilters) : sanitizeFreeFilters(currentFilters),
   );
@@ -131,11 +133,18 @@ export default function FilterSheet({
     }));
   };
 
-  const toggleOriginTag = (key: NameOriginTag) => {
+  const originCountryChips = useMemo(
+    () => getOriginCountryChips(draft),
+    [draft, getOriginCountryChips],
+  );
+
+  const toggleOriginCountry = (country: string) => {
     if (!isPremium) return;
     setDraft((prev) => ({
       ...prev,
-      origins: prev.origins.includes(key) ? prev.origins.filter((x) => x !== key) : [...prev.origins, key],
+      origins: prev.origins.includes(country)
+        ? prev.origins.filter((x) => x !== country)
+        : [...prev.origins, country],
     }));
   };
 
@@ -203,38 +212,65 @@ export default function FilterSheet({
             })}
           </View>
 
-          {/* Origin */}
+          {/* Origin / culture — dynamic countries from the current deck with live counts */}
           <Text style={styles.sectionLabel}>{t('filter.section.origin')}</Text>
           <View style={styles.chipRow}>
-            {ORIGIN_TAGS.map((tag) => {
-              const active = isPremium && draft.origins.includes(tag);
-              const locked = !isPremium;
-              return (
-                <TouchableOpacity
-                  key={tag}
-                  style={[styles.filterChip, locked && styles.chipLocked, active && styles.filterChipActive]}
-                  onPress={() =>
-                    locked ? openPaywallFromLockedFilter('origin') : toggleOriginTag(tag)
-                  }
-                  activeOpacity={0.85}
-                >
-                  <Text
+            {originCountryChips.length === 0 ? (
+              <Text style={styles.sectionHint}>{t('filter.origin.empty')}</Text>
+            ) : (
+              originCountryChips.map((chip) => {
+                const active = isPremium && draft.origins.includes(chip.country);
+                const locked = !isPremium;
+                const disabled = !locked && chip.count === 0 && !active;
+                return (
+                  <TouchableOpacity
+                    key={chip.country}
                     style={[
-                      styles.filterChipText,
-                      locked && styles.chipLockedText,
-                      active && styles.filterChipTextActive,
+                      styles.filterChip,
+                      locked && styles.chipLocked,
+                      disabled && styles.chipDisabled,
+                      active && styles.filterChipActive,
                     ]}
+                    onPress={() =>
+                      locked
+                        ? openPaywallFromLockedFilter('origin')
+                        : disabled
+                          ? undefined
+                          : toggleOriginCountry(chip.country)
+                    }
+                    disabled={disabled}
+                    activeOpacity={0.85}
                   >
-                    {t(`filter.chip.${tag}`)}
-                  </Text>
-                  {locked ? (
-                    <View style={styles.lockBadgeSmall}>
-                      <Ionicons name="lock-closed-outline" size={12} color={colors.neutral.gray} />
-                    </View>
-                  ) : null}
-                </TouchableOpacity>
-              );
-            })}
+                    <Text
+                      style={[
+                        styles.filterChipText,
+                        locked && styles.chipLockedText,
+                        disabled && styles.chipDisabledText,
+                        active && styles.filterChipTextActive,
+                      ]}
+                    >
+                      {chip.flag ? `${chip.flag} ` : ''}
+                      {translateCountryName(t, chip.country)}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.chipCount,
+                        locked && styles.chipLockedText,
+                        disabled && styles.chipDisabledText,
+                        active && styles.filterChipTextActive,
+                      ]}
+                    >
+                      {chip.count}
+                    </Text>
+                    {locked ? (
+                      <View style={styles.lockBadgeSmall}>
+                        <Ionicons name="lock-closed-outline" size={12} color={colors.neutral.gray} />
+                      </View>
+                    ) : null}
+                  </TouchableOpacity>
+                );
+              })
+            )}
           </View>
 
           {/* Vibe */}
@@ -444,6 +480,22 @@ const styles = StyleSheet.create({
   },
   chipLockedText: {
     color: 'rgba(88,92,108,0.82)',
+  },
+  chipDisabled: {
+    opacity: 0.45,
+    borderStyle: 'dashed',
+    borderColor: colors.neutral.border,
+    backgroundColor: colors.neutral.bgSoft,
+  },
+  chipDisabledText: {
+    color: colors.neutral.gray,
+  },
+  chipCount: {
+    fontSize: FONTS.sizes.xs,
+    fontWeight: '800',
+    color: colors.neutral.gray,
+    minWidth: 16,
+    textAlign: 'right',
   },
   lockBadgeSmall: {
     marginLeft: 2,

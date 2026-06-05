@@ -40,12 +40,21 @@ import {
 import { AnalyticsService } from '../services/AnalyticsService';
 import { copresenceSampleEligible } from '../services/anticipationAnalytics';
 import { FEATURE_FLAGS, PAYWALL_PLACEMENT_VARIANTS } from '../services/featureFlags';
+import { DEFAULT_FILTERS } from '../types';
 import type { BabyName, RootStackParamList } from '../types';
 import { stableHash } from '../lib/stableHash';
 import { colors, COLORS, FONTS, RADIUS, SHADOWS, SPACING } from '../theme';
 
 /** Slice depth: keep one extra card mounted under the stack so the next name is already rendered before it surfaces. */
 const VISIBLE_CARDS = 4;
+/**
+ * When the filtered+swiped-excluded pool drops to or below this many names AND
+ * the user has at least one active filter, surface a "relax filters" nudge so
+ * narrow combinations (e.g. Dutch + starting letter "X") never strand the user
+ * on a dead-end deck. Picked to align loosely with the existing low-swipes
+ * paywall nudge band (≤10/≤5) without being so chatty it nags normal browsing.
+ */
+const TINY_FILTERED_POOL_THRESHOLD = 20;
 /** Legacy AsyncStorage bucket for curated swipe recommendations (formerly mislabeled `AI_*`). */
 const CURATED_RECOMMENDATION_UNLOCKS_STORAGE_KEY = 'AI_PACK_UNLOCKS';
 const DEV_PAYWALL_INTERVAL = 10;
@@ -169,7 +178,14 @@ export default function SwipeScreen() {
   const didShowFinalSwipePreviewRef = useRef(false);
   /** One-shot per lock episode: auto-open Paywall when deck transitions to locked (not on each blocked swipe). */
   const didNavigateExhaustedPaywallRef = useRef(false);
-  const prevIsLockedRef = useRef(false);
+  /**
+   * Tri-state so the effect below can distinguish a *fresh mount that's
+   * already in the locked state* (e.g. after dismissing the paywall via
+   * `replace('MainTabs')`, or first launch when persisted `freeSwipesLeft`
+   * is already 0) from a genuine in-session `unlocked → locked` transition.
+   * `null` = uninitialized, only set on the first effect run.
+   */
+  const prevIsLockedRef = useRef<boolean | null>(null);
   const didRefillAttemptRef = useRef(false);
   const lockedAttemptRef = useRef(0);
   /** Ephemeral (session): future anticipation UIs can skip extras while `Date.now() < this`. */
@@ -498,6 +514,14 @@ export default function SwipeScreen() {
     const wasLocked = prevIsLockedRef.current;
     prevIsLockedRef.current = isLocked;
 
+    // First effect run on (re)mount: only seed the ref. A component that is
+    // BORN already-locked is not a fresh unlocked→locked transition — the
+    // user already saw (and just dismissed) the paywall, or the locked-deck
+    // UI will surface a manual CTA. Auto-presenting here is what produces
+    // the "Not now → paywall reappears ~1s later" loop after the dismiss
+    // remounts MainTabs via `navigation.replace('MainTabs')`.
+    if (wasLocked === null) return;
+
     if (!isLocked || wasLocked) return;
     if (!isFocused || useDevScreenshotDeck || suppressSwipeAutoPaywall) return;
     if (didNavigateExhaustedPaywallRef.current) return;
@@ -792,9 +816,6 @@ export default function SwipeScreen() {
           >
             {t('swipe.header.discover')}
           </Text>
-          <Text style={styles.headerSubtitle} numberOfLines={2}>
-            {t('swipe.header.namesLeft', { count: totalRemaining })}
-          </Text>
         </View>
         <View style={styles.headerRight}>
           {!hasPartner && room && (
@@ -809,20 +830,20 @@ export default function SwipeScreen() {
               </Text>
             </View>
           )}
-          {!hasUnlockedPacks ? (
-            <View style={styles.tag}>
-              <Text
-                style={styles.tagText}
-                numberOfLines={1}
-                adjustsFontSizeToFit
-                minimumFontScale={0.75}
-              >
-                {freeSwipesLeft > 0
+          <View style={styles.tag}>
+            <Text
+              style={styles.tagText}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.75}
+            >
+              {hasUnlockedPacks
+                ? t('swipe.header.unlimited')
+                : freeSwipesLeft > 0
                   ? t('swipe.header.free', { count: freeSwipesLeft })
                   : t('swipe.header.locked')}
-              </Text>
-            </View>
-          ) : null}
+            </Text>
+          </View>
           {/* Filter button */}
           <TouchableOpacity
             style={[styles.filterBtn, activeFilterCount > 0 && styles.filterBtnActive]}
@@ -849,6 +870,43 @@ export default function SwipeScreen() {
             })}
           </Text>
         </View>
+      ) : null}
+
+      {/*
+        Tiny-filtered-deck safeguard. Surfaced only when the filtered+
+        swiped-excluded pool is small AND at least one filter is active,
+        so it never fires on normal end-of-deck (handled by the empty
+        state UI) or on a paid user's healthy unfiltered browse. Tapping
+        "Relax filters" reverts to DEFAULT_FILTERS in one step — same
+        action FilterSheet's Clear-all would take, but reachable without
+        opening the sheet.
+      */}
+      {activeFilterCount > 0 &&
+      namesToSwipe.length > 0 &&
+      namesToSwipe.length <= TINY_FILTERED_POOL_THRESHOLD ? (
+        <TouchableOpacity
+          style={styles.tinyDeckBanner}
+          onPress={() => {
+            AnalyticsService.track('filter_relax_banner_tap', {
+              names_remaining: namesToSwipe.length,
+              active_filter_count: activeFilterCount,
+            });
+            setFilters(DEFAULT_FILTERS);
+          }}
+          activeOpacity={0.88}
+          accessibilityRole="button"
+          accessibilityLabel={t('swipe.filter.relax')}
+        >
+          <Text style={styles.tinyDeckBannerText}>
+            {!hasUnlockedPacks && freeSwipesLeft > 0
+              ? t('swipe.filter.tooFewNoFree', {
+                  count: namesToSwipe.length,
+                  swipes: freeSwipesLeft,
+                })
+              : t('swipe.filter.tooFew', { count: namesToSwipe.length })}
+          </Text>
+          <Text style={styles.tinyDeckBannerAction}>{t('swipe.filter.relax')}</Text>
+        </TouchableOpacity>
       ) : null}
 
       {/* Card Stack — rendered back-to-front so top card is on top */}
@@ -1168,7 +1226,6 @@ const styles = StyleSheet.create({
     paddingRight: SPACING.xs,
   },
   headerTitle: { fontSize: 24, fontWeight: '800', color: COLORS.text },
-  headerSubtitle: { fontSize: 13, color: COLORS.textMuted, marginTop: 2 },
   headerRight: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -1383,6 +1440,31 @@ const styles = StyleSheet.create({
     borderColor: colors.onboarding.secondary + '66',
   },
   warningText: { fontSize: 13, color: COLORS.text, fontWeight: '600' },
+  tinyDeckBanner: {
+    marginHorizontal: SPACING.xl,
+    marginBottom: SPACING.md,
+    backgroundColor: colors.onboarding.primary + '18',
+    borderWidth: 1,
+    borderColor: colors.onboarding.primary + '55',
+    borderRadius: 12,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: SPACING.sm,
+  },
+  tinyDeckBannerText: {
+    flex: 1,
+    fontSize: 13,
+    color: COLORS.text,
+    fontWeight: '600',
+  },
+  tinyDeckBannerAction: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: colors.onboarding.primary,
+  },
   offerBackdrop: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.42)',

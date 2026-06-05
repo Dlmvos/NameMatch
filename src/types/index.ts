@@ -63,18 +63,22 @@ export interface BabyName {
 export type NameLength = 'short' | 'medium' | 'long';
 export type NameTrend = 'rising' | 'stable' | 'classic';
 
-/** Premium quick-picks that map to origin / geography signals (OR within selection). */
-export type NameOriginTag = 'spanish' | 'dutch';
-
 /** Premium quick-picks for feel / rarity (OR within selection). */
 export type NameVibeTag = 'unique' | 'international' | 'soft' | 'strong';
+
+/** Country/culture chip in the origin filter (canonical `BabyName.country` value). */
+export type OriginCountryChip = {
+  country: string;
+  count: number;
+  flag?: string;
+};
 
 export interface NameFilters {
   lengths: NameLength[]; // short ≤4, medium 5-7, long ≥8
   startingLetter: string; // '' = any
   trends: NameTrend[]; // [] = any
-  /** [] = any — OR match: name passes if any selected tag matches. */
-  origins: NameOriginTag[];
+  /** [] = any — OR match on `BabyName.country` (canonical country names). */
+  origins: string[];
   /** [] = any — OR match: name passes if any selected tag matches. */
   vibes: NameVibeTag[];
 }

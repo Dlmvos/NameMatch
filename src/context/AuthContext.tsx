@@ -393,6 +393,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } catch {
         info = customerInfoSeed ?? null;
       }
+      // One-shot recovery: if the entitlement isn't visible yet (stale SDK cache, anon→
+      // alias delay, or a webhook landing post-customerInfo), invalidate the cache and
+      // restore once before giving up. `refreshAndRestore` is idempotent server-side.
+      if (info && !PurchaseService.hasPremiumEntitlement(info)) {
+        try {
+          const restored = await PurchaseService.refreshAndRestore();
+          if (PurchaseService.hasPremiumEntitlement(restored)) {
+            info = restored;
+          }
+        } catch (err) {
+          if (__DEV__) console.warn('[AuthContext] refreshAndRestore during hydrate:', err);
+        }
+      }
       if (!info || !PurchaseService.hasPremiumEntitlement(info)) return false;
       try {
         await PurchaseService.syncRevenueCatEntitlement();

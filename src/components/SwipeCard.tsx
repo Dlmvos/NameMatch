@@ -335,8 +335,19 @@ export default function SwipeCard({
   if (!isTop) {
     return (
       <View style={[styles.cardLayer, { zIndex: 10 - cardIndex }]} pointerEvents="none">
+        {/*
+          NOTE: do NOT set `pointerEvents="none"` on this inner Animated.View.
+          The outer View already blocks all descendant touches via its own
+          `pointerEvents="none"`, so it would be redundant — and worse, React
+          Native does not reliably *reset* the prop-form `pointerEvents` on
+          an instance when the prop is later omitted. This Animated.View is
+          reused (same type, same position) when the card is promoted to top
+          (see the `if (!isTop)` branch boundary), and a stale `"none"` here
+          freezes the promoted card: no panResponder gesture, no action
+          button taps — even though the top branch's tree is freshly mounted
+          below it.
+        */}
         <Animated.View
-          pointerEvents="none"
           style={[
             styles.card,
             styles.stackedCard,

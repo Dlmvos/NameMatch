@@ -35,6 +35,13 @@ export type PurchasePremiumResult =
 
 let didConfigure = false;
 let purchasesDisabledReason: string | null = null;
+/**
+ * Tracks the userId we last logged into RC with. Used by `purchasePremium` to assert RC is
+ * logged in as the expected (Supabase) user *before* the purchase fires, so the transaction
+ * attribution and webhook payload land under the right subscriber from the start — closes
+ * the anonymous-purchase → aliased-subscriber race that hides entitlements later.
+ */
+let expectedAppUserId: string | null = null;
 const warnedDisabledMethods = new Set<string>();
 
 function isExpoGo(): boolean {
@@ -136,8 +143,23 @@ function canUsePurchases(method: string): boolean {
   return false;
 }
 
+/**
+ * Product identifiers that grant premium access. Used as a defensive fallback in
+ * `hasPremiumEntitlement` so a single entitlement-key rename on the RC dashboard
+ * (or an "Unattached"-style display state) can't silently lock paying users out.
+ */
+export const PREMIUM_PRODUCT_IDS = ['premium_couple', 'premium_monthly'] as const;
+
 export function hasPremiumEntitlement(customerInfo: CustomerInfo): boolean {
-  return Boolean(customerInfo.entitlements.active[ENTITLEMENT_ID]);
+  if (customerInfo.entitlements.active[ENTITLEMENT_ID]) return true;
+  // Fallback: any active entitlement whose backing product is one of ours counts as premium.
+  for (const entitlement of Object.values(customerInfo.entitlements.active)) {
+    const pid = entitlement?.productIdentifier;
+    if (pid && (PREMIUM_PRODUCT_IDS as readonly string[]).includes(pid)) {
+      return true;
+    }
+  }
+  return false;
 }
 
 function pickLifetimeFromOffering(offering: PurchasesOffering | null): PurchasesPackage | null {
@@ -358,11 +380,13 @@ export const PurchaseService = {
   async logIn(userId: string): Promise<void> {
     if (!canUsePurchases('logIn')) return;
     await Purchases.logIn(userId);
+    expectedAppUserId = userId;
   },
 
   async logOut(): Promise<void> {
     if (!canUsePurchases('logOut')) return;
     await Purchases.logOut();
+    expectedAppUserId = null;
   },
 
   async getCustomerInfo(): Promise<CustomerInfo> {
@@ -377,6 +401,23 @@ export const PurchaseService = {
       const reason = purchasesDisabledReason ?? 'RevenueCat has not been configured.';
       if (!__DEV__) throw purchasesUnavailableError('purchasePremium');
       return { success: false, unavailable: true, reason };
+    }
+    // Defense: ensure RC is logged in as the expected (Supabase) user *before* purchasePackage.
+    // Without this, a paywall tap that lands before the AuthContext-side `logIn(uid)` resolves
+    // attributes the purchase to the anonymous appUserID. The transaction still records, but
+    // the entitlement later reads under a different subscriber and silently appears empty.
+    if (expectedAppUserId) {
+      try {
+        const currentId = await Purchases.getAppUserID();
+        if (currentId !== expectedAppUserId) {
+          await Purchases.logIn(expectedAppUserId);
+        }
+      } catch (err) {
+        if (__DEV__) {
+          console.warn('[PurchaseService] pre-purchase logIn check failed:', err);
+        }
+        // Non-fatal — fall through and let RC process the purchase under whichever id it has.
+      }
     }
     const premiumPackage =
       selectedPackage ??
@@ -407,6 +448,24 @@ export const PurchaseService = {
   async restorePurchases(): Promise<CustomerInfo> {
     if (!canUsePurchases('restorePurchases')) {
       throw purchasesUnavailableError('restorePurchases');
+    }
+    return Purchases.restorePurchases();
+  },
+
+  /**
+   * Forces a server-side refresh: invalidates the SDK's local customerInfo cache and
+   * runs a restore. Used by the post-purchase hydration backoff to break stale caches
+   * and re-credit the current Apple-ID's transactions onto the current RC appUserID.
+   * Safe to call repeatedly; idempotent on the server.
+   */
+  async refreshAndRestore(): Promise<CustomerInfo> {
+    if (!canUsePurchases('refreshAndRestore')) {
+      throw purchasesUnavailableError('refreshAndRestore');
+    }
+    try {
+      await Purchases.invalidateCustomerInfoCache();
+    } catch {
+      // Cache invalidation failures are non-fatal — restore still asks the server fresh.
     }
     return Purchases.restorePurchases();
   },

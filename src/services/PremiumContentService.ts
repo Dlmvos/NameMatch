@@ -33,18 +33,36 @@ export interface FetchRemotePremiumNamesOptions {
 
 /** Non-premium `baby_names` rows for deck enrichment (RLS allows reads without packs). */
 export interface FetchRemotePublicDeckSupplementOptions {
-  /** Row cap (clamped 1..500). Default 400 so the first supplement stays easy to validate. */
+  /** Row cap for the *diversity* slice (clamped 1..MAX_PUBLIC_DECK_SUPPLEMENT_LIMIT). */
   limit?: number;
   /** When set and not `WORLDWIDE`, restricts to matching region or worldwide-flagged rows. */
   region?: Region | null;
+  /**
+   * User's own country preference. When set we add a targeted `.eq('country', country)`
+   * fetch on top of the diversity slice so the user's home culture isn't capped at the
+   * ~limit/N share the region-balanced fetch gives it. Drains the user's country tail
+   * up to COUNTRY_FOCUS_LIMIT before falling back to the balanced supplement.
+   */
+  country?: string | null;
   /** When `boy` / `girl`, restricts to that gender plus `neutral`. `both` = no gender filter. */
   gender?: 'boy' | 'girl' | 'both' | null;
   /** Active UI language; merges `public.name_meaning_translations` into returned names when present. */
   meaningLocale?: string;
+  /**
+   * Active country/culture chip(s) from the UI filter. When set we add targeted country-IN
+   * fetches for each selected country so filtered decks are not capped by the diversity sample.
+   */
+  origins?: string[];
 }
 
-const DEFAULT_PUBLIC_DECK_SUPPLEMENT_LIMIT = 400;
-const MAX_PUBLIC_DECK_SUPPLEMENT_LIMIT = 500;
+const DEFAULT_PUBLIC_DECK_SUPPLEMENT_LIMIT = 600;
+const MAX_PUBLIC_DECK_SUPPLEMENT_LIMIT = 1500;
+/** Cap on the user's own-country tail. Lets a Dutch user see ~all Dutch DB rows. */
+const COUNTRY_FOCUS_LIMIT = 1000;
+/** Cap on a selected-country tail (per chip). Same logic for the active UI filter. */
+const ORIGIN_FOCUS_LIMIT_PER_TAG = 1000;
+/** Cap on the premium remote fetch. Without an explicit `.limit()` PostgREST quietly caps at 1000. */
+const PREMIUM_REMOTE_LIMIT = 5000;
 
 /** Regions fetched in parallel for WORLDWIDE supplement (equal caps + round-robin). */
 const WORLDWIDE_PUBLIC_SUPPLEMENT_REGIONS: Region[] = ['US', 'EU', 'LATIN_AMERICA'];
@@ -210,6 +228,78 @@ function interleavePublicSupplementSlices(slices: BabyName[][], maxTotal: number
   return out;
 }
 
+/**
+ * Country-targeted fetch — no region constraint, no row-balancing across the
+ * region's other countries. Used for the user's own `countryPreference` tail
+ * and for origin-filter pushdown, so e.g. picking Dutch in the UI now pulls
+ * every Netherlands+Belgium row up to `limit` from Supabase instead of
+ * relying on the diversity sample to have happened to draw them.
+ */
+function buildTargetedCountryFetchPlan(
+  country: string | null,
+  originCountries: string[],
+): { uniqueCountries: string[]; limit: number } | null {
+  const uniqueCountries: string[] = [];
+  if (country) uniqueCountries.push(country);
+  for (const c of originCountries) {
+    if (!uniqueCountries.includes(c)) uniqueCountries.push(c);
+  }
+  if (uniqueCountries.length === 0) return null;
+
+  let limit = 0;
+  if (country) limit += COUNTRY_FOCUS_LIMIT;
+  for (const _ of originCountries) {
+    limit += ORIGIN_FOCUS_LIMIT_PER_TAG;
+  }
+  return { uniqueCountries, limit };
+}
+
+/** Preserves targeted-first merge order: home country slice, then each origin chip in UI order. */
+function partitionTargetedRowsByPriority(
+  rows: BabyName[],
+  country: string | null,
+  originCountries: string[],
+): BabyName[][] {
+  const byCountry = new Map<string, BabyName[]>();
+  for (const n of rows) {
+    const c = (n.country ?? '').trim();
+    if (!c) continue;
+    const list = byCountry.get(c) ?? [];
+    list.push(n);
+    byCountry.set(c, list);
+  }
+  const slices: BabyName[][] = [];
+  if (country) {
+    const home = byCountry.get(country);
+    if (home?.length) slices.push(home);
+  }
+  for (const c of originCountries) {
+    if (country && c === country) continue;
+    const slice = byCountry.get(c);
+    if (slice?.length) slices.push(slice);
+  }
+  return slices;
+}
+
+async function fetchPublicRowsByCountryList(
+  countries: string[],
+  limit: number,
+  gender: 'boy' | 'girl' | 'both',
+): Promise<BabyName[]> {
+  if (limit <= 0 || countries.length === 0) return [];
+  let q = supabase
+    .from('baby_names')
+    .select('id,name,meaning,origin,gender,country,region,is_worldwide,popularity_rank')
+    .eq('is_premium', false)
+    .in('country', countries);
+  q = applyPublicSupplementGenderFilter(q, gender);
+  q = q.order('popularity_rank', { ascending: true, nullsFirst: false }).limit(limit);
+  const { data, error } = await q;
+  if (error) return [];
+  const rows = (data ?? []) as BabyNamePremiumRow[];
+  return rows.map((row) => mapRowToBabyName(row));
+}
+
 async function fetchPublicRowsForRegionCountry(
   region: Region,
   country: string,
@@ -370,39 +460,72 @@ export const PremiumContentService = {
       const region = opts.region ?? null;
       const gender = opts.gender ?? 'both';
       const meaningLocale = opts.meaningLocale;
+      const country = opts.country?.trim() || null;
+      const originCountries = [
+        ...new Set(
+          (opts.origins ?? [])
+            .map((c) => c.trim())
+            .filter((c) => c.length > 0 && c !== 'spanish' && c !== 'dutch'),
+        ),
+      ];
 
-      if (region === 'WORLDWIDE') {
-        return await fetchWorldwideBalancedPublicRows(limit, gender, meaningLocale);
-      }
+      // Single targeted `.in('country', …)` fetch (replaces N per-country queries).
+      // Partition + merge preserves home-country-first semantics from the prior multi-fetch path.
+      const targetedPlan = buildTargetedCountryFetchPlan(country, originCountries);
+      const targetedTask: Promise<BabyName[]> = targetedPlan
+        ? fetchPublicRowsByCountryList(targetedPlan.uniqueCountries, targetedPlan.limit, gender)
+        : Promise.resolve([]);
 
-      if (region) {
-        const balancedRows = await fetchRegionCountryBalancedPublicRows(region, limit, gender, meaningLocale);
-        if (balancedRows.length > 0) {
-          return balancedRows;
+      const diversityTask: Promise<BabyName[]> = (async () => {
+        if (region === 'WORLDWIDE') {
+          return await fetchWorldwideBalancedPublicRows(limit, gender, meaningLocale);
+        }
+        if (region) {
+          const balancedRows = await fetchRegionCountryBalancedPublicRows(region, limit, gender, meaningLocale);
+          if (balancedRows.length > 0) {
+            return balancedRows;
+          }
+        }
+
+        let query = supabase
+          .from('baby_names')
+          .select('id,name,meaning,origin,gender,country,region,is_worldwide,popularity_rank')
+          .eq('is_premium', false);
+
+        if (region) {
+          query = query.or(`region.eq.${region},is_worldwide.eq.true`);
+        }
+
+        query = applyPublicSupplementGenderFilter(query, gender);
+
+        query = query.order('popularity_rank', { ascending: true, nullsFirst: false }).limit(limit);
+
+        const { data, error } = await query;
+        if (error) {
+          return [] as BabyName[];
+        }
+
+        const rows = (data ?? []) as BabyNamePremiumRow[];
+        return rows.map((row) => mapRowToBabyName(row));
+      })();
+
+      // Order targeted-first so the head of namesToSwipe leads with the user's
+      // own country / the active origin chips, then falls back to the diversity tail.
+      const [diversity, targetedRows] = await Promise.all([diversityTask, targetedTask]);
+      const targetedSlices = targetedPlan
+        ? partitionTargetedRowsByPriority(targetedRows, country, originCountries)
+        : [];
+      const mergedById = new Map<string, BabyName>();
+      for (const slice of targetedSlices) {
+        for (const n of slice) {
+          if (!mergedById.has(n.id)) mergedById.set(n.id, n);
         }
       }
-
-      let query = supabase
-        .from('baby_names')
-        .select('id,name,meaning,origin,gender,country,region,is_worldwide,popularity_rank')
-        .eq('is_premium', false);
-
-      if (region) {
-        query = query.or(`region.eq.${region},is_worldwide.eq.true`);
+      for (const n of diversity) {
+        if (!mergedById.has(n.id)) mergedById.set(n.id, n);
       }
-
-      query = applyPublicSupplementGenderFilter(query, gender);
-
-      query = query.order('popularity_rank', { ascending: true, nullsFirst: false }).limit(limit);
-
-      const { data, error } = await query;
-      if (error) {
-        return [];
-      }
-
-      const rows = (data ?? []) as BabyNamePremiumRow[];
-      const names = rows.map((row) => mapRowToBabyName(row));
-      return attachPublicMeaningTranslations(names, meaningLocale);
+      const merged = Array.from(mergedById.values());
+      return attachPublicMeaningTranslations(merged, meaningLocale);
     } catch {
       return [];
     }
@@ -414,10 +537,16 @@ export const PremiumContentService = {
     }
 
     try {
+      // Without an explicit .limit() PostgREST quietly caps this at its default
+      // (1000 in a stock Supabase project) — silently truncating the premium
+      // tail on a 37k-row catalog. Explicitly request the full eligible window
+      // so paid users with a pack actually receive the catalog they paid for.
       const { data, error } = await supabase
         .from('baby_names')
         .select('id,name,meaning,origin,gender,country,region,is_worldwide,popularity_rank')
-        .eq('is_premium', true);
+        .eq('is_premium', true)
+        .order('popularity_rank', { ascending: true, nullsFirst: false })
+        .limit(PREMIUM_REMOTE_LIMIT);
 
       if (error) {
         return null;

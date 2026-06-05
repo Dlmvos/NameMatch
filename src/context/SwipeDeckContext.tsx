@@ -6,12 +6,13 @@ import { SwipeService, normalizeBabyNameId } from '../services/SwipeService';
 import {
   BabyName,
   NameFilters,
-  NameOriginTag,
   NameVibeTag,
+  OriginCountryChip,
   DEFAULT_FILTERS,
   Region,
   SwipeDirection,
 } from '../types';
+import { findCountry } from '../data/countries';
 import { PremiumContentService } from '../services/PremiumContentService';
 import { enrichName, getNameLength } from '../services/nameEnrichment';
 import { countryWeightingService } from '../services/CountryWeightingService';
@@ -39,8 +40,43 @@ function sanitizeFreeFilters(filters: NameFilters): NameFilters {
 /** Bulk-import / Supabase `baby_names.id` uses UUID; bundled core uses short numeric ids. */
 const UUID_LIKE_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const DEBUG_SWIPE_DECK = false;
+/** Dev-only: pipeline counts when country=Netherlands and origin filter includes Netherlands. */
+const NL_DUTCH_PIPELINE_COUNTRY = 'Netherlands';
+
+function isNlDutchPipelineDebug(
+  countryPreference: string | null | undefined,
+  origins: readonly string[],
+): boolean {
+  if (!__DEV__) return false;
+  return (
+    (countryPreference ?? '').trim() === NL_DUTCH_PIPELINE_COUNTRY &&
+    origins.includes(NL_DUTCH_PIPELINE_COUNTRY)
+  );
+}
+
+function countOwnCountry(names: readonly BabyName[], country: string): number {
+  const c = country.trim();
+  return names.filter((n) => (n.country ?? '').trim() === c).length;
+}
+
+function countOriginCountry(names: readonly BabyName[], country: string): number {
+  return names.filter((n) => matchesOriginCountry(n, country)).length;
+}
+
+const LEGACY_ORIGIN_TAGS = new Set(['spanish', 'dutch']);
+
+function sanitizeOriginCountries(origins: readonly string[] | undefined): string[] {
+  return (origins ?? []).filter((c) => c.trim().length > 0 && !LEGACY_ORIGIN_TAGS.has(c));
+}
+
+function logNlDutchDeckPipeline(phase: string, counts: Record<string, number | string | null>): void {
+  console.log(`[SwipeDeck][NL+dutch] ${phase}`, counts);
+}
+
 /** Max wait for remote deck / swipe restores so startup cannot hang indefinitely. */
 const STARTUP_HYDRATION_TIMEOUT_MS = 12_000;
+/** Debounce origin-chip toggles before re-fetching the public DB supplement. */
+const ORIGIN_SUPPLEMENT_REFETCH_DEBOUNCE_MS = 225;
 
 const normalizeFilterText = (value?: string): string => value?.trim().toLowerCase() ?? '';
 
@@ -49,26 +85,34 @@ function isSwipedId(nameId: string, swiped: ReadonlySet<string>): boolean {
   return swiped.has(key) || swiped.has(nameId);
 }
 
-function discoveryMatchText(name: BabyName): string {
-  const nameText = normalizeFilterText(name.name);
-  const origin = normalizeFilterText(name.origin);
-  const country = normalizeFilterText(name.country);
-  const region = normalizeFilterText(name.region);
-  return `${nameText} ${origin} ${country} ${region}`;
+export function matchesOriginCountry(name: BabyName, country: string): boolean {
+  return (name.country ?? '').trim() === country.trim();
 }
 
-export function matchesOriginTag(name: BabyName, tag: NameOriginTag): boolean {
-  const combined = discoveryMatchText(name);
-  switch (tag) {
-    case 'spanish':
-      return /\b(spanish|spain|hispanic|latin america|latam|mexico|argentina|chile|colombia)\b/.test(
-        combined,
-      );
-    case 'dutch':
-      return /\b(dutch|netherlands|nederland|flemish|belgium)\b/.test(combined);
-    default:
-      return false;
+function applyFiltersExceptOrigins(
+  pool: BabyName[],
+  filters: NameFilters,
+  getNameLen: (name: BabyName) => ReturnType<typeof getNameLength>,
+  getTrend: (name: BabyName) => BabyName['trend'] | undefined,
+  swipedIds: ReadonlySet<string>,
+): BabyName[] {
+  let result = pool;
+  if (filters.lengths.length > 0) {
+    result = result.filter((n) => filters.lengths.includes(getNameLen(n)));
   }
+  if (filters.startingLetter) {
+    result = result.filter((n) => n.name[0]?.toUpperCase() === filters.startingLetter);
+  }
+  if (filters.vibes.length > 0) {
+    result = result.filter((n) => filters.vibes.some((tag) => matchesVibeTag(n, tag)));
+  }
+  if (filters.trends.length > 0) {
+    result = result.filter((n) => {
+      const trend = getTrend(n);
+      return trend ? filters.trends.includes(trend) : false;
+    });
+  }
+  return result.filter((n) => !isSwipedId(n.id, swipedIds));
 }
 
 export function matchesVibeTag(name: BabyName, tag: NameVibeTag): boolean {
@@ -186,6 +230,8 @@ interface SwipeDeckActionsContextValue {
   recordSwipe: (nameId: string, direction: SwipeDirection) => Promise<boolean>;
   loadMoreNames: () => void;
   setFilters: (f: NameFilters) => void;
+  /** Live country/culture chip counts for the filter sheet (excludes origin filter). */
+  getOriginCountryChips: (filters: NameFilters) => OriginCountryChip[];
 }
 
 const SwipeDeckStateContext = createContext<SwipeDeckStateContextValue | null>(null);
@@ -238,6 +284,9 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
   const [namesToSwipe, setNamesToSwipe] = useState<BabyName[]>([]);
   const [isLoadingNames, setIsLoadingNames] = useState(true);
   const [filters, setFiltersState] = useState<NameFilters>(DEFAULT_FILTERS);
+  const originsSerializedForFetch = JSON.stringify(sanitizeOriginCountries(filters.origins ?? []));
+  const [debouncedOriginsSerializedForFetch, setDebouncedOriginsSerializedForFetch] =
+    useState(originsSerializedForFetch);
   const [swipeStateHydrationKey, setSwipeStateHydrationKey] = useState<string | null>(null);
 
   const swipedIdsRef = useRef<Set<string>>(new Set());
@@ -407,6 +456,13 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
   }, [profile?.id]);
 
   useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedOriginsSerializedForFetch(originsSerializedForFetch);
+    }, ORIGIN_SUPPLEMENT_REFETCH_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [originsSerializedForFetch]);
+
+  useEffect(() => {
     if (!profile?.id || !isCountryPrefHydrated) {
       setPublicDeckSupplement([]);
       setPublicDeckHydrationKey(expectedPublicDeckHydrationKey);
@@ -420,12 +476,22 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
 
     let cancelled = false;
     setPublicDeckHydrationKey(null);
+    const originsForFetch = sanitizeOriginCountries(
+      JSON.parse(debouncedOriginsSerializedForFetch) as string[],
+    );
     void (async () => {
       try {
         const rows = await Promise.race([
           PremiumContentService.fetchRemotePublicDeckSupplement({
-            limit: 400,
+            // Diversity-slice cap. The user's own country and any active origin
+            // tags are pulled in addition to this via targeted .eq/.in fetches
+            // inside fetchRemotePublicDeckSupplement, so this number governs the
+            // breadth of cultures the user sees *outside* their own — it no
+            // longer single-handedly bounds the country-specific tail.
+            limit: 600,
             region: profile.region_preference ?? null,
+            country: countryPreference ?? null,
+            origins: originsForFetch,
             gender: profile.gender_preference ?? 'both',
             meaningLocale: effectiveLanguage,
           }),
@@ -433,7 +499,27 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
             setTimeout(() => reject(new Error('public deck timeout')), STARTUP_HYDRATION_TIMEOUT_MS),
           ),
         ]);
-        if (!cancelled) setPublicDeckSupplement(rows);
+        if (!cancelled) {
+          setPublicDeckSupplement(rows);
+          if (isNlDutchPipelineDebug(countryPreference, filters.origins ?? [])) {
+            const mergedPreview = mergeDeckSourcesByNameGender(
+              baselineDeckNames,
+              rows,
+              remotePremiumList,
+            );
+            logNlDutchDeckPipeline('publicSupplementLoaded', {
+              bundledCount: baselineDeckNames.length,
+              publicSupplementCount: rows.length,
+              ownCountryCount: countOwnCountry(mergedPreview, NL_DUTCH_PIPELINE_COUNTRY),
+              originTagCount: countOriginCountry(mergedPreview, NL_DUTCH_PIPELINE_COUNTRY),
+              premiumCount: remotePremiumList?.length ?? 0,
+              mergedCount: mergedPreview.length,
+              weightedPoolCount: -1,
+              filteredCount: -1,
+              namesToSwipeCount: namesToSwipeRef.current.length,
+            });
+          }
+        }
       } catch {
         if (!cancelled) setPublicDeckSupplement([]);
       } finally {
@@ -444,6 +530,8 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
     return () => {
       cancelled = true;
     };
+    // `countryPreference` triggers immediately; origin chips use
+    // `debouncedOriginsSerializedForFetch` so rapid toggles coalesce to one query.
   }, [
     profile?.id,
     profile?.region_preference,
@@ -453,6 +541,8 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
     effectiveUnlockedPacks.length,
     effectiveLanguage,
     expectedPublicDeckHydrationKey,
+    countryPreference,
+    debouncedOriginsSerializedForFetch,
   ]);
 
   useEffect(() => {
@@ -663,6 +753,76 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
    * rarity bands while keeping partner-visible decks deterministic for identical pool + ctx.
    * Personal taste nudges read local refs only (recent likes + cached learning profile).
    */
+  const buildWeightedPool = useCallback((): BabyName[] => {
+    if (!profile) return [];
+    const genderPref = profile.gender_preference ?? 'both';
+    const region = (profile.region_preference ?? 'WORLDWIDE') as Region;
+    const freeSwipesRemaining = profile.free_swipes_remaining ?? 0;
+    const purchasedPacks = effectiveUnlockedPacks;
+    const hasPaidPack = purchasedPacks.length > 0;
+    const hasFreeEntitlement = freeSwipesRemaining > 0;
+    const sharedRoomId = room?.id ?? profile.room_id ?? null;
+
+    if (!hasFreeEntitlement && !hasPaidPack) return [];
+    if (!hasPaidPack) {
+      return countryWeightingService.getFreeTierCountryFirstPool(
+        deckNames,
+        region,
+        countryPreference ?? undefined,
+        genderPref,
+        sharedRoomId ?? '',
+      );
+    }
+    return countryWeightingService.getWeightedPool(
+      deckNames,
+      region,
+      countryPreference ?? undefined,
+      genderPref,
+      swipedIdsRef.current.size,
+      purchasedPacks,
+      sharedRoomId ?? '',
+    );
+  }, [profile, deckNames, effectiveUnlockedPacks, countryPreference, room?.id]);
+
+  const getOriginCountryChips = useCallback(
+    (draft: NameFilters): OriginCountryChip[] => {
+      const normalized: NameFilters = {
+        ...DEFAULT_FILTERS,
+        ...draft,
+        origins: sanitizeOriginCountries(draft.origins),
+        vibes: draft.vibes ?? [],
+      };
+      const base = applyFiltersExceptOrigins(
+        buildWeightedPool(),
+        normalized,
+        getCachedNameLength,
+        getCachedTrend,
+        swipedIdsRef.current,
+      );
+      const counts = new Map<string, number>();
+      for (const n of base) {
+        const c = (n.country ?? '').trim();
+        if (!c) continue;
+        counts.set(c, (counts.get(c) ?? 0) + 1);
+      }
+      const pref = (countryPreference ?? '').trim();
+      return [...counts.entries()]
+        .map(([country, count]) => ({
+          country,
+          count,
+          flag: findCountry(country)?.flag,
+        }))
+        .sort((a, b) => {
+          if (pref) {
+            if (a.country === pref && b.country !== pref) return -1;
+            if (b.country === pref && a.country !== pref) return 1;
+          }
+          return b.count - a.count || a.country.localeCompare(b.country);
+        });
+    },
+    [buildWeightedPool, countryPreference, getCachedNameLength, getCachedTrend],
+  );
+
   const refineDeckOrder = useCallback((deck: BabyName[]): BabyName[] => {
     if (deck.length <= 1) return deck;
     const rawRoom = roomIdRef.current ?? '';
@@ -739,6 +899,7 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
           sharedRoomId ?? '',
         );
       }
+      const weightedPoolCount = pool.length;
 
       // Apply active UI filters
       if (filters.lengths.length > 0) {
@@ -747,8 +908,9 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
       if (filters.startingLetter) {
         pool = pool.filter((n) => n.name[0]?.toUpperCase() === filters.startingLetter);
       }
-      if (filters.origins.length > 0) {
-        pool = pool.filter((n) => filters.origins.some((tag) => matchesOriginTag(n, tag)));
+      const originCountries = sanitizeOriginCountries(filters.origins);
+      if (originCountries.length > 0) {
+        pool = pool.filter((n) => originCountries.some((c) => matchesOriginCountry(n, c)));
       }
       if (filters.vibes.length > 0) {
         pool = pool.filter((n) => filters.vibes.some((tag) => matchesVibeTag(n, tag)));
@@ -759,6 +921,7 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
           return trend ? filters.trends.includes(trend) : false;
         });
       }
+      const filteredPoolCount = pool.length;
 
       pool = applySharedRoomOrderingWithinPriorityGroups(pool, sharedRoomId, countryPreference, region);
       if (__DEV__ && DEBUG_SWIPE_DECK && sharedRoomId) {
@@ -836,6 +999,7 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
       const poolById = new Map(pool.map((n) => [n.id, n]));
       const gen = ++meaningEnrichmentGenerationRef.current;
 
+      let namesToSwipeCount = 0;
       if (useAdditiveAppend) {
         const headIds = new Set(prevVisible.map((n) => n.id));
         const stableHead = prevVisible
@@ -845,9 +1009,27 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
         const tail = fullRefined.filter(
           (n) => !headIds.has(n.id) && !isSwipedId(n.id, swipedIdsRef.current),
         );
-        setNamesToSwipe([...stableHead, ...tail]);
+        const nextQueue = [...stableHead, ...tail];
+        namesToSwipeCount = nextQueue.length;
+        setNamesToSwipe(nextQueue);
       } else {
-        setNamesToSwipe(refineDeckOrder(pool));
+        const nextQueue = refineDeckOrder(pool);
+        namesToSwipeCount = nextQueue.length;
+        setNamesToSwipe(nextQueue);
+      }
+
+      if (isNlDutchPipelineDebug(countryPreference, filters.origins)) {
+        logNlDutchDeckPipeline('buildNameQueue', {
+          bundledCount: baselineDeckNames.length,
+          publicSupplementCount: publicDeckSupplement.length,
+          ownCountryCount: countOwnCountry(deckNames, NL_DUTCH_PIPELINE_COUNTRY),
+          originTagCount: countOriginCountry(deckNames, NL_DUTCH_PIPELINE_COUNTRY),
+          premiumCount: remotePremiumList?.length ?? 0,
+          mergedCount: deckNames.length,
+          weightedPoolCount,
+          filteredCount: filteredPoolCount,
+          namesToSwipeCount,
+        });
       }
 
       lastDeckMergeContextKeyRef.current = deckRebuildContextKey;
@@ -1188,12 +1370,25 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
   );
 
   const setFilters = useCallback((f: NameFilters) => {
-    swipedIdsRef.current = new Set();
+    /**
+     * IMPORTANT: do NOT clear `swipedIdsRef` here. Earlier versions reset it
+     * on every filter change, which broke the already-swiped exclusion: the
+     * next `buildNameQueue` then saw an empty set and resurrected names the
+     * user had already swiped (including matched ones, since matches enter
+     * the swipe table). The DB hydration effect is keyed on user+room and
+     * does not re-fire on a filter change, so the set never refilled until
+     * the user's next swipe — leaving a stale window where the displayed
+     * "names left" count included un-swipeable resurrected entries.
+     *
+     * `recentLikedRef` is a *recency-ordering* hint, not an exclusion list,
+     * so it's still safe to drop on a filter change (deck order is allowed
+     * to re-sequence with new filters).
+     */
     recentLikedRef.current = [];
     const nextFilters = {
       ...DEFAULT_FILTERS,
       ...f,
-      origins: f.origins ?? [],
+      origins: sanitizeOriginCountries(f.origins),
       vibes: f.vibes ?? [],
     };
     setFiltersState(effectiveUnlockedPacks.length > 0 ? nextFilters : sanitizeFreeFilters(nextFilters));
@@ -1214,8 +1409,9 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
       recordSwipe,
       loadMoreNames,
       setFilters,
+      getOriginCountryChips,
     }),
-    [recordSwipe, loadMoreNames, setFilters],
+    [recordSwipe, loadMoreNames, setFilters, getOriginCountryChips],
   );
 
   return (
