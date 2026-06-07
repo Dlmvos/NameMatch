@@ -396,6 +396,26 @@ tsx scripts/adaptEuNationalCsvToJsonl.ts \
 
 **Staging swap:** [`ITALY_REAL_SOURCE_WORKFLOW.md`](./ITALY_REAL_SOURCE_WORKFLOW.md).
 
+### Belgium (BE — Statbel newborn names by province workbook)
+
+Sheets **`F_PROV2017` … `F_PROV2024`** and **`M_PROV2017` … `M_PROV2024`**: one row per first name, numeric columns for **11 provinces** (counts summed nationally). **`country = Belgium`**. Adapter slug **`eu-be-statbel`** sets `origin = null` and `meaning_source = 'Belgium national statistics (eu-be-statbel)'`.
+
+```bash
+npm run extract:baby-names:be-statbel-xlsx -- \
+  --in "scripts/data/raw/downloads/Belgium newborn names Statbel.xlsx" \
+  --out scripts/data/raw/eu-be-statbel.canonical.csv
+
+npm run validate:import-country-labels -- scripts/data/raw/eu-be-statbel.canonical.csv
+
+tsx scripts/adaptEuNationalCsvToJsonl.ts \
+  --in scripts/data/raw/eu-be-statbel.canonical.csv \
+  --out scripts/data/batches/external-eu-be-statbel.v1.jsonl \
+  --slug eu-be-statbel \
+  --top-per-year-sex 1200
+```
+
+Sample CSV shortcut: `npm run adapt:baby-names:eu-be-statbel-sample`. **Staging swap:** [`BELGIUM_REAL_SOURCE_WORKFLOW.md`](./BELGIUM_REAL_SOURCE_WORKFLOW.md).
+
 `npm run emit:baby-names:eu-national-v1` writes every configured EU staging raw CSV (NL, DE, ES, FR, IT, PT); `npm run build:baby-names:eu-national-v1` rebuilds **all** matching JSONLs.
 
 ### Portugal (PT / Statistics Portugal–INE staging v1)

@@ -29,6 +29,7 @@
  *   npm run build:baby-names:eu-it-istat-v1 (Italy staging v1 only)
  *   Italy real intake + staging swap: `scripts/data/ITALY_REAL_SOURCE_WORKFLOW.md` (canonical CSV → this adapter; report + SQL)
  *   Italy workbook (Wikipedia + ISTAT Top 200): `extractItalyWorkbookToCanonicalCsv.ts` → canonical → this adapter
+ *   Belgium Statbel province workbook: `extractBelgiumWorkbookToCanonicalCsv.ts` → canonical → this adapter (`--slug eu-be-statbel`; `BELGIUM_REAL_SOURCE_WORKFLOW.md`)
  *   npm run build:baby-names:eu-pt-ine-v1 (Portugal staging v1 only; INE PT–shaped slug, distinct from ES `eu-es-ine`)
  *   Portugal hybrid (Top 150 + IRN PDF): `extractPortugalHybridSourcesToCanonicalCsv.ts` → canonical → this adapter (`--slug eu-pt`); staging swap: `PORTUGAL_REAL_SOURCE_WORKFLOW.md`
  *   Brazil (IBGE-shaped canonical CSV, **not** EU): this adapter with `--slug latin-br-ibge` and `--output-region LATIN_AMERICA` — `BRAZIL_REAL_SOURCE_WORKFLOW.md`
