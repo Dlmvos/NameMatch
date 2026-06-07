@@ -3,7 +3,7 @@
  *
  * Used by `scripts/validateImportCountryLabels.ts` before JSONL/CSV import.
  */
-import { COUNTRY_OPTIONS } from '../../src/data/countries';
+import { COUNTRY_OPTIONS, UK_NATION_COUNTRY_NAMES } from '../../src/data/countries';
 import { toI18nKey } from '../../src/i18n/display';
 import { t } from '../../src/i18n/runtime';
 
@@ -21,7 +21,12 @@ const ENGLISH_COUNTRY_ALIASES: Record<string, string> = {
   'United Arab Emirates': 'UAE',
   'U.K.': 'United Kingdom',
   'Great Britain': 'United Kingdom',
-  England: 'United Kingdom',
+  // UK nation feeds (eu-ew-ons) — not the legacy United Kingdom bundled label
+  England: UK_NATION_COUNTRY_NAMES.ENGLAND_AND_WALES,
+  'England & Wales': UK_NATION_COUNTRY_NAMES.ENGLAND_AND_WALES,
+  Wales: UK_NATION_COUNTRY_NAMES.ENGLAND_AND_WALES,
+  'N. Ireland': UK_NATION_COUNTRY_NAMES.NORTHERN_IRELAND,
+  'N Ireland': UK_NATION_COUNTRY_NAMES.NORTHERN_IRELAND,
   Czechia: 'Czech Republic',
   'Republic of Korea': 'South Korea',
   'Korea, South': 'South Korea',

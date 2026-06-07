@@ -1,8 +1,10 @@
 // ============================================================
 // NameMatch – Country list with region mapping
 //
-// `name` must match the `country` field used in names.ts so
-// country-specific filtering works correctly.
+// `name` must match the `country` field on `baby_names` (imports, bundled names,
+// deck weighting, origin filter) — exact string equality, no normalization at runtime.
+// UK nation feeds use separate labels aligned with national statistics imports:
+//   England and Wales (eu-ew-ons), Scotland (eu-sct-nrs), Northern Ireland (eu-ni-nisra).
 // `region` maps to the Region union type for pool selection.
 // `adjacentRegions` drives the 15% discovery pool.
 // ============================================================
@@ -10,11 +12,18 @@
 import type { Region } from '../types';
 
 export interface CountryOption {
-  name: string;          // must match BabyName.country in names.ts
+  name: string;          // must match BabyName.country / import CSV `country` column exactly
   flag: string;          // emoji flag
   region: Region;        // primary region bucket
   adjacentRegions: Region[];
 }
+
+/** UK nation statistics feeds — must match canonical CSV defaults and `baby_names.country`. */
+export const UK_NATION_COUNTRY_NAMES = {
+  ENGLAND_AND_WALES: 'England and Wales',
+  SCOTLAND: 'Scotland',
+  NORTHERN_IRELAND: 'Northern Ireland',
+} as const;
 
 export const COUNTRY_OPTIONS: CountryOption[] = [
   // ── Europe ──────────────────────────────────────────────
@@ -22,6 +31,7 @@ export const COUNTRY_OPTIONS: CountryOption[] = [
   { name: 'Germany',       flag: '🇩🇪', region: 'EU', adjacentRegions: ['US', 'WORLDWIDE'] },
   { name: 'France',        flag: '🇫🇷', region: 'EU', adjacentRegions: ['US', 'WORLDWIDE'] },
   { name: 'United Kingdom',flag: '🇬🇧', region: 'EU', adjacentRegions: ['US', 'WORLDWIDE'] },
+  { name: 'England and Wales', flag: '🏴󠁧󠁢󠁥󠁮󠁧󠁿', region: 'EU', adjacentRegions: ['US', 'WORLDWIDE'] },
   { name: 'Italy',         flag: '🇮🇹', region: 'EU', adjacentRegions: ['US', 'WORLDWIDE'] },
   { name: 'Spain',         flag: '🇪🇸', region: 'EU', adjacentRegions: ['LATIN_AMERICA', 'WORLDWIDE'] },
   { name: 'Poland',        flag: '🇵🇱', region: 'EU', adjacentRegions: ['US', 'WORLDWIDE'] },
@@ -40,6 +50,7 @@ export const COUNTRY_OPTIONS: CountryOption[] = [
   { name: 'Greece',        flag: '🇬🇷', region: 'EU', adjacentRegions: ['MENA', 'WORLDWIDE'] },
   { name: 'Russia',        flag: '🇷🇺', region: 'EU', adjacentRegions: ['ASIA', 'WORLDWIDE'] },
   { name: 'Scotland',      flag: '🏴󠁧󠁢󠁳󠁣󠁴󠁿', region: 'EU', adjacentRegions: ['US', 'WORLDWIDE'] },
+  { name: 'Northern Ireland', flag: '🏴󠁧󠁢󠁮󠁩󠁲󠁿', region: 'EU', adjacentRegions: ['US', 'WORLDWIDE'] },
 
   // ── Americas ────────────────────────────────────────────
   { name: 'USA',           flag: '🇺🇸', region: 'US', adjacentRegions: ['EU', 'LATIN_AMERICA', 'WORLDWIDE'] },
