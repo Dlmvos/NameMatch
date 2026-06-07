@@ -3,6 +3,7 @@ import { countriesForRegion } from '../data/countries';
 import { rarityFromPopularityRank } from '../lib/rarityFromPopularityRank';
 import { supabase } from '../lib/supabase';
 import type { AppLanguage, BabyName, Region } from '../types';
+import { isOriginFilterWorldwide, isWorldwideOriginName } from '../types';
 import { enrichName } from './nameEnrichment';
 import {
   fetchPremiumMeaningTranslationsForIds,
@@ -53,6 +54,18 @@ export interface FetchRemotePublicDeckSupplementOptions {
    * fetches for each selected country so filtered decks are not capped by the diversity sample.
    */
   origins?: string[];
+  /**
+   * Two-phase publish hook. Fires as soon as the targeted-country slice (own
+   * country + active origin chips) resolves — typically ~300-800ms — so the
+   * caller can update its visible supplement before the slower diversity slice
+   * arrives. The final returned array still contains the merged set. The
+   * callback receives translated rows; safe to call `setState` directly.
+   *
+   * Use case: country-change re-fetch where waiting on `Promise.all` for the
+   * diversity slice (~2-4s) would otherwise stall the UI on the targeted rows
+   * the user actually cares about most.
+   */
+  onTargetedReady?: (targetedRows: BabyName[]) => void;
 }
 
 const DEFAULT_PUBLIC_DECK_SUPPLEMENT_LIMIT = 600;
@@ -238,20 +251,25 @@ function interleavePublicSupplementSlices(slices: BabyName[][], maxTotal: number
 function buildTargetedCountryFetchPlan(
   country: string | null,
   originCountries: string[],
-): { uniqueCountries: string[]; limit: number } | null {
+): { uniqueCountries: string[]; limit: number; includeWorldwideOrigin: boolean } | null {
+  const realOrigins = originCountries.filter((c) => !isOriginFilterWorldwide(c));
+  const includeWorldwideOrigin = originCountries.some(isOriginFilterWorldwide);
   const uniqueCountries: string[] = [];
   if (country) uniqueCountries.push(country);
-  for (const c of originCountries) {
+  for (const c of realOrigins) {
     if (!uniqueCountries.includes(c)) uniqueCountries.push(c);
   }
-  if (uniqueCountries.length === 0) return null;
+  if (uniqueCountries.length === 0 && !includeWorldwideOrigin) return null;
 
   let limit = 0;
   if (country) limit += COUNTRY_FOCUS_LIMIT;
-  for (const _ of originCountries) {
+  for (const _ of realOrigins) {
     limit += ORIGIN_FOCUS_LIMIT_PER_TAG;
   }
-  return { uniqueCountries, limit };
+  if (includeWorldwideOrigin) {
+    limit += ORIGIN_FOCUS_LIMIT_PER_TAG;
+  }
+  return { uniqueCountries, limit, includeWorldwideOrigin };
 }
 
 /** Preserves targeted-first merge order: home country slice, then each origin chip in UI order. */
@@ -261,7 +279,12 @@ function partitionTargetedRowsByPriority(
   originCountries: string[],
 ): BabyName[][] {
   const byCountry = new Map<string, BabyName[]>();
+  const worldwideRows: BabyName[] = [];
   for (const n of rows) {
+    if (isWorldwideOriginName(n)) {
+      worldwideRows.push(n);
+      continue;
+    }
     const c = (n.country ?? '').trim();
     if (!c) continue;
     const list = byCountry.get(c) ?? [];
@@ -274,11 +297,33 @@ function partitionTargetedRowsByPriority(
     if (home?.length) slices.push(home);
   }
   for (const c of originCountries) {
+    if (isOriginFilterWorldwide(c)) {
+      if (worldwideRows.length) slices.push(worldwideRows);
+      continue;
+    }
     if (country && c === country) continue;
     const slice = byCountry.get(c);
     if (slice?.length) slices.push(slice);
   }
   return slices;
+}
+
+async function fetchPublicWorldwideOriginRows(
+  limit: number,
+  gender: 'boy' | 'girl' | 'both',
+): Promise<BabyName[]> {
+  if (limit <= 0) return [];
+  let q = supabase
+    .from('baby_names')
+    .select('id,name,meaning,origin,gender,country,region,is_worldwide,popularity_rank')
+    .eq('is_premium', false)
+    .or('is_worldwide.eq.true,country.is.null');
+  q = applyPublicSupplementGenderFilter(q, gender);
+  q = q.order('popularity_rank', { ascending: true, nullsFirst: false }).limit(limit);
+  const { data, error } = await q;
+  if (error) return [];
+  const rows = (data ?? []) as BabyNamePremiumRow[];
+  return rows.map((row) => mapRowToBabyName(row));
 }
 
 async function fetchPublicRowsByCountryList(
@@ -473,7 +518,36 @@ export const PremiumContentService = {
       // Partition + merge preserves home-country-first semantics from the prior multi-fetch path.
       const targetedPlan = buildTargetedCountryFetchPlan(country, originCountries);
       const targetedTask: Promise<BabyName[]> = targetedPlan
-        ? fetchPublicRowsByCountryList(targetedPlan.uniqueCountries, targetedPlan.limit, gender)
+        ? (async () => {
+            const perCountryLimit = Math.max(
+              1,
+              Math.floor(
+                targetedPlan.limit /
+                  Math.max(
+                    1,
+                    targetedPlan.uniqueCountries.length +
+                      (targetedPlan.includeWorldwideOrigin ? 1 : 0),
+                  ),
+              ),
+            );
+            const [countryRows, worldwideRows] = await Promise.all([
+              targetedPlan.uniqueCountries.length > 0
+                ? fetchPublicRowsByCountryList(
+                    targetedPlan.uniqueCountries,
+                    targetedPlan.limit,
+                    gender,
+                  )
+                : Promise.resolve([] as BabyName[]),
+              targetedPlan.includeWorldwideOrigin
+                ? fetchPublicWorldwideOriginRows(perCountryLimit, gender)
+                : Promise.resolve([] as BabyName[]),
+            ]);
+            const byId = new Map<string, BabyName>();
+            for (const n of [...countryRows, ...worldwideRows]) {
+              if (!byId.has(n.id)) byId.set(n.id, n);
+            }
+            return Array.from(byId.values());
+          })()
         : Promise.resolve([]);
 
       const diversityTask: Promise<BabyName[]> = (async () => {
@@ -509,9 +583,42 @@ export const PremiumContentService = {
         return rows.map((row) => mapRowToBabyName(row));
       })();
 
+      // Two-phase publish: fire `onTargetedReady` as soon as the targeted
+      // country slice resolves (~300-800ms) so country-change re-fetches don't
+      // stall behind the diversity slice (~2-4s). The final merged set is
+      // returned at the end as usual; callers without the hook are unaffected.
+      const onTargetedReady = opts.onTargetedReady;
+
+      const targetedPhase = (async () => {
+        if (!targetedPlan || !onTargetedReady) return;
+        try {
+          const targetedRowsEarly = await targetedTask;
+          const targetedSlicesEarly = partitionTargetedRowsByPriority(
+            targetedRowsEarly,
+            country,
+            originCountries,
+          );
+          const earlyById = new Map<string, BabyName>();
+          for (const slice of targetedSlicesEarly) {
+            for (const n of slice) {
+              if (!earlyById.has(n.id)) earlyById.set(n.id, n);
+            }
+          }
+          if (earlyById.size === 0) return;
+          const earlyMerged = Array.from(earlyById.values());
+          const translatedEarly = await attachPublicMeaningTranslations(earlyMerged, meaningLocale);
+          onTargetedReady(translatedEarly);
+        } catch {
+          // Early publish is best-effort; the final return still resolves correctly below.
+        }
+      })();
+
       // Order targeted-first so the head of namesToSwipe leads with the user's
       // own country / the active origin chips, then falls back to the diversity tail.
       const [diversity, targetedRows] = await Promise.all([diversityTask, targetedTask]);
+      // Ensure the early-publish phase has settled before the final return so
+      // we don't race a stale early callback over the final state update.
+      await targetedPhase;
       const targetedSlices = targetedPlan
         ? partitionTargetedRowsByPriority(targetedRows, country, originCountries)
         : [];

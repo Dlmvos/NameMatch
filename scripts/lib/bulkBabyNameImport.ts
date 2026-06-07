@@ -21,8 +21,24 @@ export type BulkImportSourceRow = {
   name: string;
   gender: string;
   region: string;
+  /**
+   * **True linguistic / etymological origin** (e.g. "Hebrew", "Latin / French").
+   * Only populate when known. National-statistics adapters (NL CBS, SSA, INSEE …)
+   * MUST leave this null — appearing in a dataset proves nothing about the name's
+   * etymology, and writing "Netherlands (national statistics)" here would corrupt
+   * the field (it would surface as the user-visible origin label and would also
+   * match the Dutch origin regex by coincidence). Provenance belongs in
+   * `meaning_source` instead.
+   */
   origin?: string | null;
   meaning?: string | null;
+  /**
+   * Provenance of the row / its meaning (e.g. "CBS Netherlands open data 2023",
+   * "US SSA YOB", "wikidata"). Free-form text — used for audit, dedupe across
+   * imports, and the canonical_name_meanings join. Never displayed to end users
+   * as an attribute of the name itself; treat as metadata.
+   */
+  meaning_source?: string | null;
   country?: string | null;
   is_worldwide?: boolean;
   is_premium?: boolean;
@@ -34,8 +50,11 @@ export type NormalizedBabyNameInsert = {
   id: string;
   name: string;
   gender: AppGender;
-  origin: string;
+  /** Null when the source didn't supply a true linguistic origin. */
+  origin: string | null;
   meaning: string | null;
+  /** Provenance metadata (matches public.baby_names.meaning_source). */
+  meaning_source: string | null;
   country: string | null;
   region: AppRegion;
   is_worldwide: boolean;
@@ -206,7 +225,21 @@ export function normalizeAndValidateRow(input: BulkImportSourceRow): ValidationR
   const region = normalizeRegion(String(input.region ?? ''));
   if (!region) errors.push(`invalid region: "${input.region}"`);
 
-  const origin = String(input.origin ?? '').trim() || 'Unknown';
+  // Origin is the linguistic / etymological origin. Leave null when the source
+  // doesn't actually know it — the prior `'Unknown'` fallback was a bug-magnet
+  // (it leaked dataset provenance into a user-visible field). National-import
+  // adapters now route provenance to `meaning_source` instead and pass
+  // `origin: null` unless they have a genuine etymology.
+  const originRaw = input.origin;
+  const origin =
+    originRaw === null || originRaw === undefined
+      ? null
+      : String(originRaw).trim() || null;
+  const meaningSourceRaw = input.meaning_source;
+  const meaning_source =
+    meaningSourceRaw === null || meaningSourceRaw === undefined
+      ? null
+      : String(meaningSourceRaw).trim() || null;
   const meaningRaw = input.meaning;
   const meaning =
     meaningRaw === null || meaningRaw === undefined
@@ -254,6 +287,7 @@ export function normalizeAndValidateRow(input: BulkImportSourceRow): ValidationR
       gender: genderOut,
       origin,
       meaning,
+      meaning_source,
       country,
       region: regionOut,
       is_worldwide,

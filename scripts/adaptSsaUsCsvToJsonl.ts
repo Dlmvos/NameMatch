@@ -221,13 +221,19 @@ function buildImportRows(rows: SsaCsvRow[]): BulkImportSourceRow[] {
     const popularity_rank = ranks.get(`${r.year}|${r.sex}|${r.name}`) ?? null;
     const gender = r.sex === 'M' ? 'boy' : 'girl';
     const normalizedNameSlug = r.name.toLowerCase().replace(/\s+/g, '-');
+    // Dataset provenance lives in `meaning_source` — NOT `origin`. "US SSA"
+    // tells us the source of the row, not the linguistic origin of the name
+    // (an SSA row for "Sofia" doesn't make it American-origin). Leave
+    // `origin` null here; meaning enrichment can fill in true etymology
+    // later for rows where it's actually known.
     return {
       external_id: `${DATASET_SLUG}:${r.year}:${r.sex}:${normalizedNameSlug}`,
       name: r.name,
       gender,
       region: 'US',
-      origin: 'US SSA',
+      origin: null,
       meaning: null,
+      meaning_source: 'US SSA (Social Security Administration)',
       country: 'USA',
       is_worldwide: false,
       is_premium: false,

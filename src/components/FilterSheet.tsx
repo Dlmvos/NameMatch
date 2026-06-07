@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   Modal,
   ScrollView,
+  TextInput,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -17,10 +18,15 @@ import {
   NameTrend,
   NameVibeTag,
   DEFAULT_FILTERS,
+  OriginCountryChip,
+  Region,
   type RootStackParamList,
+  ORIGIN_FILTER_WORLDWIDE,
 } from '../types';
+import { useApp } from '../context/AppContext';
 import { useSwipeDeckActions } from '../context/SwipeDeckContext';
-import { translateCountryName } from '../i18n/display';
+import { findCountry } from '../data/countries';
+import { translateOriginFilterCountry } from '../i18n/display';
 import { useTranslation } from '../i18n/I18nProvider';
 
 interface FilterSheetProps {
@@ -48,6 +54,238 @@ const LEGACY_ORIGIN_TAGS = new Set(['spanish', 'dutch']);
 
 const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
 const FEATURED_LETTERS = ['A', 'E', 'L', 'M', 'N', 'S'];
+
+const REGION_ORDER: (Region | 'OTHER')[] = [
+  'EU',
+  'US',
+  'LATIN_AMERICA',
+  'ASIA',
+  'MENA',
+  'ARABIA',
+  'WORLDWIDE',
+  'OTHER',
+];
+
+const REGION_LABEL_KEYS: Record<Region, string> = {
+  EU: 'region.eu',
+  US: 'region.us',
+  LATIN_AMERICA: 'region.latinAmerica',
+  ASIA: 'region.asia',
+  MENA: 'region.mena',
+  ARABIA: 'region.arabia',
+  WORLDWIDE: 'region.worldwide',
+};
+
+/** Countries below this count are selectable but not full national datasets. */
+const ORIGIN_FULL_COVERAGE_MIN = 5;
+
+function isLimitedOriginCoverage(count: number): boolean {
+  return count > 0 && count < ORIGIN_FULL_COVERAGE_MIN;
+}
+
+function regionLabelKey(region: Region | 'OTHER'): string {
+  return region === 'OTHER' ? 'filter.origin.regionOther' : REGION_LABEL_KEYS[region];
+}
+
+function buildFeaturedCountries(
+  chips: OriginCountryChip[],
+  countryPreference: string | null | undefined,
+  selectedOrigins: string[],
+): OriginCountryChip[] {
+  const byCountry = new Map(chips.map((c) => [c.country, c]));
+  const seen = new Set<string>();
+  const out: OriginCountryChip[] = [];
+  const add = (country: string | undefined | null) => {
+    const c = country?.trim();
+    if (!c || seen.has(c)) return;
+    const chip = byCountry.get(c);
+    if (!chip) return;
+    seen.add(c);
+    out.push(chip);
+  };
+  add(countryPreference);
+  [...selectedOrigins].reverse().forEach((c) => add(c));
+  for (const chip of chips) {
+    if (out.length >= 8) break;
+    add(chip.country);
+  }
+  return out;
+}
+
+function groupCountriesByRegion(
+  chips: OriginCountryChip[],
+  exclude: ReadonlySet<string>,
+): { region: Region | 'OTHER'; chips: OriginCountryChip[] }[] {
+  const buckets = new Map<Region | 'OTHER', OriginCountryChip[]>();
+  for (const chip of chips) {
+    if (exclude.has(chip.country)) continue;
+    const region =
+      chip.country === ORIGIN_FILTER_WORLDWIDE
+        ? 'WORLDWIDE'
+        : (findCountry(chip.country)?.region ?? 'OTHER');
+    const list = buckets.get(region) ?? [];
+    list.push(chip);
+    buckets.set(region, list);
+  }
+  return REGION_ORDER.filter((r) => (buckets.get(r)?.length ?? 0) > 0).map((region) => ({
+    region,
+    chips: buckets.get(region)!,
+  }));
+}
+
+type OriginCountryPickerModalProps = {
+  visible: boolean;
+  chips: OriginCountryChip[];
+  selected: string[];
+  countryPreference: string | null | undefined;
+  onToggle: (country: string) => void;
+  onClose: () => void;
+};
+
+function OriginCountryPickerModal({
+  visible,
+  chips,
+  selected,
+  countryPreference,
+  onToggle,
+  onClose,
+}: OriginCountryPickerModalProps) {
+  const { t } = useTranslation();
+  const [query, setQuery] = useState('');
+
+  useEffect(() => {
+    if (visible) setQuery('');
+  }, [visible]);
+
+  const featured = useMemo(
+    () => buildFeaturedCountries(chips, countryPreference, selected),
+    [chips, countryPreference, selected],
+  );
+  const featuredSet = useMemo(() => new Set(featured.map((c) => c.country)), [featured]);
+
+  const searchResults = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return null;
+    return chips.filter((chip) => {
+      const label = translateOriginFilterCountry(t, chip.country).toLowerCase();
+      if (chip.country === ORIGIN_FILTER_WORLDWIDE) {
+        return (
+          label.includes(q) ||
+          q.includes('world') ||
+          q.includes('international') ||
+          q.includes('internation')
+        );
+      }
+      return chip.country.toLowerCase().includes(q) || label.includes(q);
+    });
+  }, [chips, query, t]);
+
+  const grouped = useMemo(
+    () => (searchResults ? [] : groupCountriesByRegion(chips, featuredSet)),
+    [chips, featuredSet, searchResults],
+  );
+
+  const renderCountryRow = (chip: OriginCountryChip) => {
+    const active = selected.includes(chip.country);
+    const disabled = chip.count === 0 && !active;
+    const limitedCoverage = isLimitedOriginCoverage(chip.count);
+    return (
+      <TouchableOpacity
+        key={chip.country}
+        style={[
+          styles.originRow,
+          disabled && styles.originRowDisabled,
+          limitedCoverage && !active && styles.originRowLimited,
+          active && styles.originRowActive,
+        ]}
+        onPress={() => !disabled && onToggle(chip.country)}
+        disabled={disabled}
+        activeOpacity={0.85}
+      >
+        <Text
+          style={[
+            styles.originRowLabel,
+            disabled && styles.originRowLabelDisabled,
+            limitedCoverage && !active && styles.originRowLabelLimited,
+          ]}
+        >
+          {chip.flag ? `${chip.flag} ` : ''}
+          {translateOriginFilterCountry(t, chip.country)}
+        </Text>
+        <View style={styles.originRowRight}>
+          {limitedCoverage ? (
+            <Text
+              style={[
+                styles.originRowLimitedBadge,
+                active && styles.originRowLimitedBadgeActive,
+              ]}
+            >
+              {t('filter.origin.limitedCoverageCount', { count: chip.count })}
+            </Text>
+          ) : (
+            <Text style={[styles.originRowCount, disabled && styles.originRowLabelDisabled]}>{chip.count}</Text>
+          )}
+          {active ? (
+            <Ionicons name="checkmark-circle" size={20} color={colors.onboarding.primary} />
+          ) : (
+            <Ionicons name="ellipse-outline" size={20} color={colors.neutral.border} />
+          )}
+        </View>
+      </TouchableOpacity>
+    );
+  };
+
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <View style={styles.pickerBackdrop}>
+        <View style={styles.pickerSheet}>
+          <View style={styles.pickerHeader}>
+            <Text style={styles.pickerTitle}>{t('filter.section.origin')}</Text>
+            <TouchableOpacity onPress={onClose} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Text style={styles.pickerDone}>{t('filter.origin.done')}</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.searchBox}>
+            <Ionicons name="search-outline" size={18} color={colors.neutral.gray} />
+            <TextInput
+              style={styles.searchInput}
+              placeholder={t('filter.origin.searchPlaceholder')}
+              placeholderTextColor={colors.neutral.gray}
+              value={query}
+              onChangeText={setQuery}
+              autoCorrect={false}
+              autoCapitalize="none"
+            />
+          </View>
+
+          <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+            {chips.length === 0 ? (
+              <Text style={styles.sectionHint}>{t('filter.origin.empty')}</Text>
+            ) : searchResults ? (
+              searchResults.map(renderCountryRow)
+            ) : (
+              <>
+                {featured.length > 0 ? (
+                  <>
+                    <Text style={styles.pickerSectionLabel}>{t('filter.origin.featured')}</Text>
+                    {featured.map(renderCountryRow)}
+                  </>
+                ) : null}
+                {grouped.map(({ region, chips: regionChips }) => (
+                  <View key={region}>
+                    <Text style={styles.pickerSectionLabel}>{t(regionLabelKey(region))}</Text>
+                    {regionChips.map(renderCountryRow)}
+                  </View>
+                ))}
+              </>
+            )}
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
+  );
+}
 
 const normalizeFilters = (filters: NameFilters): NameFilters => ({
   ...DEFAULT_FILTERS,
@@ -82,16 +320,19 @@ export default function FilterSheet({
 }: FilterSheetProps) {
   const { t } = useTranslation();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const { countryPreference } = useApp();
   const { getOriginCountryChips } = useSwipeDeckActions();
   const [draft, setDraft] = useState<NameFilters>(
     isPremium ? normalizeFilters(currentFilters) : sanitizeFreeFilters(currentFilters),
   );
   const [showAllLetters, setShowAllLetters] = useState(false);
+  const [showOriginPicker, setShowOriginPicker] = useState(false);
 
   useEffect(() => {
     if (visible) {
       setDraft(isPremium ? normalizeFilters(currentFilters) : sanitizeFreeFilters(currentFilters));
       setShowAllLetters(false);
+      setShowOriginPicker(false);
     }
   }, [currentFilters, isPremium, visible]);
 
@@ -212,66 +453,64 @@ export default function FilterSheet({
             })}
           </View>
 
-          {/* Origin / culture — dynamic countries from the current deck with live counts */}
+          {/* Origin / culture — searchable picker grouped by region */}
           <Text style={styles.sectionLabel}>{t('filter.section.origin')}</Text>
-          <View style={styles.chipRow}>
-            {originCountryChips.length === 0 ? (
-              <Text style={styles.sectionHint}>{t('filter.origin.empty')}</Text>
+          <TouchableOpacity
+            style={[
+              styles.originSelector,
+              !isPremium && styles.chipLocked,
+            ]}
+            onPress={() =>
+              !isPremium ? openPaywallFromLockedFilter('origin') : setShowOriginPicker(true)
+            }
+            activeOpacity={0.85}
+          >
+            <View style={styles.originSelectorMain}>
+              <Ionicons
+                name="earth-outline"
+                size={18}
+                color={!isPremium ? colors.neutral.gray : colors.onboarding.primary}
+              />
+              <Text
+                style={[styles.originSelectorText, !isPremium && styles.chipLockedText]}
+                numberOfLines={1}
+              >
+                {draft.origins.length === 0
+                  ? t('filter.origin.noneSelected')
+                  : t('filter.origin.selectedCount', { count: draft.origins.length })}
+              </Text>
+            </View>
+            {!isPremium ? (
+              <Ionicons name="lock-closed-outline" size={16} color={colors.neutral.gray} />
             ) : (
-              originCountryChips.map((chip) => {
-                const active = isPremium && draft.origins.includes(chip.country);
-                const locked = !isPremium;
-                const disabled = !locked && chip.count === 0 && !active;
+              <Ionicons name="chevron-forward" size={18} color={colors.neutral.gray} />
+            )}
+          </TouchableOpacity>
+          {isPremium && draft.origins.length > 0 ? (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.selectedOriginRow}
+            >
+              {draft.origins.map((country) => {
+                const chip = originCountryChips.find((c) => c.country === country);
                 return (
                   <TouchableOpacity
-                    key={chip.country}
-                    style={[
-                      styles.filterChip,
-                      locked && styles.chipLocked,
-                      disabled && styles.chipDisabled,
-                      active && styles.filterChipActive,
-                    ]}
-                    onPress={() =>
-                      locked
-                        ? openPaywallFromLockedFilter('origin')
-                        : disabled
-                          ? undefined
-                          : toggleOriginCountry(chip.country)
-                    }
-                    disabled={disabled}
+                    key={country}
+                    style={styles.selectedOriginChip}
+                    onPress={() => toggleOriginCountry(country)}
                     activeOpacity={0.85}
                   >
-                    <Text
-                      style={[
-                        styles.filterChipText,
-                        locked && styles.chipLockedText,
-                        disabled && styles.chipDisabledText,
-                        active && styles.filterChipTextActive,
-                      ]}
-                    >
-                      {chip.flag ? `${chip.flag} ` : ''}
-                      {translateCountryName(t, chip.country)}
+                    <Text style={styles.selectedOriginChipText}>
+                      {chip?.flag ? `${chip.flag} ` : ''}
+                      {translateOriginFilterCountry(t, country)}
                     </Text>
-                    <Text
-                      style={[
-                        styles.chipCount,
-                        locked && styles.chipLockedText,
-                        disabled && styles.chipDisabledText,
-                        active && styles.filterChipTextActive,
-                      ]}
-                    >
-                      {chip.count}
-                    </Text>
-                    {locked ? (
-                      <View style={styles.lockBadgeSmall}>
-                        <Ionicons name="lock-closed-outline" size={12} color={colors.neutral.gray} />
-                      </View>
-                    ) : null}
+                    <Ionicons name="close-circle" size={16} color={colors.onboarding.primary} />
                   </TouchableOpacity>
                 );
-              })
-            )}
-          </View>
+              })}
+            </ScrollView>
+          ) : null}
 
           {/* Vibe */}
           <Text style={styles.sectionLabel}>{t('filter.section.style')}</Text>
@@ -399,6 +638,15 @@ export default function FilterSheet({
           </Text>
         </TouchableOpacity>
       </View>
+
+      <OriginCountryPickerModal
+        visible={showOriginPicker && isPremium}
+        chips={originCountryChips}
+        selected={draft.origins}
+        countryPreference={countryPreference}
+        onToggle={toggleOriginCountry}
+        onClose={() => setShowOriginPicker(false)}
+      />
     </Modal>
   );
 }
@@ -587,5 +835,165 @@ const styles = StyleSheet.create({
     color: colors.neutral.white,
     fontSize: FONTS.sizes.lg,
     fontWeight: '800',
+  },
+  originSelector: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.md,
+    borderRadius: RADIUS.lg,
+    borderWidth: 1.5,
+    borderColor: colors.neutral.border,
+    backgroundColor: colors.neutral.bgSoft,
+    marginBottom: SPACING.xs,
+  },
+  originSelectorMain: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    flex: 1,
+    minWidth: 0,
+  },
+  originSelectorText: {
+    flex: 1,
+    fontSize: FONTS.sizes.sm,
+    fontWeight: '700',
+    color: colors.neutral.textDark,
+  },
+  selectedOriginRow: {
+    flexDirection: 'row',
+    gap: SPACING.sm,
+    paddingBottom: SPACING.xs,
+  },
+  selectedOriginChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 6,
+    borderRadius: RADIUS.full,
+    backgroundColor: colors.onboarding.primary + '14',
+    borderWidth: 1,
+    borderColor: colors.onboarding.primary + '55',
+  },
+  selectedOriginChipText: {
+    fontSize: FONTS.sizes.xs,
+    fontWeight: '700',
+    color: colors.onboarding.primary,
+    maxWidth: 140,
+  },
+  pickerBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'flex-end',
+  },
+  pickerSheet: {
+    backgroundColor: colors.neutral.white,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    paddingHorizontal: SPACING.xl,
+    paddingTop: SPACING.md,
+    paddingBottom: SPACING.xl + 16,
+    maxHeight: '85%',
+    ...SHADOWS.card,
+  },
+  pickerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: SPACING.md,
+  },
+  pickerTitle: {
+    fontSize: FONTS.sizes.lg,
+    fontWeight: '800',
+    color: colors.neutral.textDark,
+  },
+  pickerDone: {
+    fontSize: FONTS.sizes.sm,
+    fontWeight: '700',
+    color: colors.onboarding.primary,
+  },
+  pickerSectionLabel: {
+    fontSize: FONTS.sizes.xs,
+    fontWeight: '800',
+    letterSpacing: 1.1,
+    color: colors.neutral.gray,
+    marginTop: SPACING.md,
+    marginBottom: SPACING.xs,
+  },
+  searchBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    borderRadius: RADIUS.lg,
+    borderWidth: 1,
+    borderColor: colors.neutral.border,
+    backgroundColor: colors.neutral.bgSoft,
+    marginBottom: SPACING.sm,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: FONTS.sizes.sm,
+    color: colors.neutral.textDark,
+    paddingVertical: 4,
+  },
+  originRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: SPACING.sm + 2,
+    paddingHorizontal: SPACING.xs,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.neutral.border,
+  },
+  originRowActive: {
+    backgroundColor: colors.onboarding.primary + '08',
+  },
+  originRowDisabled: {
+    opacity: 0.45,
+  },
+  originRowLimited: {
+    opacity: 0.78,
+  },
+  originRowLabel: {
+    flex: 1,
+    fontSize: FONTS.sizes.sm,
+    fontWeight: '600',
+    color: colors.neutral.textDark,
+  },
+  originRowLabelDisabled: {
+    color: colors.neutral.gray,
+  },
+  originRowLabelLimited: {
+    color: colors.neutral.gray,
+    fontWeight: '500',
+  },
+  originRowRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+  },
+  originRowCount: {
+    fontSize: FONTS.sizes.xs,
+    fontWeight: '800',
+    color: colors.neutral.gray,
+    minWidth: 24,
+    textAlign: 'right',
+  },
+  originRowLimitedBadge: {
+    fontSize: FONTS.sizes.xs,
+    fontWeight: '600',
+    fontStyle: 'italic',
+    color: 'rgba(118,126,146,0.92)',
+    maxWidth: 112,
+    textAlign: 'right',
+    lineHeight: 15,
+  },
+  originRowLimitedBadgeActive: {
+    color: colors.onboarding.primary,
+    fontStyle: 'normal',
   },
 });

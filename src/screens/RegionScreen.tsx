@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { colors } from '../theme';
 import {
   View,
@@ -10,7 +10,9 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
+import { useApp } from '../context/AppContext';
 import { useTranslation } from '../i18n/I18nProvider';
 import { RootStackParamList, Region, REGION_OPTIONS } from '../types';
 import { COLORS, FONTS, RADIUS, SPACING, SHADOWS } from '../theme';
@@ -28,8 +30,16 @@ function regionDescKey(key: Region): string {
 export default function RegionScreen({ navigation }: Props) {
   const { t } = useTranslation();
   const { updateProfile } = useAuth();
+  const { effectiveUnlockedPacks, refreshUnlockedPacks } = useApp();
   const [selected, setSelected] = useState<Region | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const hasPremium = effectiveUnlockedPacks.length > 0;
+
+  useFocusEffect(
+    useCallback(() => {
+      void refreshUnlockedPacks();
+    }, [refreshUnlockedPacks]),
+  );
 
   const getTranslated = (translationKey: string, fallback: string): string => {
     const translated = t(translationKey);
@@ -114,24 +124,26 @@ export default function RegionScreen({ navigation }: Props) {
           </Text>
         </View>
 
-        <View style={[styles.premiumPreview, SHADOWS.card]}>
-          <Text style={styles.premiumPreviewTitle}>{t('region.premiumPreview.title')}</Text>
-          <View style={styles.lockedNameRow}>
-            {['Aurelia', 'Mateo', 'Noor'].map((name) => (
-              <View key={name} style={styles.lockedNameCard}>
-                <Text style={styles.lockIcon}>🔒</Text>
-                <Text style={styles.lockedNameText}>{name}</Text>
-              </View>
-            ))}
+        {!hasPremium ? (
+          <View style={[styles.premiumPreview, SHADOWS.card]}>
+            <Text style={styles.premiumPreviewTitle}>{t('region.premiumPreview.title')}</Text>
+            <View style={styles.lockedNameRow}>
+              {['Aurelia', 'Mateo', 'Noor'].map((name) => (
+                <View key={name} style={styles.lockedNameCard}>
+                  <Text style={styles.lockIcon}>🔒</Text>
+                  <Text style={styles.lockedNameText}>{name}</Text>
+                </View>
+              ))}
+            </View>
+            <TouchableOpacity
+              style={styles.premiumPreviewCta}
+              onPress={() => navigation.navigate('Paywall')}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.premiumPreviewCtaText}>{t('region.premiumPreview.cta')}</Text>
+            </TouchableOpacity>
           </View>
-          <TouchableOpacity
-            style={styles.premiumPreviewCta}
-            onPress={() => navigation.navigate('Paywall')}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.premiumPreviewCtaText}>{t('region.premiumPreview.cta')}</Text>
-          </TouchableOpacity>
-        </View>
+        ) : null}
 
         <TouchableOpacity
           style={[styles.continueBtn, !selected && styles.continueBtnDisabled, SHADOWS.button]}

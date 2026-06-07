@@ -66,6 +66,28 @@ export type NameTrend = 'rising' | 'stable' | 'classic';
 /** Premium quick-picks for feel / rarity (OR within selection). */
 export type NameVibeTag = 'unique' | 'international' | 'soft' | 'strong';
 
+/** Synthetic origin-filter chip id for names with no country or `is_worldwide`. */
+export const ORIGIN_FILTER_WORLDWIDE = '__origin_worldwide__';
+
+export function isOriginFilterWorldwide(country: string): boolean {
+  return country === ORIGIN_FILTER_WORLDWIDE;
+}
+
+/** Names eligible for the International / Worldwide origin bucket. */
+export function isWorldwideOriginName(name: Pick<BabyName, 'country' | 'is_worldwide'>): boolean {
+  return name.is_worldwide === true || !(name.country ?? '').trim();
+}
+
+export function matchesOriginCountry(name: BabyName, country: string): boolean {
+  if (isOriginFilterWorldwide(country)) {
+    return isWorldwideOriginName(name);
+  }
+  if (isWorldwideOriginName(name)) {
+    return false;
+  }
+  return (name.country ?? '').trim() === country.trim();
+}
+
 /** Country/culture chip in the origin filter (canonical `BabyName.country` value). */
 export type OriginCountryChip = {
   country: string;
@@ -77,7 +99,7 @@ export interface NameFilters {
   lengths: NameLength[]; // short ≤4, medium 5-7, long ≥8
   startingLetter: string; // '' = any
   trends: NameTrend[]; // [] = any
-  /** [] = any — OR match on `BabyName.country` (canonical country names). */
+  /** [] = any — OR match on `BabyName.country` or {@link ORIGIN_FILTER_WORLDWIDE}. */
   origins: string[];
   /** [] = any — OR match: name passes if any selected tag matches. */
   vibes: NameVibeTag[];

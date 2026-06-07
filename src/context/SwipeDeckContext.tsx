@@ -11,6 +11,9 @@ import {
   DEFAULT_FILTERS,
   Region,
   SwipeDirection,
+  ORIGIN_FILTER_WORLDWIDE,
+  isWorldwideOriginName,
+  matchesOriginCountry,
 } from '../types';
 import { findCountry } from '../data/countries';
 import { PremiumContentService } from '../services/PremiumContentService';
@@ -83,10 +86,6 @@ const normalizeFilterText = (value?: string): string => value?.trim().toLowerCas
 function isSwipedId(nameId: string, swiped: ReadonlySet<string>): boolean {
   const key = normalizeBabyNameId(nameId);
   return swiped.has(key) || swiped.has(nameId);
-}
-
-export function matchesOriginCountry(name: BabyName, country: string): boolean {
-  return (name.country ?? '').trim() === country.trim();
 }
 
 function applyFiltersExceptOrigins(
@@ -232,6 +231,16 @@ interface SwipeDeckActionsContextValue {
   setFilters: (f: NameFilters) => void;
   /** Live country/culture chip counts for the filter sheet (excludes origin filter). */
   getOriginCountryChips: (filters: NameFilters) => OriginCountryChip[];
+  /**
+   * Register a user-authored custom name into the in-memory deck pool *immediately*
+   * after `CustomNameService.addCustomName` succeeds, so derived state (chip counts,
+   * filter sheet, country pickers, partner-side broadcast consumers) reflects it
+   * without waiting for the next `publicDeckSupplement` refetch — which today only
+   * fires on pref/filter changes or app restart. Idempotent; safe to call multiple
+   * times with the same name. Also marks it swiped locally since the creator
+   * auto-right-swipes the name as part of `addCustomName`.
+   */
+  registerOwnCustomName: (name: BabyName) => void;
 }
 
 const SwipeDeckStateContext = createContext<SwipeDeckStateContextValue | null>(null);
@@ -494,6 +503,20 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
             origins: originsForFetch,
             gender: profile.gender_preference ?? 'both',
             meaningLocale: effectiveLanguage,
+            // Two-phase publish: surface the user's own-country slice as soon
+            // as it returns (~300-800ms) instead of waiting on the slower
+            // diversity slice (~2-4s). Critical for snappy country-change UX —
+            // the deck and filter chip counts reflect the new country within a
+            // round-trip, then deepen when diversity lands. We replace state
+            // (not merge) because the targeted slice already prioritises the
+            // user's own country first; the diversity tail is appended on the
+            // final return below. Guarded by `cancelled` to avoid late writes
+            // after the effect tears down (e.g. rapid country switches).
+            onTargetedReady: (targetedRows) => {
+              if (!cancelled && targetedRows.length > 0) {
+                setPublicDeckSupplement(targetedRows);
+              }
+            },
           }),
           new Promise<never>((_, reject) =>
             setTimeout(() => reject(new Error('public deck timeout')), STARTUP_HYDRATION_TIMEOUT_MS),
@@ -800,25 +823,36 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
         swipedIdsRef.current,
       );
       const counts = new Map<string, number>();
+      let worldwideCount = 0;
       for (const n of base) {
+        if (isWorldwideOriginName(n)) {
+          worldwideCount += 1;
+          continue;
+        }
         const c = (n.country ?? '').trim();
         if (!c) continue;
         counts.set(c, (counts.get(c) ?? 0) + 1);
       }
       const pref = (countryPreference ?? '').trim();
-      return [...counts.entries()]
-        .map(([country, count]) => ({
-          country,
-          count,
-          flag: findCountry(country)?.flag,
-        }))
-        .sort((a, b) => {
-          if (pref) {
-            if (a.country === pref && b.country !== pref) return -1;
-            if (b.country === pref && a.country !== pref) return 1;
-          }
-          return b.count - a.count || a.country.localeCompare(b.country);
+      const chips = [...counts.entries()].map(([country, count]) => ({
+        country,
+        count,
+        flag: findCountry(country)?.flag,
+      }));
+      if (worldwideCount > 0) {
+        chips.push({
+          country: ORIGIN_FILTER_WORLDWIDE,
+          count: worldwideCount,
+          flag: '🌍',
         });
+      }
+      return chips.sort((a, b) => {
+        if (pref) {
+          if (a.country === pref && b.country !== pref) return -1;
+          if (b.country === pref && a.country !== pref) return 1;
+        }
+        return b.count - a.count || a.country.localeCompare(b.country);
+      });
     },
     [buildWeightedPool, countryPreference, getCachedNameLength, getCachedTrend],
   );
@@ -1404,14 +1438,38 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
     [namesToSwipe, isLoadingNames, isSwipeDeckInputReady, filters, activeFilterCount],
   );
 
+  /**
+   * Fold a just-created custom name into the in-memory deck pool right after
+   * `CustomNameService.addCustomName` resolves, instead of waiting for the next
+   * remote `publicDeckSupplement` refetch (which only fires on pref/filter change
+   * or full app restart — that is the "only appears after restart" bug).
+   *
+   * We append to `publicDeckSupplement` (not to a separate state) so the existing
+   * `deckNames` memo picks it up via its existing dependency and downstream consumers
+   * (filter chip counts via `buildWeightedPool`, partner-side fold-in, country pickers,
+   * `namesToSwipe` rebuilds) see it on the next render. Dedup is by id.
+   *
+   * The creator already auto-right-swiped this name inside `addCustomName`; we mark it
+   * in `swipedIdsRef` immediately so the next `buildNameQueue` doesn't put the user's
+   * own custom back into their visible deck during the window between this call and
+   * the next swipe-state hydration cycle.
+   */
+  const registerOwnCustomName = useCallback((name: BabyName) => {
+    if (!name?.id) return;
+    const id = name.id;
+    swipedIdsRef.current.add(id);
+    setPublicDeckSupplement((prev) => (prev.some((n) => n.id === id) ? prev : [...prev, name]));
+  }, []);
+
   const actionsValue = useMemo(
     () => ({
       recordSwipe,
       loadMoreNames,
       setFilters,
       getOriginCountryChips,
+      registerOwnCustomName,
     }),
-    [recordSwipe, loadMoreNames, setFilters, getOriginCountryChips],
+    [recordSwipe, loadMoreNames, setFilters, getOriginCountryChips, registerOwnCustomName],
   );
 
   return (
@@ -1423,3 +1481,4 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
+export { matchesOriginCountry } from '../types';

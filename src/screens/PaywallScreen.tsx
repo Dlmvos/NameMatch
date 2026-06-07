@@ -251,6 +251,8 @@ export default function PaywallScreen({ navigation, route }: Props) {
         return;
       }
       await hydratePremiumFromRevenueCat(result.customerInfo);
+      await refreshUnlockedPacks();
+      loadMoreNames();
       AnalyticsService.track('purchase_completed');
       Alert.alert(t('shop.purchaseSuccessTitle'), t('shop.purchaseSuccessBody'));
       navigateAfterPremiumVerified();
@@ -275,6 +277,8 @@ export default function PaywallScreen({ navigation, route }: Props) {
         Alert.alert(t('shop.restoreNoneTitle'), t('shop.restoreNoneBody'));
         return;
       }
+      await refreshUnlockedPacks();
+      loadMoreNames();
       Alert.alert(t('shop.restoreReadyTitle'), t('shop.restoreReadyBody'));
       navigateAfterPremiumVerified();
     } catch (err: any) {

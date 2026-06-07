@@ -43,16 +43,45 @@ export function getLocalizedNameMeaning(name: BabyName, language: AppLanguage | 
 }
 
 /**
+ * Data-source fragments stored in `baby_names.origin` — never show as cultural origin.
+ * Handles parenthesized tags and bare suffixes (e.g. "Spain national statistics").
+ */
+const ORIGIN_SOURCE_STRIP_PATTERNS: RegExp[] = [
+  /\s*\(national statistics\)\s*/gi,
+  /\s*\(census\)\s*/gi,
+  /\s*\(registry\)\s*/gi,
+  /\s+national statistics\s*/gi,
+  /\s+census\s*/gi,
+  /\s+registry\s*/gi,
+];
+
+/** Entire origin string is only a catalog source label — hide in UI. */
+const ORIGIN_SOURCE_ONLY_PATTERNS: RegExp[] = [
+  /^US\s*SSA$/i,
+  /^SSA$/i,
+  /^national statistics$/i,
+  /^census$/i,
+  /^registry$/i,
+  /^unknown$/i,
+  /^n\/?a$/i,
+  /^custom$/i,
+];
+
+/**
  * Clean origin strings for display — strip data-source tags like "(national statistics)".
  * Shared utility so every screen uses the same cleanup.
  */
 export function cleanOriginForDisplay(origin: string | null | undefined): string {
   if (!origin) return '';
-  return origin
-    .replace(/\s*\(national statistics\)\s*/gi, '')
-    .replace(/\s*\(census\)\s*/gi, '')
-    .replace(/\s*\(registry\)\s*/gi, '')
-    .trim();
+  let cleaned = origin.trim();
+  for (const pattern of ORIGIN_SOURCE_STRIP_PATTERNS) {
+    cleaned = cleaned.replace(pattern, ' ').trim();
+  }
+  cleaned = cleaned.replace(/\s{2,}/g, ' ').trim();
+  if (!cleaned || ORIGIN_SOURCE_ONLY_PATTERNS.some((p) => p.test(cleaned))) {
+    return '';
+  }
+  return cleaned;
 }
 
 /** True for user-authored names (custom origin); used to render the fallback meaning UX. */

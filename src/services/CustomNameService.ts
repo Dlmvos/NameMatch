@@ -1,7 +1,16 @@
 import { CORE_BUNDLED_NAMES } from '../data/names';
 import { supabase } from '../lib/supabase';
 import type { BabyName, Gender, Region } from '../types';
-import { SwipeService } from './SwipeService';
+import { SwipeService, type LikedName } from './SwipeService';
+
+export class AlreadyLikedNameError extends Error {
+  readonly code = 'ALREADY_LIKED' as const;
+
+  constructor(readonly existingLike: LikedName) {
+    super('You already liked this name');
+    this.name = 'AlreadyLikedNameError';
+  }
+}
 
 export interface AddCustomNameParams {
   name: string;
@@ -122,6 +131,11 @@ export const CustomNameService = {
     const activeSession = sessionWrap.session;
     if (!activeSession?.access_token) {
       throw new Error('Failed to create custom name: No active session. Please sign in again.');
+    }
+
+    const existingLike = await SwipeService.findLikedNameByLabel(userId, roomId, trimmedName);
+    if (existingLike) {
+      throw new AlreadyLikedNameError(existingLike);
     }
 
     const inherited = await findExistingMeaningForName(trimmedName);

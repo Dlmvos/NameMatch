@@ -29,6 +29,7 @@ import { COLORS, FONTS, RADIUS, SPACING, SHADOWS } from '../theme';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useRoomActions, useRoomState } from '../context/RoomContext';
+import { useSwipeDeckActions } from '../context/SwipeDeckContext';
 import { supabase } from '../lib/supabase';
 
 const PRIVACY_POLICY_URL = 'https://babinom.com/privacy/';
@@ -49,7 +50,9 @@ export default function SettingsScreen() {
     effectiveLanguage,
     countryPreference,
     residenceCountry,
+    refreshUnlockedPacks,
   } = useApp();
+  const { loadMoreNames } = useSwipeDeckActions();
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
@@ -153,6 +156,8 @@ export default function SettingsScreen() {
   const handleRestorePurchases = async () => {
     try {
       const restored = await restorePurchases();
+      await refreshUnlockedPacks();
+      loadMoreNames();
       if (restored) {
         Alert.alert(tr('shop.restoreReadyTitle'), tr('shop.restoreReadyBody'));
       } else {

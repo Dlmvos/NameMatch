@@ -21,9 +21,10 @@ import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { useMatchState } from '../context/RoomContext';
 import { useRoom } from '../context/RoomContext';
 import { useAuth } from '../context/AuthContext';
+import { useSwipeDeckActions } from '../context/SwipeDeckContext';
 import { useTranslation } from '../i18n/I18nProvider';
 import { getLocalizedNameMeaning, cleanOriginForDisplay, isCustomName } from '../i18n/nameMeaningDisplay';
-import { CustomNameService } from '../services/CustomNameService';
+import { AlreadyLikedNameError, CustomNameService } from '../services/CustomNameService';
 import { SwipeService, LikedName } from '../services/SwipeService';
 import { PremiumContentService } from '../services/PremiumContentService';
 import NameDetailModal from '../components/NameDetailModal';
@@ -70,6 +71,7 @@ export default function MatchesScreen() {
   const { matches } = useMatchState();
   const { room, handleConfirmedMatch } = useRoom();
   const { user, profile, session } = useAuth();
+  const { registerOwnCustomName } = useSwipeDeckActions();
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [editingMatchId, setEditingMatchId] = useState<string | null>(null);
   const [draftNote, setDraftNote] = useState('');
@@ -195,6 +197,13 @@ export default function MatchesScreen() {
       return;
     }
 
+    const nameKey = trimmed.toLowerCase();
+    if (likedNames.some((l) => l.name.name.trim().toLowerCase() === nameKey)) {
+      resetCustomModal();
+      Alert.alert('', t('matches.likes.alreadyLiked'));
+      return;
+    }
+
     setIsSavingCustom(true);
     try {
       const { babyName, isMatch } = await CustomNameService.addCustomName({
@@ -205,15 +214,29 @@ export default function MatchesScreen() {
         region: (profile?.region_preference as Region) ?? 'WORLDWIDE',
         country: profile?.country_preference ?? undefined,
       });
+      // Fold the new custom into the deck pool right away so chip counts,
+      // FilterSheet country chips, and any deck-derived state reflect it without
+      // a restart. Also marks it swiped so the creator's own deck doesn't
+      // resurrect it before swipe-state hydration re-runs.
+      registerOwnCustomName(babyName);
       void fetchLikedNames();
       if (isMatch) {
         await handleConfirmedMatch(babyName);
       }
       resetCustomModal();
       Alert.alert('', t('matches.customName.success', { name: babyName.name }));
-    } catch (err: any) {
-      console.error('[MatchesScreen] custom name error:', err?.message ?? err);
-      Alert.alert('', __DEV__ && err?.message ? `${t('matches.customName.error')}\n\n${err.message}` : t('matches.customName.error'));
+    } catch (err: unknown) {
+      if (err instanceof AlreadyLikedNameError) {
+        resetCustomModal();
+        Alert.alert('', t('matches.likes.alreadyLiked'));
+        return;
+      }
+      const message = err instanceof Error ? err.message : String(err);
+      console.error('[MatchesScreen] custom name error:', message);
+      Alert.alert(
+        '',
+        __DEV__ ? `${t('matches.customName.error')}\n\n${message}` : t('matches.customName.error'),
+      );
       setIsSavingCustom(false);
     }
   }, [
@@ -222,11 +245,13 @@ export default function MatchesScreen() {
     session?.access_token,
     user?.id,
     roomId,
+    likedNames,
     profile?.region_preference,
     profile?.country_preference,
     resetCustomModal,
     fetchLikedNames,
     handleConfirmedMatch,
+    registerOwnCustomName,
     t,
   ]);
 

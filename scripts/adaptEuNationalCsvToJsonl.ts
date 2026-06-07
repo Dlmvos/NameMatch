@@ -260,14 +260,23 @@ function buildImportRows(
     const popularity_rank = ranks.get(`${key}|${r.name}`) ?? null;
     const gender = r.sex === 'M' ? 'boy' : 'girl';
     const normalizedNameSlug = r.name.toLowerCase().replace(/\s+/g, '-');
-    const origin = `${r.country} (national statistics)`;
+    // Dataset provenance lives in `meaning_source` — NOT `origin`. A name
+    // appearing in CBS / INSEE / INE / ISTAT etc. tells us where we *got the
+    // row*, not where the name is linguistically *from*. Writing the
+    // provenance into `origin` corrupted two things: (a) it surfaced strings
+    // like "Netherlands (national statistics)" on the swipe card, and (b) it
+    // accidentally matched the Dutch origin filter regex via the word
+    // "netherlands", lying about etymology. Leave `origin` null here; the
+    // meaning-enrichment pipeline can populate it later for rows where the
+    // true linguistic origin is actually known.
     return {
       external_id: `${datasetSlug}:${cslug(r)}:${r.year}:${r.sex}:${normalizedNameSlug}`,
       name: r.name,
       gender,
       region: outputRegion,
-      origin,
+      origin: null,
       meaning: null,
+      meaning_source: `${r.country} national statistics (${datasetSlug})`,
       country: r.country,
       is_worldwide: false,
       is_premium: false,

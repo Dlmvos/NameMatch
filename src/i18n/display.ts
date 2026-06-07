@@ -1,3 +1,5 @@
+import { isOriginFilterWorldwide } from '../types';
+
 type TranslateFn = (key: string, vars?: Record<string, string | number>) => string;
 
 export const toI18nKey = (value: string): string =>
@@ -16,4 +18,15 @@ export const translateCountryName = (
   const key = `country.${toI18nKey(countryName)}`;
   const translated = t(key);
   return translated === key ? countryName : translated;
+};
+
+/** Origin-filter chip label (real countries + synthetic worldwide bucket). */
+export const translateOriginFilterCountry = (
+  t: TranslateFn,
+  country: string,
+): string => {
+  if (isOriginFilterWorldwide(country)) {
+    return t('filter.origin.worldwideBucket');
+  }
+  return translateCountryName(t, country);
 };

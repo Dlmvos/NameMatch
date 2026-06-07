@@ -136,6 +136,11 @@ async function fetchLikedBabyNameRows(nameIds: string[]): Promise<Map<string, Li
   return out;
 }
 
+/** Case/whitespace-normalized display label for duplicate-like checks. */
+function normalizedDisplayNameKey(raw: string): string {
+  return raw.trim().toLowerCase();
+}
+
 export const SwipeService = {
   async getSwipedNameIds(userId: string, roomId: string): Promise<Set<string>> {
     const { data, error } = await supabase
@@ -192,6 +197,17 @@ export const SwipeService = {
    * Fetch all names the current user swiped right on in this room.
    * Uses two queries instead of Supabase embedded joins so schema-cache FK naming cannot break My Likes.
    */
+  async findLikedNameByLabel(
+    userId: string,
+    roomId: string,
+    label: string,
+  ): Promise<LikedName | null> {
+    const key = normalizedDisplayNameKey(label);
+    if (!key) return null;
+    const liked = await SwipeService.getLikedNames(userId, roomId);
+    return liked.find((l) => normalizedDisplayNameKey(l.name.name) === key) ?? null;
+  },
+
   async getLikedNames(userId: string, roomId: string): Promise<LikedName[]> {
     const { data: swipeRows, error: swipeError } = await supabase
       .from('swipes')

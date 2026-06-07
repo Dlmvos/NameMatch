@@ -29,6 +29,7 @@
     "report:baby-names:it-eu-bulk-stats": "tsx scripts/reportItalyEuBulkImportStats.ts",
     "report:baby-names:pt-eu-bulk-stats": "tsx scripts/reportPortugalEuBulkImportStats.ts",
     "report:baby-names:br-latam-bulk-stats": "tsx scripts/reportBrazilLatamBulkImportStats.ts",
+    "report:baby-names:origin-hygiene": "tsx scripts/reportBabyNamesOriginHygiene.ts",
     "emit:baby-names:eu-national-v1": "tsx scripts/emitEuNationalStagingRawCsv.ts",
     "build:baby-names:eu-nl-cbs-v1": "tsx scripts/emitEuNationalStagingRawCsv.ts --market nl && tsx scripts/adaptEuNationalCsvToJsonl.ts --in scripts/data/raw/eu-nl-cbs.v1.csv --out scripts/data/batches/external-eu-nl-cbs.v1.jsonl --slug eu-nl",
     "build:baby-names:eu-de-destatis-v1": "tsx scripts/emitEuNationalStagingRawCsv.ts --market de && tsx scripts/adaptEuNationalCsvToJsonl.ts --in scripts/data/raw/eu-de-destatis.v1.csv --out scripts/data/batches/external-eu-de-destatis.v1.jsonl --slug eu-de",
@@ -52,7 +53,8 @@
     "export:bundled-meaning-jobs": "tsx scripts/exportBundledMeaningTranslationJobs.ts",
     "translate:bundled-meanings": "tsx scripts/translateBundledMeaningsWithOpenAI.ts",
     "merge:bundled-meaning-translations": "tsx scripts/mergeBundledMeaningTranslations.ts",
-    "check:bundled-meaning-translations": "tsx scripts/checkBundledMeaningTranslations.ts"
+    "check:bundled-meaning-translations": "tsx scripts/checkBundledMeaningTranslations.ts",
+    "validate:import-country-labels": "tsx scripts/validateImportCountryLabels.ts"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
