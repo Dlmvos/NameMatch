@@ -67,6 +67,8 @@
     "build:baby-name-meaning-enrichment": "tsx scripts/buildMeaningEnrichmentBatch.ts",
     "find:meaning-enrichment-gaps": "tsx scripts/enrichmentGapFinder.ts",
     "enrich:meaning-dictionary": "tsx scripts/enrichmentFromDictionary.ts",
+    "enrich:apply": "tsx scripts/applyEnrichmentBatch.ts",
+    "enrich:apply:dry-run": "tsx scripts/applyEnrichmentBatch.ts --dry-run",
     "validate:meaning-jsonl": "tsx scripts/validateMeaningJsonl.ts",
     "report:meaning-coverage": "tsx scripts/reportMeaningCoverage.ts",
     "export:bundled-meaning-jobs": "tsx scripts/exportBundledMeaningTranslationJobs.ts",

@@ -34,11 +34,16 @@
 --              retry_after optional; NULL = skip until row deleted/updated.
 --
 -- Idempotent: safe to re-run after partial failure.
+--
+-- Remote drift: uuid-ossp / uuid_generate_v4() may be unavailable — use
+-- pgcrypto gen_random_uuid() in the extensions schema (Supabase default).
 -- ============================================================
+
+create extension if not exists pgcrypto with schema extensions;
 
 -- ── 1. Table ────────────────────────────────────────────────────────────────
 create table if not exists public.canonical_name_meaning_attempts (
-  id uuid primary key default uuid_generate_v4(),
+  id uuid primary key default extensions.gen_random_uuid(),
   canonical_name_id uuid not null references public.canonical_names(id) on delete cascade,
   meaning_language text not null,
   gender_scope text not null,
@@ -48,6 +53,22 @@ create table if not exists public.canonical_name_meaning_attempts (
   retry_after timestamptz,
   context jsonb not null default '{}'::jsonb
 );
+
+-- Ensure id default uses pgcrypto if the table was created on a prior partial
+-- run with uuid_generate_v4(). Does not rewrite existing id values.
+do $$
+begin
+  if exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'canonical_name_meaning_attempts'
+      and column_name = 'id'
+  ) then
+    alter table public.canonical_name_meaning_attempts
+      alter column id set default extensions.gen_random_uuid();
+  end if;
+end
+$$;
 
 -- Backfill defaults if a partial run created nullable columns (defensive).
 update public.canonical_name_meaning_attempts
