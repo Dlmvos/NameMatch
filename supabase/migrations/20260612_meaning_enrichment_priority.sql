@@ -4,36 +4,32 @@
 -- Schema substrate for the meaning-enrichment pipeline (see proposal:
 -- "Design a meaning-enrichment pipeline for BabySwipe national imports").
 --
--- Adds three columns to `public.canonical_name_meanings`:
---   * source_priority smallint   — 1 (best) .. 9 (worst). Lets the lateral
---                                  join in baby_names_with_meaning break ties
---                                  across sources without app-side ordering.
---                                  Existing rows default to 5 (mid bucket).
---   * review_status   text       — 'auto' | 'flagged' | 'approved' | 'rejected'.
---                                  Human-moderation slot. The view ignores
---                                  'rejected' rows; 'approved' is permanent
---                                  (the enrichment pipeline must not overwrite
---                                  it back to 'auto').
---   * context         jsonb      — free-form per-row metadata (model name,
---                                  prompt version, source url, dedupe trail).
---                                  Defaults to empty object so concat ops are
---                                  safe.
+-- ALWAYS applies (idempotent, safe to re-run after partial failure):
+--   * Adds / backfills on `public.canonical_name_meanings`:
+--       source_priority, review_status, context
+--   * CHECK constraints for source_priority (1..9) and review_status enum
+--   * Partial index idx_canonical_name_meanings_best
 --
--- Adds an index that mirrors the new view's ORDER BY so the lateral lookup
--- is one B-tree seek per row.
+-- CONDITIONALLY applies:
+--   * Rewrites `public.baby_names_with_meaning` ONLY when
+--     `public.baby_names.canonical_name_id` exists. The view joins
+--     baby_names → canonical_name_meanings via that FK column; without it
+--     the rewrite must be skipped or the migration fails.
 --
--- Rewrites `baby_names_with_meaning` to:
+-- Remote schema drift (observed on production):
+--   * `canonical_name_meanings` exists with `canonical_name_id` but often
+--     WITHOUT an `origin` column (etymology stays on `baby_names.origin`).
+--   * `baby_names.canonical_name_id` may be absent when the identity layer
+--     from 20260429_canonical_name_identity.sql has not landed yet.
+--   * When the view rewrite is skipped, apply 20260429 (or equivalent) first,
+--     then re-run this migration to pick up the view section.
+--
+-- View rewrite behavior (when baby_names.canonical_name_id exists):
 --   * Filter out review_status = 'rejected'.
---   * Order by source_priority asc, then meaning_verified desc, then
---     meaning_confidence desc (gender-scope and language preferences still
---     take precedence so we don't regress existing behavior).
---   * Fall back to English when the requested language has no eligible row
---     for that canonical name — single-lateral-join pattern: filter
---     `meaning_language IN (requested, 'en')` and rank requested first.
---
--- The view is `CREATE OR REPLACE` only — column set, types, and ordering
--- of the SELECT list are preserved exactly so no app types or
--- PostgREST responses break. New view-level columns are NOT introduced.
+--   * Order by source_priority, meaning_verified, meaning_confidence.
+--   * English fallback via meaning_language IN (requested, 'en').
+--   * Never references cnm.origin unless that column exists on CNM.
+--   * Same public view columns/types as 20260429 — no new view columns.
 -- ============================================================
 
 -- ── 1. Add columns to canonical_name_meanings (idempotent) ───────────────────
@@ -56,19 +52,50 @@ update public.canonical_name_meanings
 set context = '{}'::jsonb
 where context is null;
 
--- Tighten NOT NULL after backfill so the view + enrichment pipeline can
--- treat them as required.
-alter table public.canonical_name_meanings
-  alter column source_priority set not null,
-  alter column source_priority set default 5,
-  alter column review_status   set not null,
-  alter column review_status   set default 'auto',
-  alter column context         set not null,
-  alter column context         set default '{}'::jsonb;
+-- Tighten NOT NULL after backfill. Guard with is_nullable checks so a re-run
+-- after partial success is safe.
+do $$
+begin
+  if exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'canonical_name_meanings'
+      and column_name = 'source_priority'
+      and is_nullable = 'YES'
+  ) then
+    alter table public.canonical_name_meanings
+      alter column source_priority set not null,
+      alter column source_priority set default 5;
+  end if;
 
--- Bounded range for source_priority and the allowed values for review_status.
--- IF NOT EXISTS isn't available for CHECK constraints, so guard with a DO block
--- so re-running this migration is safe.
+  if exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'canonical_name_meanings'
+      and column_name = 'review_status'
+      and is_nullable = 'YES'
+  ) then
+    alter table public.canonical_name_meanings
+      alter column review_status set not null,
+      alter column review_status set default 'auto';
+  end if;
+
+  if exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'canonical_name_meanings'
+      and column_name = 'context'
+      and is_nullable = 'YES'
+  ) then
+    alter table public.canonical_name_meanings
+      alter column context set not null,
+      alter column context set default '{}'::jsonb;
+  end if;
+end
+$$;
+
+-- Bounded range for source_priority and allowed review_status values.
+-- IF NOT EXISTS isn't available for CHECK constraints — guard with DO block.
 do $$
 begin
   if not exists (
@@ -92,45 +119,71 @@ end
 $$;
 
 -- ── 2. Best-meaning index ────────────────────────────────────────────────────
--- Mirrors the lateral-join ORDER BY in baby_names_with_meaning so lookup is
--- a single seek. Keeps the older idx_canonical_name_meanings_lookup in place
--- (covers explicit confidence/verified scans elsewhere) — they don't conflict.
-create index if not exists idx_canonical_name_meanings_best
-  on public.canonical_name_meanings (
-    canonical_name_id,
-    meaning_language,
-    gender_scope,
-    source_priority asc,
-    meaning_verified desc,
-    meaning_confidence desc nulls last,
-    created_at asc
-  )
-  where review_status <> 'rejected';
+-- Mirrors the lateral-join ORDER BY in baby_names_with_meaning when that view
+-- exists. Safe to create even when the view rewrite is skipped below.
+do $$
+begin
+  if exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'canonical_name_meanings'
+      and column_name = 'source_priority'
+  ) and exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'canonical_name_meanings'
+      and column_name = 'review_status'
+  ) then
+    execute $idx$
+      create index if not exists idx_canonical_name_meanings_best
+        on public.canonical_name_meanings (
+          canonical_name_id,
+          meaning_language,
+          gender_scope,
+          source_priority asc,
+          meaning_verified desc,
+          meaning_confidence desc nulls last,
+          created_at asc
+        )
+        where review_status <> 'rejected'
+    $idx$;
+  end if;
+end
+$$;
 
--- ── 3. View rewrite ──────────────────────────────────────────────────────────
--- Drop-in replacement: same SELECT-list columns and types as the version
--- defined in 20260429_canonical_name_identity.sql. The behavioral changes
--- live entirely inside the lateral subquery:
---
---   * `where cnm.review_status <> 'rejected'` — soft-deleted rows are gone
---     from the view but preserved in the table for audit/admin recovery.
---
---   * `where cnm.meaning_language IN (requested, 'en')` — English fallback.
---     The ORDER BY tags `requested-language` rows ahead of English rows so a
---     row in the user's locale always wins when one exists. When none exists,
---     the best English row is returned; if there's no English either,
---     `best_meaning.*` is NULL and the existing COALESCE chain on bn.* still
---     yields whatever the per-row baby_names column holds (often NULL).
---
---   * `order by source_priority asc, meaning_verified desc,
---      meaning_confidence desc nulls last, created_at asc` — the
---      cross-source ranking the proposal asked for. The two preserved
---      preference levels in front of source_priority (language match,
---      gender-scope match) keep the locale-aware and gender-specific
---      semantics the existing view documented.
---
--- Column list is byte-identical to the prior view. PostgREST schema cache will
--- refresh on next NOTIFY pgrst; no app type regen is needed.
+-- ── 3. View rewrite (conditional) ───────────────────────────────────────────
+-- Requires baby_names.canonical_name_id — the join key from
+-- 20260429_canonical_name_identity.sql. Skip entirely on drifted remotes that
+-- only have the CNM table enriched so far.
+do $migration$
+declare
+  has_bn_canonical_name_id boolean;
+  has_cnm_origin boolean;
+begin
+  select exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'baby_names'
+      and column_name = 'canonical_name_id'
+  ) into has_bn_canonical_name_id;
+
+  if not has_bn_canonical_name_id then
+    raise notice
+      '20260612: skipping baby_names_with_meaning rewrite — baby_names.canonical_name_id absent (remote schema drift). CNM columns/constraints/index applied; re-run after identity migration lands.';
+    return;
+  end if;
+
+  select exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'canonical_name_meanings'
+      and column_name = 'origin'
+  ) into has_cnm_origin;
+
+  if has_cnm_origin then
+    execute $view$
 create or replace view public.baby_names_with_meaning
 with (security_invoker = true)
 as
@@ -154,8 +207,6 @@ select
 from public.baby_names bn
 left join lateral (
   with
-    /* The user's requested language. Trimmed/normalized once so the lateral
-       isn't recomputing the coalesce on every CNM row. */
     requested as (
       select coalesce(nullif(btrim(bn.meaning_language), ''), 'en') as lang
     )
@@ -171,23 +222,70 @@ left join lateral (
   where cnm.canonical_name_id = bn.canonical_name_id
     and cnm.review_status <> 'rejected'
     and cnm.gender_scope in (bn.gender, 'any')
-    /* Pull both the requested-language rows AND the English fallback in one
-       lateral pass; ORDER BY below ranks requested-language first so it wins
-       when available, English-only fills the gap otherwise. */
     and cnm.meaning_language in (requested.lang, 'en')
   order by
-    /* 1. Same-language wins. (Equal when requested.lang = 'en'.) */
     case when cnm.meaning_language = requested.lang then 0 else 1 end,
-    /* 2. Gender-specific meaning beats gender-neutral 'any'. */
     case when cnm.gender_scope = bn.gender then 0 else 1 end,
-    /* 3. Cross-source ranking per the meaning-enrichment proposal:
-          better source → verified → higher confidence → earliest row. */
     cnm.source_priority asc,
     cnm.meaning_verified desc,
     cnm.meaning_confidence desc nulls last,
     cnm.created_at asc
   limit 1
-) best_meaning on true;
+) best_meaning on true
+    $view$;
+  else
+    execute $view$
+create or replace view public.baby_names_with_meaning
+with (security_invoker = true)
+as
+select
+  bn.id,
+  bn.name,
+  coalesce(nullif(btrim(bn.meaning), ''), best_meaning.meaning) as meaning,
+  nullif(btrim(bn.origin), '') as origin,
+  bn.gender,
+  bn.country,
+  bn.region,
+  bn.is_worldwide,
+  bn.created_at,
+  bn.is_premium,
+  bn.popularity_rank,
+  bn.canonical_name_id,
+  coalesce(nullif(btrim(bn.meaning_source), ''), best_meaning.meaning_source) as meaning_source,
+  coalesce(bn.meaning_confidence, best_meaning.meaning_confidence) as meaning_confidence,
+  coalesce(bn.meaning_verified, best_meaning.meaning_verified, false) as meaning_verified,
+  coalesce(nullif(btrim(bn.meaning_language), ''), best_meaning.meaning_language) as meaning_language
+from public.baby_names bn
+left join lateral (
+  with
+    requested as (
+      select coalesce(nullif(btrim(bn.meaning_language), ''), 'en') as lang
+    )
+  select
+    cnm.meaning,
+    cnm.meaning_source,
+    cnm.meaning_confidence,
+    cnm.meaning_verified,
+    cnm.meaning_language
+  from public.canonical_name_meanings cnm
+  cross join requested
+  where cnm.canonical_name_id = bn.canonical_name_id
+    and cnm.review_status <> 'rejected'
+    and cnm.gender_scope in (bn.gender, 'any')
+    and cnm.meaning_language in (requested.lang, 'en')
+  order by
+    case when cnm.meaning_language = requested.lang then 0 else 1 end,
+    case when cnm.gender_scope = bn.gender then 0 else 1 end,
+    cnm.source_priority asc,
+    cnm.meaning_verified desc,
+    cnm.meaning_confidence desc nulls last,
+    cnm.created_at asc
+  limit 1
+) best_meaning on true
+    $view$;
+  end if;
+end
+$migration$;
 
 comment on column public.canonical_name_meanings.source_priority is
   '1 (best) .. 9 (worst). Cross-source ranking for the lateral join in baby_names_with_meaning. Curated bundles = 1, authoritative dictionaries = 2, LLM = 5..7.';
