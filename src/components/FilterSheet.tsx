@@ -24,7 +24,9 @@ import {
   ORIGIN_FILTER_WORLDWIDE,
 } from '../types';
 import { useApp } from '../context/AppContext';
+import { useAuth } from '../context/AuthContext';
 import { useSwipeDeckActions } from '../context/SwipeDeckContext';
+import { useIntersectedCountryChipCounts } from '../services/intersectedCountryChipCounts';
 import { findCountry } from '../data/countries';
 import { translateOriginFilterCountry } from '../i18n/display';
 import { useTranslation } from '../i18n/I18nProvider';
@@ -321,6 +323,7 @@ export default function FilterSheet({
   const { t } = useTranslation();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { countryPreference } = useApp();
+  const { profile } = useAuth();
   const { getOriginCountryChips } = useSwipeDeckActions();
   const [draft, setDraft] = useState<NameFilters>(
     isPremium ? normalizeFilters(currentFilters) : sanitizeFreeFilters(currentFilters),
@@ -374,9 +377,28 @@ export default function FilterSheet({
     }));
   };
 
+  /**
+   * Country-chip counts that react to length / trend / starts-with / gender.
+   *
+   * We try the DB-side RPC first (`country_counts_with_filters`, installed
+   * by migration 20260620). The RPC intersects the country dimension with
+   * the user's draft filters so picking "long names + classic" makes
+   * Belgium's chip drop from 12 275 to "long classic Belgian names only".
+   *
+   * Fallback: when the RPC is still loading, errored, or not yet installed
+   * (older PostgREST cache after a fresh deploy), `rpcChips` is null and we
+   * use the sync `getOriginCountryChips` path — which uses the
+   * `baby_names_country_counts` view's totals. That view ignores draft
+   * filters, so chip counts will *temporarily* not react during fallback;
+   * the next successful RPC fetch restores intersection.
+   */
+  const { chips: rpcChips } = useIntersectedCountryChipCounts(draft, {
+    countryPreference,
+    genderPreference: profile?.gender_preference ?? null,
+  });
   const originCountryChips = useMemo(
-    () => getOriginCountryChips(draft),
-    [draft, getOriginCountryChips],
+    () => rpcChips ?? getOriginCountryChips(draft),
+    [draft, rpcChips, getOriginCountryChips],
   );
 
   const toggleOriginCountry = (country: string) => {

@@ -76,7 +76,9 @@
     "translate:bundled-meanings": "tsx scripts/translateBundledMeaningsWithOpenAI.ts",
     "merge:bundled-meaning-translations": "tsx scripts/mergeBundledMeaningTranslations.ts",
     "check:bundled-meaning-translations": "tsx scripts/checkBundledMeaningTranslations.ts",
-    "validate:import-country-labels": "tsx scripts/validateImportCountryLabels.ts"
+    "validate:import-country-labels": "tsx scripts/validateImportCountryLabels.ts",
+    "sync:name-trends-to-db": "tsx scripts/syncNameTrendsToDb.ts",
+    "sync:name-trends-to-db:apply": "tsx scripts/syncNameTrendsToDb.ts --apply"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
