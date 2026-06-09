@@ -282,6 +282,14 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
   const [publicDeckSupplement, setPublicDeckSupplement] = useState<BabyName[]>([]);
   /** Remote premium rows only; `null` = not entitled, failed fetch, or empty catalog. */
   const [remotePremiumList, setRemotePremiumList] = useState<BabyName[] | null>(null);
+  /**
+   * Per-country DB-truth counts from `baby_names_country_counts` view.
+   * `null` = not yet fetched (FilterSheet falls back to local pool counts);
+   * a map = fetched. Reflects the rows the caller's RLS lets them read, so
+   * a premium-pack purchaser sees premium-row contributions too. Refetched
+   * when entitlement-affecting inputs change (user id, packs, language).
+   */
+  const [dbCountryCounts, setDbCountryCounts] = useState<Map<string, number> | null>(null);
   const [publicDeckHydrationKey, setPublicDeckHydrationKey] = useState<string | null>(null);
   const [premiumDeckHydrationKey, setPremiumDeckHydrationKey] = useState<string | null>(null);
 
@@ -807,8 +815,87 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
     );
   }, [profile, deckNames, effectiveUnlockedPacks, countryPreference, room?.id]);
 
+  /**
+   * Hydrate per-country DB-truth counts from `baby_names_country_counts`
+   * view. The view's `security_invoker = true` clause means RLS applies as
+   * the caller's role — counts reflect the user's accessible slice
+   * (non-premium for free, plus premium when they own a pack). Fetched
+   * once per (user_id, packs, language) tuple; refetched when any of those
+   * changes so a fresh pack purchase shows up immediately.
+   *
+   * On failure or empty: leave `dbCountryCounts = null`. `getOriginCountryChips`
+   * falls back to its old in-memory-pool count path until the next refetch
+   * succeeds — so a transient network blip never produces a chipless picker.
+   */
+  useEffect(() => {
+    if (!profile?.id) {
+      setDbCountryCounts(null);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const { data, error } = await supabase
+          .from('baby_names_country_counts')
+          .select('country, count');
+        if (cancelled) return;
+        if (error || !Array.isArray(data) || data.length === 0) {
+          setDbCountryCounts(null);
+          return;
+        }
+        const next = new Map<string, number>();
+        for (const row of data as Array<{ country: string | null; count: number | null }>) {
+          const c = (row.country ?? '').trim();
+          const n = typeof row.count === 'number' ? row.count : Number(row.count ?? 0);
+          if (!c || !Number.isFinite(n) || n <= 0) continue;
+          next.set(c, n);
+        }
+        setDbCountryCounts(next);
+      } catch {
+        if (!cancelled) setDbCountryCounts(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [profile?.id, purchasedPacksKey, effectiveLanguage]);
+
   const getOriginCountryChips = useCallback(
     (draft: NameFilters): OriginCountryChip[] => {
+      const pref = (countryPreference ?? '').trim();
+
+      // Preferred path: cross-region DB-truth counts. These reflect what's
+      // actually in the catalog rather than what survived the 250-row
+      // weighted-pool sample. Counts don't intersect with the user's other
+      // filters — that's deliberate; users want to see "how many Belgian
+      // names exist in the catalog", not "how many Belgian names remain
+      // after I also filter to short + classic".
+      if (dbCountryCounts && dbCountryCounts.size > 0) {
+        const chips: OriginCountryChip[] = [];
+        for (const [country, count] of dbCountryCounts.entries()) {
+          if (country === ORIGIN_FILTER_WORLDWIDE) {
+            chips.push({ country, count, flag: '🌍' });
+            continue;
+          }
+          chips.push({
+            country,
+            count,
+            flag: findCountry(country)?.flag,
+          });
+        }
+        return chips.sort((a, b) => {
+          if (pref) {
+            if (a.country === pref && b.country !== pref) return -1;
+            if (b.country === pref && a.country !== pref) return 1;
+          }
+          return b.count - a.count || a.country.localeCompare(b.country);
+        });
+      }
+
+      // Fallback while DB counts haven't hydrated (initial mount, transient
+      // network failure): preserve the previous in-memory-pool behaviour so
+      // the picker is never empty. Numbers will look small here but it's
+      // strictly a degraded mode, not the steady state.
       const normalized: NameFilters = {
         ...DEFAULT_FILTERS,
         ...draft,
@@ -833,7 +920,6 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
         if (!c) continue;
         counts.set(c, (counts.get(c) ?? 0) + 1);
       }
-      const pref = (countryPreference ?? '').trim();
       const chips = [...counts.entries()].map(([country, count]) => ({
         country,
         count,
@@ -854,7 +940,13 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
         return b.count - a.count || a.country.localeCompare(b.country);
       });
     },
-    [buildWeightedPool, countryPreference, getCachedNameLength, getCachedTrend],
+    [
+      buildWeightedPool,
+      countryPreference,
+      dbCountryCounts,
+      getCachedNameLength,
+      getCachedTrend,
+    ],
   );
 
   const refineDeckOrder = useCallback((deck: BabyName[]): BabyName[] => {

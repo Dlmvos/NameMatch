@@ -65,6 +65,7 @@
     "extract:baby-names:br-hybrid-sources": "tsx scripts/extractBrazilHybridSourcesToCanonicalCsv.ts",
     "extract:baby-names:es-hybrid-sources": "tsx scripts/extractSpainHybridSourcesToCanonicalCsv.ts",
     "build:baby-name-meaning-enrichment": "tsx scripts/buildMeaningEnrichmentBatch.ts",
+    "build:dictionary:wikidata": "tsx scripts/buildWikidataDictionary.ts --out scripts/data/dictionaries/wikidata.jsonl",
     "find:meaning-enrichment-gaps": "tsx scripts/enrichmentGapFinder.ts",
     "enrich:meaning-dictionary": "tsx scripts/enrichmentFromDictionary.ts",
     "enrich:apply": "tsx scripts/applyEnrichmentBatch.ts",

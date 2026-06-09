@@ -117,12 +117,21 @@ export default function RegionScreen({ navigation }: Props) {
           })}
         </View>
 
-        {/* Free tier note */}
-        <View style={styles.freeNote}>
-          <Text style={styles.freeNoteText}>
-            {t('region.freeNote')}
-          </Text>
-        </View>
+        {/*
+          Free tier note + premium upsell — both hidden once the user owns a
+          pack. The "100 free swipes" copy was confusing for paid users:
+          their actual swipe budget is unlimited and surfacing a free-tier
+          number suggests there's still a cap somewhere. Gating on
+          `!hasPremium` keeps the onboarding nudge for free users and gets
+          out of the way for paid users.
+        */}
+        {!hasPremium ? (
+          <View style={styles.freeNote}>
+            <Text style={styles.freeNoteText}>
+              {t('region.freeNote')}
+            </Text>
+          </View>
+        ) : null}
 
         {!hasPremium ? (
           <View style={[styles.premiumPreview, SHADOWS.card]}>
