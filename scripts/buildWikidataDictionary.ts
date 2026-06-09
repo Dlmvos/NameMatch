@@ -89,25 +89,63 @@ const GENDER_CLASS_TO_SCOPE: Record<string, 'girl' | 'boy' | 'neutral'> = {
 /**
  * P407 (language of work or name) QIDs mapped to concise etymological origin
  * labels. Only languages in this map may produce a meaning from P407 alone.
+ *
+ * Pruned 2026-06-09 after smoke-test evidence
+ * ─────────────────────────────────────────────
+ * Wikidata's P407 is "language of work or name", which for given-name items
+ * can mean either "language of origin" OR "language the name is currently
+ * used in" — and on a non-trivial fraction of items it's outright wrong
+ * (the first 500-item batch produced 8 rows labelling Indonesian female
+ * names — Afgansyah, Andriani, Cessy, Jelita, Meliana, Oxavia, Sherina,
+ * Terryana — as "Old Norse name", because someone tagged those items with
+ * Q9240 on Wikidata).
+ *
+ * Rule for what stays in the map:
+ *   "Could a name tagged with this Q-ID plausibly NOT be from this
+ *    language?" If no (i.e. the language is dead-tradition with no
+ *    modern speakers and no risk of conflating current-usage with origin),
+ *    keep it. If yes, drop it — let the LLM stage produce a better meaning
+ *    than a confident-wrong language label.
+ *
+ * Kept (high-confidence ancient / classical etymological tags):
+ *   Q9288   Hebrew              — Hebrew names are almost always Hebrew-origin
+ *   Q13955  Arabic              — same: Arabic origin
+ *   Q397    Latin               — dead, no current-usage confusion
+ *   Q35497  Ancient Greek       — dead
+ *   Q11059  Sanskrit            — dead-tradition; well-tagged on Wikidata
+ *   Q28602  Aramaic             — dead
+ *   Q37068  Coptic              — liturgical only
+ *   Q33831  Phoenician          — dead
+ *   Q36790  Akkadian            — dead
+ *   Q25285  Proto-Indo-European — by definition, etymological
+ *
+ * Dropped (modern descendants exist OR observed quality issues):
+ *   Q9129   Greek (modern)         — conflates modern-usage with origin
+ *   Q44979  Old English            — observed misapplication; modern English
+ *                                    names often tagged here without origin
+ *   Q9240   Old Norse              — the Indonesian-name vandalism source
+ *   Q9168   Persian                — modern speakers; conflation risk
+ *   Q9142   Irish                  — same
+ *   Q9301   Welsh                  — same
+ *   Q330666 Scottish Gaelic        — same
+ *   Q8641   Old Church Slavonic    — liturgical; modern Slavic conflation
+ *
+ * Effect on yield: ~9 % of dictionary rows came from P407 in the smoke test,
+ * of which ~42 % were wrong. Pruning roughly halves the P407 row count and
+ * removes most of the wrong rows. The dropped names fall through to the LLM
+ * stage where they have a chance of a correct meaning rather than a
+ * confidently-wrong language label.
  */
 const ETYMOLOGIC_LANGUAGE_QID_TO_ORIGIN: Record<string, string> = {
   Q9288: 'Hebrew',
   Q13955: 'Arabic',
   Q397: 'Latin',
   Q35497: 'Ancient Greek',
-  Q9129: 'Greek',
   Q11059: 'Sanskrit',
-  Q44979: 'Old English',
-  Q9240: 'Old Norse',
-  Q9168: 'Persian',
-  Q9142: 'Irish',
-  Q9301: 'Welsh',
-  Q330666: 'Scottish Gaelic',
   Q28602: 'Aramaic',
   Q37068: 'Coptic',
   Q33831: 'Phoenician',
   Q36790: 'Akkadian',
-  Q8641: 'Old Church Slavonic',
   Q25285: 'Proto-Indo-European',
 };
 
