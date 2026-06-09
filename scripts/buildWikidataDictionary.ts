@@ -179,48 +179,54 @@ type Cli = {
   delayMs: number;
 };
 
-function parseArgs(argv: string[]): Cli {
-  const outIdx = argv.indexOf('--out');
-  const outPath = outIdx >= 0 && argv[outIdx + 1] ? argv[outIdx + 1] : DEFAULT_OUT;
+// LAST occurrence wins so the npm-script default in package.json can be
+// overridden by a user-supplied flag. Previously this used indexOf, which
+// meant `npm run build:dictionary:wikidata -- --out custom.jsonl` silently
+// kept the npm-script's hardcoded --out and wrote to the wrong file.
+function lastArg(argv: string[], flag: string): string | undefined {
+  for (let i = argv.length - 1; i >= 0; i--) {
+    if (argv[i] === flag) return argv[i + 1];
+  }
+  return undefined;
+}
 
-  const batchIdx = argv.indexOf('--batch-size');
-  const batchSize =
-    batchIdx >= 0 ? Number(argv[batchIdx + 1]) : DEFAULT_BATCH_SIZE;
+function parseArgs(argv: string[]): Cli {
+  const outArg = lastArg(argv, '--out');
+  const outPath = outArg ? outArg : DEFAULT_OUT;
+
+  const batchArg = lastArg(argv, '--batch-size');
+  const batchSize = batchArg !== undefined ? Number(batchArg) : DEFAULT_BATCH_SIZE;
   if (!Number.isInteger(batchSize) || batchSize < 1 || batchSize > MAX_BATCH_SIZE) {
     throw new Error(
-      `--batch-size must be an integer 1..${MAX_BATCH_SIZE}; got ${argv[batchIdx + 1]}`,
+      `--batch-size must be an integer 1..${MAX_BATCH_SIZE}; got ${batchArg}`,
     );
   }
 
-  const maxIdx = argv.indexOf('--max-total');
-  const maxTotal = maxIdx >= 0 ? Number(argv[maxIdx + 1]) : DEFAULT_MAX_TOTAL;
+  const maxArg = lastArg(argv, '--max-total');
+  const maxTotal = maxArg !== undefined ? Number(maxArg) : DEFAULT_MAX_TOTAL;
   if (!Number.isInteger(maxTotal) || maxTotal < 1) {
-    throw new Error(`--max-total must be a positive integer; got ${argv[maxIdx + 1]}`);
+    throw new Error(`--max-total must be a positive integer; got ${maxArg}`);
   }
 
-  const maxBatchesIdx = argv.indexOf('--max-batches');
-  const maxBatches =
-    maxBatchesIdx >= 0 && argv[maxBatchesIdx + 1]
-      ? Number(argv[maxBatchesIdx + 1])
-      : null;
+  const maxBatchesArg = lastArg(argv, '--max-batches');
+  const maxBatches = maxBatchesArg !== undefined ? Number(maxBatchesArg) : null;
   if (maxBatches !== null && (!Number.isInteger(maxBatches) || maxBatches < 1)) {
     throw new Error(
-      `--max-batches must be a positive integer; got ${argv[maxBatchesIdx + 1]}`,
+      `--max-batches must be a positive integer; got ${maxBatchesArg}`,
     );
   }
 
-  const contactIdx = argv.indexOf('--contact');
-  const contact = contactIdx >= 0 ? String(argv[contactIdx + 1] ?? '').trim() : '';
+  const contact = String(lastArg(argv, '--contact') ?? '').trim();
   if (!contact || !contact.includes('@')) {
     throw new Error(
       'Missing or invalid --contact <email>. Wikidata Query Service requires a contact email in the User-Agent.',
     );
   }
 
-  const delayIdx = argv.indexOf('--delay-ms');
-  const delayMs = delayIdx >= 0 ? Number(argv[delayIdx + 1]) : DEFAULT_DELAY_MS;
+  const delayArg = lastArg(argv, '--delay-ms');
+  const delayMs = delayArg !== undefined ? Number(delayArg) : DEFAULT_DELAY_MS;
   if (!Number.isInteger(delayMs) || delayMs < 0 || delayMs > 60_000) {
-    throw new Error(`--delay-ms must be 0..60000; got ${argv[delayIdx + 1]}`);
+    throw new Error(`--delay-ms must be 0..60000; got ${delayArg}`);
   }
 
   return { outPath, batchSize, maxTotal, maxBatches, contact, delayMs };
