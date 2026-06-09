@@ -34,6 +34,32 @@ values stay shell-local and the child `npx`/`tsx` processes won't see them.
 The Supabase CLI will pick up `SUPABASE_ACCESS_TOKEN` automatically once
 sourced — no extra `--token` flag needed.
 
+## Pushing to GitHub from a sandbox
+
+`.env.scripts` contains a `GITHUB_TOKEN` — a fine-grained personal access
+token scoped to this repo only, with Contents + Pull requests write
+access. Use it via a git credential helper that reads the env var; do
+not embed the token in remote URLs or `.gitconfig`:
+
+```bash
+set -a; source .env.scripts; set +a
+git config credential.helper '!f() { echo "username=oauth2"; echo "password=$GITHUB_TOKEN"; }; f'
+git push origin <branch>
+```
+
+The credential helper config is local to this clone (no `--global`), so
+the token never leaks into other repos. The `!f() { ... }; f` form
+defines a shell function inline — git invokes it when it needs auth and
+the function emits username/password from the env.
+
+Policy carry-over from earlier conversations:
+- **Never force-push without asking.** `git push --force` / `--force-with-lease`
+  require explicit user approval, even with the token in hand.
+- For migrations that touch RLS policies, prefer a PR over direct push to
+  main. The two recent chip-count migrations were ADD COLUMN + ADD
+  FUNCTION only, no RLS changes, so direct-to-main was the right call.
+  When in doubt, branch + PR.
+
 ## Linked Supabase project
 
 - Project: `ivydlnahcnembpjnmntm` (daan@vos.net's Project, West EU / Ireland)
