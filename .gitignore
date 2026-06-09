@@ -36,6 +36,9 @@ scripts/data/raw/
 scripts/data/batches/
 scripts/data/meaning-enrichment/
 
+# Seed / generated name data (editorial taxonomy — keep out of repo)
+scripts/*.json
+
 .DS_Store
 **/.DS_Store
 

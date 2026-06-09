@@ -31,3 +31,20 @@ export const supabase = createClient(
   },
   },
 );
+
+// One-shot startup diagnostic: log the host the app actually connects to.
+// Compared against the host the service-role report ran against, this is the
+// fastest way to detect a "wrong project" misconfiguration (the symptom is
+// the app seeing single-digit row counts while the DB has ~55k baby_names).
+// Anon key prefix is logged so two keys against the same host can also be
+// distinguished. No secrets are leaked — only the public host + key prefix.
+{
+  let host = '(unparseable)';
+  try {
+    host = new URL(supabaseUrl || 'https://missing-supabase-url.supabase.co').host;
+  } catch {
+    /* keep fallback */
+  }
+  const anonPrefix = supabaseAnonKey ? `${supabaseAnonKey.slice(0, 8)}…` : '(missing)';
+  console.log(`[supabase] connecting host=${host} anonKeyPrefix=${anonPrefix}`);
+}
