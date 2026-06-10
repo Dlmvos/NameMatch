@@ -50,7 +50,11 @@
  *   OPENAI_API_KEY            required
  *   OPENAI_ENRICHMENT_MODEL   optional, defaults to gpt-4o-mini
  */
-import 'dotenv/config';
+// Env loading is the caller's responsibility — load via
+// `set -a; source .env.scripts; set +a` before invoking. We do NOT
+// `import 'dotenv/config'` here: dotenv 17.x's legacy autoload entry
+// breaks under Node 24 native `--experimental-strip-types`, and the
+// shell-sourced env always wins anyway.
 
 import {
   appendFileSync,
@@ -342,18 +346,23 @@ async function runWithConcurrency<T, R>(
 // ── Main ──────────────────────────────────────────────────────────────────
 
 async function main(): Promise<void> {
+  // Print the startup banner BEFORE validating env vars so that even a
+  // hard exit (e.g. missing OPENAI_API_KEY) leaves a visible trace in
+  // the terminal — previously the throw fired before any console.log,
+  // which produced a confusingly silent npm/nohup exit.
   const cli = parseArgs(process.argv.slice(2));
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) {
-    throw new Error(
-      'Missing OPENAI_API_KEY. Add it to .env.scripts and source the file.',
-    );
-  }
-
   console.log(
     `[enrichmentFromOpenAI] in=${cli.inPath} out=${cli.outPath} ` +
       `model=${cli.model} chunk=${cli.chunkSize} concurrency=${cli.concurrency}`,
   );
+
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    throw new Error(
+      'Missing OPENAI_API_KEY. Add it to .env.scripts and run ' +
+        '`set -a; source .env.scripts; set +a` before invoking.',
+    );
+  }
 
   // Prepare output dir
   mkdirSync(path.dirname(cli.outPath), { recursive: true });
