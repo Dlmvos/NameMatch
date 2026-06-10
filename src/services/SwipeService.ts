@@ -443,11 +443,15 @@ export const SwipeService = {
     };
 
     const finalizeSuccess = async () => {
-      await supabase
-        .from('matches')
-        .delete()
-        .eq('room_id', params.roomId)
-        .eq('name_id', normalizedId);
+      // Direct DELETE on `matches` is revoked from the authenticated role
+      // (migration 20260516) — matches are owned by SECURITY DEFINER RPCs.
+      // remove_match_for_name validates room membership and that this user's
+      // like is withdrawn, then removes the (room, name) match server-side.
+      const { error } = await supabase.rpc('remove_match_for_name', {
+        p_room_id: params.roomId,
+        p_name_id: normalizedId,
+      });
+      if (error) throw error;
     };
 
     // 1) UPDATE by normalized id (preferred when row matches getLikedNames hydration).
