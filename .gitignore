@@ -48,3 +48,4 @@ data/bundled_meaning_translations.generated.csv
 data/bundled_meaning_translations.failed.csv
 
 website/
+scripts/data/dictionaries/*.jsonl
