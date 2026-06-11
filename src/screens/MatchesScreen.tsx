@@ -134,7 +134,11 @@ export default function MatchesScreen() {
         await Share.share({
           message: t('match.shareMessage', { name: babyName.name }),
         });
-      } catch (_) {}
+      } catch (err) {
+        // Share.share rejects on user cancel and on real errors; log in dev so
+        // genuine failures don't disappear silently.
+        if (__DEV__) console.warn('[MatchesScreen] share match failed', err);
+      }
     },
     [t],
   );

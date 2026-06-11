@@ -6,6 +6,12 @@ import { Platform } from 'react-native';
 import { posthog } from '../analytics/posthog';
 
 type AnalyticsEvent =
+  | 'app_opened'
+  | 'onboarding_step_completed'
+  | 'signup_started'
+  | 'signup_completed'
+  | 'signin_completed'
+  | 'first_swipe'
   | 'paywall_impression'
   | 'paywall_cta_tap'
   | 'purchase_started'
@@ -106,6 +112,26 @@ export const AnalyticsService = {
         await AsyncStorage.setItem(ANALYTICS_STORAGE_KEY, JSON.stringify([...events, entry]));
       })
       .catch(() => {});
+  },
+
+  /**
+   * Link the current PostHog session to a stable user_id so all subsequent
+   * events (and the historic anonymous events) are attributed to one person
+   * in PostHog. Call this immediately after sign-up and sign-in succeed.
+   *
+   * Properties are user-level (NOT event-level) — they overwrite each other
+   * on every identify. Use sparingly for things like region, locale,
+   * has_partner, has_premium. Do NOT include PII like email.
+   */
+  identify(userId: string, properties?: AnalyticsProperties): void {
+    if (!userId) return;
+    const safeProps: PostHogEventProperties = {};
+    if (properties) {
+      for (const [k, v] of Object.entries(properties)) {
+        if (v !== undefined) safeProps[k] = v;
+      }
+    }
+    posthog?.identify(userId, safeProps);
   },
 
   async getEvents(): Promise<StoredAnalyticsEvent[]> {

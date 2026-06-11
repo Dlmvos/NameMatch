@@ -15,6 +15,7 @@ import {
 } from '../lib/supabase';
 import { Profile, PREMIUM_COUPLE_PACK_KEY } from '../types';
 import { posthog } from '../analytics/posthog';
+import { AnalyticsService } from '../services/AnalyticsService';
 import {
   reloadFeatureFlags,
   resetFeatureFlagChangedSession,
@@ -248,7 +249,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                   setIsLoading(false);
                 }, 8000);
                 try {
-                  await fetchProfile(authUser);
+                  const loadedProfile = await fetchProfile(authUser);
+                  // Link PostHog session to a stable user_id so every event
+                  // from now on (and the historic anonymous events from the
+                  // pre-auth session) attribute to one person. User-level
+                  // properties are non-PII descriptors useful for cohorts.
+                  AnalyticsService.identify(authUser.id, {
+                    region: loadedProfile?.region_preference ?? null,
+                    country: loadedProfile?.country_preference ?? null,
+                    gender_preference: loadedProfile?.gender_preference ?? null,
+                    has_partner: Boolean(loadedProfile?.room_id),
+                    has_premium: Array.isArray(loadedProfile?.purchased_packs)
+                      ? loadedProfile.purchased_packs.length > 0
+                      : false,
+                  });
+                  // We can't distinguish signup vs signin at the Supabase
+                  // auth state level — both fire SIGNED_IN. Emit a generic
+                  // signin_completed; signup_completed is fired explicitly
+                  // by the signUp() call below for the first-ever signin.
+                  AnalyticsService.track('signin_completed');
                 } catch (err) {
                   console.error('[AuthContext] fetchProfile failed after auth state change:', err);
                   setStartupError('Could not load your profile. Please try again.');
@@ -310,12 +329,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     password: string,
     displayName: string
   ) => {
+    AnalyticsService.track('signup_started');
     const { error } = await supabase.auth.signUp({
       email,
       password,
       options: { data: { display_name: displayName } },
     });
     if (error) throw error;
+    // signup_completed fires here on success; signin_completed will follow
+    // automatically from the auth state change listener.
+    AnalyticsService.track('signup_completed');
   };
 
   const signIn = async (email: string, password: string) => {
@@ -326,6 +349,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signOut = async () => {
     const { error } = await supabase.auth.signOut();
     if (error) throw error;
+    // Disconnect PostHog identity so the next session starts anonymous.
+    // clearEvents already calls posthog.reset() and wipes the local
+    // event buffer — same behaviour we want here.
+    AnalyticsService.clearEvents().catch(() => {});
   };
 
   const updateProfile = useCallback(
@@ -453,8 +480,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Server-side SECURITY DEFINER RPC: deletes matches for rooms
     // where user is partner (user2), then deletes auth.users row.
     // FK cascades handle profiles → swipes, purchases, rooms (owner) → matches.
+    const userIdToErase = user.id;
     const { error } = await supabase.rpc('delete_own_account');
     if (error) throw new Error(error.message ?? 'Could not delete account.');
+
+    // GDPR: request PostHog person-deletion server-side (project API key stays
+    // off-device). Best-effort — the Supabase row deletion already succeeded,
+    // so a PostHog edge-function failure shouldn't block account deletion.
+    // The user can re-issue via support if the edge call dropped.
+    try {
+      const { error: phErr } = await supabase.functions.invoke('delete-posthog-person', {
+        body: { distinct_id: userIdToErase },
+      });
+      if (phErr && __DEV__) {
+        console.warn('[AuthContext] PostHog deletion edge call failed:', phErr.message);
+      }
+    } catch (err) {
+      if (__DEV__) console.warn('[AuthContext] PostHog deletion threw:', err);
+    }
+
+    // Clear the local PostHog identity + analytics queue so any in-flight or
+    // queued events stop being associated with the deleted user.
+    await AnalyticsService.clearEvents().catch(() => {
+      /* best-effort */
+    });
 
     await PurchaseService.logOut().catch(() => {
       /* best-effort */

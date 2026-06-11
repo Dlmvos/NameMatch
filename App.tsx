@@ -8,6 +8,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { PostHogProvider } from 'posthog-react-native';
 
 import { posthog } from './src/analytics/posthog';
+import { AnalyticsService } from './src/services/AnalyticsService';
 import { AuthProvider } from './src/context/AuthContext';
 import { I18nProvider } from './src/i18n/I18nProvider';
 import AppNavigator from './src/navigation/AppNavigator';
@@ -41,6 +42,16 @@ function FeatureFlagsForegroundReload() {
 export default function App() {
   const deviceLanguage =
     Intl.DateTimeFormat().resolvedOptions().locale?.split(/[-_]/)[0] ?? 'en';
+
+  // Fire once per cold start. Used as the launch-funnel root — every other
+  // event chains down from here (signup, first_swipe, paywall, purchase).
+  // Foregrounding does NOT re-fire this; see FeatureFlagsForegroundReload
+  // and AuthContext's AppState listener for foreground-specific events.
+  useEffect(() => {
+    AnalyticsService.track('app_opened', {
+      device_language: deviceLanguage,
+    });
+  }, [deviceLanguage]);
 
   const tree = (
     <ErrorBoundary>

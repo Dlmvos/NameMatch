@@ -1,9 +1,17 @@
 import PostHog from 'posthog-react-native';
 
 /**
- * TODO(GDPR): Implement PostHog person/deletion requests via a secure server or edge
- * function (project API key stays server-side). Do not call personal-data deletion
- * APIs directly from this app.
+ * GDPR person-deletion is handled by `supabase/functions/delete-posthog-person/`
+ * (Supabase edge function). The personal API key stays server-side. The client
+ * triggers it from `AuthContext.deleteAccount`, then also calls
+ * `AnalyticsService.clearEvents()` to wipe the local PostHog identity +
+ * queued events.
+ *
+ * Required env (`supabase secrets set ...`):
+ *   POSTHOG_HOST, POSTHOG_PROJECT_ID, POSTHOG_PERSONAL_API_KEY.
+ *
+ * Do NOT call PostHog's personal-data deletion APIs directly from this app —
+ * the personal API key must not ship in the client bundle.
  */
 const apiKey = process.env.EXPO_PUBLIC_POSTHOG_API_KEY?.trim() ?? '';
 

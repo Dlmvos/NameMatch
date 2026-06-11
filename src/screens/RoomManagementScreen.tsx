@@ -55,7 +55,11 @@ export default function RoomManagementScreen({ navigation }: Props) {
         }),
         title: t('partner.share.title'),
       });
-    } catch (_) {}
+    } catch (err) {
+      // Share.share rejects on user cancel as well as on real errors; log in
+      // dev so genuine failures (no share targets, OS misconfigured) surface.
+      if (__DEV__) console.warn('[RoomManagementScreen] share failed', err);
+    }
   };
 
   const handleCopy = async () => {

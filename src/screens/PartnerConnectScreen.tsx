@@ -122,7 +122,12 @@ export default function PartnerConnectScreen({ navigation }: Props) {
         }),
         title: t('partner.share.title'),
       });
-    } catch (_) {}
+    } catch (err) {
+      // Share.share rejects on user cancel as well as on real errors; log in
+      // dev so genuine failures (no share targets, OS misconfigured) surface
+      // instead of being swallowed silently.
+      if (__DEV__) console.warn('[PartnerConnectScreen] share failed', err);
+    }
   };
 
   const handleJoinRoom = async () => {

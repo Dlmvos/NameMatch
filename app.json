@@ -18,7 +18,8 @@
       "supportsTablet": false,
       "bundleIdentifier": "com.daanvos.namenest",
       "infoPlist": {
-        "CFBundleDisplayName": "Babinom"
+        "CFBundleDisplayName": "Babinom",
+        "ITSAppUsesNonExemptEncryption": false
       },
       "config": {
         "usesNonExemptEncryption": false
