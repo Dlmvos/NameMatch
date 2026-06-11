@@ -1407,8 +1407,24 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
 
       const roomId = roomIdRef.current;
       const userId = userIdRef.current;
-      if (!userId || !roomId) {
+      if (!userId) {
         rollbackOptimisticSwipe();
+        return false;
+      }
+
+      // Solo mode (no partner room yet): keep the optimistic deck advancement —
+      // skip Supabase persistence (upsertSwipe requires a roomId) and the match
+      // RPC (no partner = no possible match). Rolling back here was the cause of
+      // the "top card snaps back to front of deck on every swipe" bug on fresh
+      // installs in free mode: `rollbackOptimisticSwipe` re-inserted the swiped
+      // card at originalIndex=0, React re-mounted a fresh SwipeCard with
+      // position back at {0, 0}, and the user couldn't progress. Local
+      // `swipedIdsRef` keeps the card out of subsequent rebuilds; once the user
+      // joins/creates a room, future swipes will start persisting normally.
+      if (!roomId) {
+        if (direction === 'right' && swipedName) {
+          recentLikedRef.current = [...recentLikedRef.current, swipedName].slice(-8);
+        }
         return false;
       }
 

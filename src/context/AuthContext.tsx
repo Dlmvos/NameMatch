@@ -85,6 +85,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   /** Latest profile for stable callbacks (avoids stale reads without widening useCallback deps). */
   const profileRef = useRef<Profile | null>(null);
   profileRef.current = profile;
+  /** Latest `refreshProfile` callback; populated below after its declaration. Lets the AppState
+   * foreground listener stay mounted once (empty deps) and still call the current closure. */
+  const refreshProfileRef = useRef<(() => Promise<void>) | null>(null);
   /** Avoid resetting PostHog on cold start before we know if a session exists. */
   const prevAnalyticsUserIdRef = useRef<string | null>(null);
 
@@ -283,6 +286,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const sub = AppState.addEventListener('change', (next) => {
       if (next === 'active') {
         void supabase.auth.startAutoRefresh();
+        // Foreground profile refresh: triggers the server-side
+        // `maybe_refill_daily_free_swipes` RPC inside `ProfileService.fetchProfile`,
+        // so a user who kept the app resident across UTC midnight sees the +20
+        // daily grant without needing to cold-start. Refs (not deps) keep the
+        // listener mounted once. Best-effort — swallow errors so an offline
+        // foreground tap never disrupts the session.
+        if (profileRef.current) void refreshProfileRef.current?.().catch(() => {});
       } else {
         void supabase.auth.stopAutoRefresh();
       }
@@ -383,6 +393,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const refreshProfile = useCallback(async () => {
     if (user) await fetchProfile(user);
   }, [user, fetchProfile]);
+  refreshProfileRef.current = refreshProfile;
 
   const hydratePremiumFromRevenueCat = useCallback(
     async (customerInfoSeed?: CustomerInfo): Promise<boolean> => {

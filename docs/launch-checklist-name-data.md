@@ -211,8 +211,21 @@ For picker countries that have zero DB rows and need data:
 
 Priority countries needing data (have bundled names but no dedicated import):
 
-- Canada, Australia, New Zealand (English-speaking, can share US SSA-style names)
-- Poland, Sweden, Norway, Denmark, Finland, Austria, Switzerland, Ireland, Czech Republic, Hungary, Romania, Greece, Russia, Scotland (EU picker countries — may have bundled names but no import pipeline)
+**Block A — non-EU major markets (current focus):**
+1. Japan (ASIA) — Meiji Yasuda annual rankings; Wikipedia aggregator
+2. Mexico (LATIN_AMERICA) — RENAPO / INEGI; curated lists
+3. India (ASIA) — curated multi-language lists; BehindTheName / Wikipedia by language
+4. South Korea (ASIA) — 대법원 / Supreme Court of Korea annual rankings
+
+**Block B — English-speaking:**
+5. Canada — Statistics Canada / provincial vital stats
+6. New Zealand — Dept. of Internal Affairs births registry
+
+**Block C — EU remainder:**
+7. Poland, Sweden, Norway, Denmark, Finland, Austria, Switzerland, Czech Republic, Hungary, Romania, Greece, Russia
+
+**Done (sources imported, canonical CSV + workflow doc on disk):**
+Germany, France, Italy, Portugal, Netherlands, Brazil, Spain, Belgium, Australia, England & Wales, Scotland, Northern Ireland, Ireland.
 
 ---
 
