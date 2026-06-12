@@ -69,6 +69,8 @@ import path from 'node:path';
 
 import OpenAI from 'openai';
 
+import { placeholderMeaningReason } from './lib/meaningEnrichmentJsonl';
+
 // ── Types ──────────────────────────────────────────────────────────────────
 
 interface GapRow {
@@ -275,6 +277,10 @@ function isMeaningInvalid(meaning: string, displayName: string): string | null {
     return 'looks like a refusal';
   if (m.toLowerCase().includes(`means ${displayName.toLowerCase()}`))
     return 'tautological meaning';
+  // Non-answer / placeholder meanings ("Unknown; possibly...", "Arabic name",
+  // "Of Irish origin") — shared with the prod purge so both stay aligned.
+  const placeholder = placeholderMeaningReason(m);
+  if (placeholder) return placeholder;
   return null;
 }
 

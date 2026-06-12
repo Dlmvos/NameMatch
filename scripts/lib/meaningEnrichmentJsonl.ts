@@ -156,6 +156,49 @@ export type DictionaryValidationResult =
   | { ok: true; row: DictionaryJsonlRow }
   | { ok: false; errors: string[] };
 
+/**
+ * Detects "non-answer" / placeholder meanings — text that describes a name as
+ * a name (or shrugs) without giving an actual etymology or gloss. These slip
+ * past the basic length / refusal checks (they're well-formed sentences) but
+ * are useless to display.
+ *
+ * Returns a short reason string when the meaning is a placeholder, else null.
+ *
+ * SHARED so the generator (enrichmentFromOpenAI → rejects at write time) and
+ * the cleanup (purgePlaceholderMeanings → deletes from prod) apply identical
+ * logic. Keep them in lock-step by routing both through this function.
+ *
+ * Conservative by design: it only flags meanings whose ENTIRE content is a
+ * non-answer. Anything with a real gloss after the hedge (e.g.
+ * "Of uncertain origin, possibly derived from X meaning 'Y'") is left alone.
+ */
+export function placeholderMeaningReason(meaning: string): string | null {
+  const m = meaning.trim();
+  if (!m) return 'empty meaning';
+
+  // "Unknown", "Unknown; possibly a variant of another name", "unknown origin."
+  // The model emits these for names it can't place — never an actual meaning.
+  if (/^unknown\b/i.test(m)) return 'non-answer: starts with "unknown"';
+
+  // Shape checks ignore a trailing period.
+  const core = m.replace(/[.\s]+$/, '').trim();
+
+  // Bare "<X> name" with no gloss: "Arabic name", "Old English name",
+  // "A common name", "A modern name". Allows up to 3 leading words + "name".
+  if (/^(?:a |an |the )?[a-z]+(?:[\s-][a-z]+){0,2}\s+name$/i.test(core)) {
+    return 'placeholder: bare "<X> name" with no meaning';
+  }
+
+  // Pure origin label with no meaning: "Of Irish origin", "Of uncertain origin",
+  // "A name of Greek origin". (Continuations like "..., associated with..." keep
+  // real content and are NOT matched because of the end anchor.)
+  if (/^(?:a name of|of)\s+[a-z][a-z\s]*\s+origin$/i.test(core)) {
+    return 'placeholder: origin label with no meaning';
+  }
+
+  return null;
+}
+
 export function normalizeNameKey(name: string): string {
   return name
     .trim()
