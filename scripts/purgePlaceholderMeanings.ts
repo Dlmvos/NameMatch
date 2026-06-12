@@ -99,7 +99,10 @@ async function fetchLlmRows(
       .order('id', { ascending: true })
       .range(from, from + pageSize - 1);
     if (error) throw new Error(`fetch failed @${from}: ${error.message}`);
-    const rows = (data ?? []) as CnmRow[];
+    // `data` is typed as union with GenericStringError[] on the Supabase RPC
+    // overload; the `if (error)` above already rules out the error path, so
+    // cast through unknown as TS recommends.
+    const rows = ((data ?? []) as unknown) as CnmRow[];
     all.push(...rows);
     if (rows.length < pageSize) break;
     from += pageSize;

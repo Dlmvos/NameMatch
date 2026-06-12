@@ -16,7 +16,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { useMatchState } from '../context/RoomContext';
 import { useRoom } from '../context/RoomContext';
@@ -179,11 +179,18 @@ export default function MatchesScreen() {
     }
   }, [user?.id, roomId]);
 
-  // Hydrate likes count for tab label on screen open — not only when My Likes tab is active.
-  useEffect(() => {
-    if (!user?.id || !roomId) return;
-    void fetchLikedNames();
-  }, [user?.id, roomId, fetchLikedNames]);
+  // Re-hydrate the liked names every time this screen gains focus, not just on
+  // mount. MatchesScreen is a bottom-tab screen that stays mounted while the
+  // user is on the Swipe tab, so a mount-only effect never re-ran after a new
+  // like was recorded — the list stayed stale until a full app reload remounted
+  // the screen. useFocusEffect fires on initial mount AND on every tab focus,
+  // so likes (and the tab-label count) reflect swipes immediately.
+  useFocusEffect(
+    useCallback(() => {
+      if (!user?.id || !roomId) return;
+      void fetchLikedNames();
+    }, [user?.id, roomId, fetchLikedNames]),
+  );
 
   const handleSaveCustomName = useCallback(async () => {
     const trimmed = customNameText.trim();

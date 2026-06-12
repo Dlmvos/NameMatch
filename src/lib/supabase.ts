@@ -46,5 +46,7 @@ export const supabase = createClient(
     /* keep fallback */
   }
   const anonPrefix = supabaseAnonKey ? `${supabaseAnonKey.slice(0, 8)}…` : '(missing)';
-  console.log(`[supabase] connecting host=${host} anonKeyPrefix=${anonPrefix}`);
+  if (__DEV__) {
+    console.log(`[supabase] connecting host=${host} anonKeyPrefix=${anonPrefix}`);
+  }
 }

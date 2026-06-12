@@ -23,6 +23,7 @@ import { useApp } from './AppContext';
 import { userPreferenceLearningService } from '../services/UserPreferenceLearningService';
 import { stableHash } from '../lib/stableHash';
 import { sequenceSwipeDeck } from '../lib/deckSequencing';
+import { devWarn } from '../lib/devWarn';
 import type { LearningProfile } from '../services/UserPreferenceLearningService';
 
 function nameGenderDedupeKey(n: BabyName): string {
@@ -1402,7 +1403,7 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
 
       if (!hasPaidPack && freeSwipesRemaining > 0) {
         const fn = consumeFreeSwipeRef.current;
-        if (fn) await fn(1).catch(() => {});
+        if (fn) await fn(1).catch(devWarn('SwipeDeck: consumeFreeSwipe(1)'));
       }
 
       const roomId = roomIdRef.current;
@@ -1500,7 +1501,7 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
             .then((p) => {
               learningProfileRef.current = p;
             })
-            .catch(() => {});
+            .catch(devWarn('SwipeDeck: learning recordSwipe/loadProfile'));
         } catch {
           // ignore any conversion errors — learning is non-critical
         }

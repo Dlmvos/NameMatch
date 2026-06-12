@@ -51,7 +51,9 @@ export default function SettingsScreen() {
     countryPreference,
     residenceCountry,
     refreshUnlockedPacks,
+    effectiveUnlockedPacks,
   } = useApp();
+  const hasUnlockedPacks = effectiveUnlockedPacks.length > 0;
   const { loadMoreNames } = useSwipeDeckActions();
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
@@ -218,7 +220,9 @@ export default function SettingsScreen() {
           <View>
             <Text style={styles.profileName}>{profile?.display_name ?? tr('settings.nameNotSet')}</Text>
             <Text style={styles.profileSub}>
-              {tr('settings.freeSwipesRemaining', { count: profile?.free_swipes_remaining ?? 0 })}
+              {hasUnlockedPacks
+                ? tr('swipe.header.unlimited')
+                : tr('settings.freeSwipesRemaining', { count: profile?.free_swipes_remaining ?? 0 })}
             </Text>
           </View>
         </View>

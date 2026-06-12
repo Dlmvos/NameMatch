@@ -22,6 +22,7 @@ import { useSwipeDeckActions } from '../context/SwipeDeckContext';
 import { useTranslation } from '../i18n/I18nProvider';
 import { translateCountryName } from '../i18n/display';
 import { formatLocalizedPrice, resolveCurrencyCode } from '../lib/currency';
+import { devWarn } from '../lib/devWarn';
 import { NamePack, PREMIUM_COUPLE_PACK_KEY } from '../types';
 import { FREE_SWIPE_BANK_CAP } from '../constants/freeSwipes';
 import { COUNTRY_OPTIONS } from '../data/countries';
@@ -190,7 +191,7 @@ export default function ShopScreen() {
         setPremiumMonthlyPkg(monthly);
         setPremiumLegacyPkg(legacy);
       })
-      .catch(() => {})
+      .catch(devWarn('ShopScreen: getPremiumOfferingPackages'))
       .finally(() => {
         if (mounted) setPremiumOffersHydrated(true);
       });
@@ -246,7 +247,7 @@ export default function ShopScreen() {
           setCuratedUnlocks({});
         }
       })
-      .catch(() => {});
+      .catch(devWarn('ShopScreen: load curated unlocks'));
     void refreshUnlockedPacks();
   }, [isFocused, refreshUnlockedPacks]);
 
@@ -258,7 +259,7 @@ export default function ShopScreen() {
     );
     if (Object.keys(active).length !== Object.keys(curatedUnlocks).length) {
       setCuratedUnlocks(active);
-      AsyncStorage.setItem(CURATED_RECOMMENDATION_UNLOCKS_STORAGE_KEY, JSON.stringify(active)).catch(() => {});
+      AsyncStorage.setItem(CURATED_RECOMMENDATION_UNLOCKS_STORAGE_KEY, JSON.stringify(active)).catch(devWarn('ShopScreen: persist active curated unlocks'));
     }
   }, [curatedUnlocks, nowMs]);
 

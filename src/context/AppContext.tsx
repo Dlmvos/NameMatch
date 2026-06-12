@@ -13,6 +13,7 @@ import { useRoomState } from './RoomContext';
 import { getEffectiveLanguage } from '../services/languageService';
 import { RoomService } from '../services/RoomService';
 import { ensureNameNestStorageMigration } from '../lib/storageBrandMigration';
+import { devWarn } from '../lib/devWarn';
 
 // ─────────────────────────────────────────────────────────────
 // Context shape
@@ -283,7 +284,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     setIsCountryPrefHydrated(false);
 
-    const migrationPromise = ensureNameNestStorageMigration().catch(() => {});
+    const migrationPromise = ensureNameNestStorageMigration().catch(devWarn('AppContext: storage brand migration'));
     const countryPromise = shouldFallbackCountry
       ? migrationPromise.then(() => AsyncStorage.getItem(COUNTRY_PREF_KEY(user.id)).catch(() => null))
       : Promise.resolve(null);
@@ -311,13 +312,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         if (residenceToPersist) {
           update.residence_country = residenceToPersist;
           if (!residenceVal && deviceDerivedResidence && user.id) {
-            void AsyncStorage.setItem(RESIDENCE_COUNTRY_KEY(user.id), residenceToPersist).catch(() => {});
+            void AsyncStorage.setItem(RESIDENCE_COUNTRY_KEY(user.id), residenceToPersist).catch(devWarn('AppContext: persist residence country (hydrate)'));
           }
         }
         if (Object.keys(update).length > 0) {
           void updateProfile(update as any)
             .then(() => refreshProfile())
-            .catch(() => {});
+            .catch(devWarn('AppContext: country/residence hydrate profile write'));
         }
       })
       .catch(() => {
@@ -360,7 +361,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       // best-effort; never block UX
     }
 
-    await AsyncStorage.setItem(COUNTRY_PREF_KEY(user.id), country).catch(() => {});
+    await AsyncStorage.setItem(COUNTRY_PREF_KEY(user.id), country).catch(devWarn('AppContext: persist country pref'));
   };
 
   const setResidenceCountry = async (country: string | null) => {
@@ -374,11 +375,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
 
     if (!country) {
-      await AsyncStorage.removeItem(RESIDENCE_COUNTRY_KEY(user.id)).catch(() => {});
+      await AsyncStorage.removeItem(RESIDENCE_COUNTRY_KEY(user.id)).catch(devWarn('AppContext: clear residence country'));
       return;
     }
 
-    await AsyncStorage.setItem(RESIDENCE_COUNTRY_KEY(user.id), country).catch(() => {});
+    await AsyncStorage.setItem(RESIDENCE_COUNTRY_KEY(user.id), country).catch(devWarn('AppContext: persist residence country'));
   };
 
   useEffect(() => {
@@ -401,10 +402,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         const finalVal = val ?? null;
         setLanguagePreferenceState(finalVal);
         if (val) {
-          void updateProfile({ language_preference: val }).catch(() => {});
+          void updateProfile({ language_preference: val }).catch(devWarn('AppContext: language pref profile write (hydrate)'));
         }
       })
-      .catch(() => {});
+      .catch(devWarn('AppContext: language pref hydrate chain'));
   }, [user?.id, profile?.language_preference, updateProfile]);
 
   const setLanguagePreference = async (language: string | null) => {
@@ -417,11 +418,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
 
     if (!language) {
-      await AsyncStorage.removeItem(LANGUAGE_PREF_KEY(user.id)).catch(() => {});
+      await AsyncStorage.removeItem(LANGUAGE_PREF_KEY(user.id)).catch(devWarn('AppContext: clear language pref'));
       return;
     }
 
-    await AsyncStorage.setItem(LANGUAGE_PREF_KEY(user.id), language).catch(() => {});
+    await AsyncStorage.setItem(LANGUAGE_PREF_KEY(user.id), language).catch(devWarn('AppContext: persist language pref'));
   };
 
   const deviceLanguage =

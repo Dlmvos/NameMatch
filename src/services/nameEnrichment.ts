@@ -9,7 +9,7 @@ interface EnrichmentData {
   similar_names: string[];
 }
 
-const ENRICHMENT_MAP: Record<string, EnrichmentData> = {
+export const ENRICHMENT_MAP: Record<string, EnrichmentData> = {
   Aria:      { popularity_rank: 18, trend: 'rising',  pronunciation: 'AR-ee-ah',    similar_names: ['Ariela', 'Ariana', 'Lyra', 'Mia'] },
   Leo:       { popularity_rank: 4,  trend: 'rising',  pronunciation: 'LEE-oh',       similar_names: ['Leon', 'Levi', 'Lucas', 'Theo'] },
   Mia:       { popularity_rank: 8,  trend: 'stable',  pronunciation: 'MEE-ah',       similar_names: ['Mila', 'Maya', 'Nia', 'Aria'] },
