@@ -33,6 +33,8 @@ import { useSwipeDeckActions } from '../context/SwipeDeckContext';
 import { supabase } from '../lib/supabase';
 
 const PRIVACY_POLICY_URL = 'https://babinom.com/privacy/';
+const TERMS_OF_SERVICE_URL = 'https://babinom.com/terms/';
+const AI_DISCLAIMER_URL = 'https://babinom.com/ai-disclaimer/';
 const SUPPORT_URL = 'https://babinom.com/support/';
 
 export default function SettingsScreen() {
@@ -444,6 +446,8 @@ export default function SettingsScreen() {
           <SettingsRow icon="heart" label={tr('settings.rate')} value="" onPress={() => Alert.alert(tr('common.comingSoon'), tr('settings.rateComingSoon'))} />
           <SettingsRow icon="share-outline" label={tr('settings.shareWithFriends')} value="" onPress={() => Share.share({ message: tr('settings.shareAppMessage') })} />
           <SettingsRow icon="document-text-outline" label={tr('settings.privacyPolicy')} value="" onPress={() => openExternalUrl(PRIVACY_POLICY_URL)} />
+          <SettingsRow icon="reader-outline" label={tr('settings.termsOfService')} value="" onPress={() => openExternalUrl(TERMS_OF_SERVICE_URL)} />
+          <SettingsRow icon="sparkles-outline" label={tr('settings.aiDisclaimer')} value="" onPress={() => openExternalUrl(AI_DISCLAIMER_URL)} />
           <SettingsRow icon="help-circle-outline" label={tr('settings.helpSupport')} value="" onPress={() => openExternalUrl(SUPPORT_URL)} />
           <View style={styles.settingsRow}>
             <View style={styles.rowLeft}>
