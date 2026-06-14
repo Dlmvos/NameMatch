@@ -742,8 +742,9 @@ const styles = StyleSheet.create({
   languagePicker: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: SPACING.sm,
     paddingHorizontal: SPACING.md,
+    paddingTop: SPACING.md,
     paddingBottom: SPACING.md,
   },
   languageBtn: {
@@ -751,8 +752,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.divider,
     backgroundColor: colors.onboarding.background,
-    paddingHorizontal: SPACING.sm,
-    paddingVertical: 6,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
   },
   languageBtnActive: {
     borderColor: colors.shortlist.primary,

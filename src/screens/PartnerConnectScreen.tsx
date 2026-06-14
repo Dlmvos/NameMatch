@@ -20,6 +20,7 @@ import { useRoomActions, useRoomState } from '../context/RoomContext';
 import { useAuth } from '../context/AuthContext';
 import { useTranslation } from '../i18n/I18nProvider';
 import { createRoomJoinPayload } from '../lib/roomJoinPayload';
+import { consumePendingJoinCode } from '../lib/pendingJoin';
 import { AnalyticsService } from '../services/AnalyticsService';
 import { RootStackParamList } from '../types';
 import { COLORS, FONTS, RADIUS, SPACING, SHADOWS } from '../theme';
@@ -84,6 +85,19 @@ export default function PartnerConnectScreen({ navigation }: Props) {
       Animated.spring(scaleAnim, { toValue: 1, tension: 80, friction: 7, useNativeDriver: true }),
     ]).start();
   }, []);
+
+  // A partner-invite deep link (https://babinom.com/join?code=…) stashes the
+  // room code; pick it up when this screen focuses, switch to the Join tab and
+  // prefill the field so the user just taps Join. Runs once per captured code
+  // (consume clears the stash).
+  useEffect(() => {
+    if (!isFocused) return;
+    const code = consumePendingJoinCode();
+    if (code) {
+      setActiveTab('join');
+      setJoinCode(code);
+    }
+  }, [isFocused]);
 
   useEffect(() => {
     // Only reset local state when the screen is focused and there's no room.

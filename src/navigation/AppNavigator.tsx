@@ -31,6 +31,8 @@ import SettingsScreen from '../screens/SettingsScreen';
 import DevAnalyticsScreen from '../screens/DevAnalyticsScreen';
 
 import { RootStackParamList, MainTabParamList } from '../types';
+import { navigationRef } from '../lib/navigationRef';
+import { useDeepLinkJoin } from '../lib/useDeepLinkJoin';
 import { FEATURE_FLAGS, PAYWALL_PLACEMENT_VARIANTS } from '../services/featureFlags';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -219,7 +221,7 @@ function AuthenticatedRootNavigator() {
       : mainInitialRoute;
 
   return (
-    <NavigationContainer>
+    <NavigationContainer ref={navigationRef}>
       <Stack.Navigator
         key={`${stackKind}:${isPaid ? 'paid' : 'free'}`}
         initialRouteName={rootInitialRoute}
@@ -285,6 +287,10 @@ export default function AppNavigator() {
 
   const isAuthenticated = !!session;
 
+  // Capture partner-invite deep links (https://babinom.com/join?code=… and the
+  // babinom:// scheme). Must run unconditionally before any early return.
+  useDeepLinkJoin();
+
   useEffect(() => {
     if (!__DEV__ || !DEBUG_STARTUP_GATE) return;
     console.log('[AppNavigator] auth snapshot', {
@@ -328,7 +334,7 @@ export default function AppNavigator() {
     Intl.DateTimeFormat().resolvedOptions().locale?.split(/[-_]/)[0] ?? 'en';
   return (
     <I18nProvider language={deviceLanguage}>
-      <NavigationContainer>
+      <NavigationContainer ref={navigationRef}>
         <Stack.Navigator
           initialRouteName="Welcome"
           screenOptions={{ headerShown: false, animation: 'slide_from_right' }}

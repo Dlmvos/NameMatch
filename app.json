@@ -3,6 +3,7 @@
     "name": "Babinom",
     "slug": "namematch",
     "version": "1.0.0",
+    "scheme": "babinom",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -17,6 +18,10 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.daanvos.namenest",
+      "associatedDomains": [
+        "applinks:babinom.com",
+        "applinks:www.babinom.com"
+      ],
       "infoPlist": {
         "CFBundleDisplayName": "Babinom",
         "ITSAppUsesNonExemptEncryption": false
@@ -30,7 +35,26 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#FFF0F5"
       },
-      "package": "com.daanvos.namenest"
+      "package": "com.daanvos.namenest",
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "babinom.com",
+              "pathPrefix": "/join"
+            },
+            {
+              "scheme": "https",
+              "host": "www.babinom.com",
+              "pathPrefix": "/join"
+            }
+          ],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"

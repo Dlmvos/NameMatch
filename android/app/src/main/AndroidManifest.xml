@@ -26,6 +26,19 @@
         <category android:name="android.intent.category.BROWSABLE"/>
         <data android:scheme="exp+namematch"/>
       </intent-filter>
+      <intent-filter>
+        <action android:name="android.intent.action.VIEW"/>
+        <category android:name="android.intent.category.DEFAULT"/>
+        <category android:name="android.intent.category.BROWSABLE"/>
+        <data android:scheme="babinom"/>
+      </intent-filter>
+      <intent-filter android:autoVerify="true">
+        <action android:name="android.intent.action.VIEW"/>
+        <category android:name="android.intent.category.DEFAULT"/>
+        <category android:name="android.intent.category.BROWSABLE"/>
+        <data android:scheme="https" android:host="babinom.com" android:pathPrefix="/join"/>
+        <data android:scheme="https" android:host="www.babinom.com" android:pathPrefix="/join"/>
+      </intent-filter>
     </activity>
   </application>
 </manifest>

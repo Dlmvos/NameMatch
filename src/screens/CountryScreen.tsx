@@ -137,6 +137,9 @@ export default function CountryScreen({ navigation, route }: Props) {
         <Text style={styles.subtitle}>
           {t('country.subtitle')}
         </Text>
+        <Text style={styles.deckBlendNote}>
+          {t('country.deckBlendNote')}
+        </Text>
 
         {/* Search */}
         <View style={[styles.searchBox, SHADOWS.card]}>
@@ -291,8 +294,17 @@ const styles = StyleSheet.create({
     fontSize: FONTS.sizes.md,
     color: COLORS.textSecondary,
     textAlign: 'center',
-    marginBottom: SPACING.lg,
+    marginBottom: SPACING.sm,
     lineHeight: 22,
+  },
+  deckBlendNote: {
+    fontSize: FONTS.sizes.sm,
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+    marginBottom: SPACING.lg,
+    lineHeight: 19,
+    opacity: 0.8,
+    paddingHorizontal: SPACING.sm,
   },
 
   // ── Search ──
