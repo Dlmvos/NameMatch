@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { devWarn } from './devWarn';
 
 const STORAGE_KEY = 'BABINOM_MILESTONE_CELEBRATED';
 
@@ -51,5 +52,5 @@ async function saveCelebrated(roomId: string, set: Set<number>): Promise<void> {
   await AsyncStorage.setItem(
     `${STORAGE_KEY}:${roomId}`,
     JSON.stringify([...set]),
-  ).catch(() => {});
+  ).catch(devWarn(`milestoneTracker: persist celebrated for room=${roomId}`));
 }

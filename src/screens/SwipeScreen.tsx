@@ -28,6 +28,7 @@ import FilterSheet from '../components/FilterSheet';
 import NameDetailModal from '../components/NameDetailModal';
 import { useBooleanFlag, useVariantFlag } from '../hooks/useFeatureFlag';
 import { formatLocalizedPrice, resolveCurrencyCode } from '../lib/currency';
+import { devWarn } from '../lib/devWarn';
 import { getSwipeMetadataLabelKey } from '../lib/swipeMetadataLabel';
 import {
   getRecommendedPack,
@@ -1127,7 +1128,7 @@ export default function SwipeScreen() {
                     await AsyncStorage.setItem(
                       CURATED_RECOMMENDATION_UNLOCKS_STORAGE_KEY,
                       JSON.stringify(existing),
-                    ).catch(() => {});
+                    ).catch(devWarn('SwipeScreen: persist curated unlock'));
                   }
                   setShowPackModal(false);
                   navigation.navigate('MainTabs', { screen: 'Shop' });

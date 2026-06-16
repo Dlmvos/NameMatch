@@ -90,6 +90,9 @@ type BabyNamePremiumRow = {
   region: string;
   is_worldwide: boolean;
   popularity_rank: number | null;
+  /** Shared identity across (name × country) variants. Required for
+   * cross-country swipe exclusion and canonical deck dedup. */
+  canonical_name_id: string | null;
 };
 
 /** DB `meaning` when present; otherwise a short catalog fallback so swipe UI is not blank (bulk EU imports often store `meaning: null`). */
@@ -118,6 +121,7 @@ function mapRowToBabyName(
     country: row.country ?? undefined,
     region: row.region as Region,
     is_worldwide: row.is_worldwide,
+    canonical_name_id: row.canonical_name_id ?? undefined,
     meaningTranslations,
     popularity_rank,
     rarity: rarityFromPopularityRank(popularity_rank),
@@ -339,7 +343,7 @@ async function fetchPublicWorldwideOriginRows(
   if (limit <= 0) return [];
   let q = supabase
     .from('baby_names')
-    .select('id,name,meaning,origin,gender,country,region,is_worldwide,popularity_rank')
+    .select('id,name,meaning,origin,gender,country,region,is_worldwide,popularity_rank,canonical_name_id')
     .eq('is_premium', false)
     .or('is_worldwide.eq.true,country.is.null');
   q = applyPublicSupplementGenderFilter(q, gender);
@@ -358,7 +362,7 @@ async function fetchPublicRowsByCountryList(
   if (limit <= 0 || countries.length === 0) return [];
   let q = supabase
     .from('baby_names')
-    .select('id,name,meaning,origin,gender,country,region,is_worldwide,popularity_rank')
+    .select('id,name,meaning,origin,gender,country,region,is_worldwide,popularity_rank,canonical_name_id')
     .eq('is_premium', false)
     .in('country', countries);
   q = applyPublicSupplementGenderFilter(q, gender);
@@ -378,7 +382,7 @@ async function fetchPublicRowsForRegionCountry(
   if (limit <= 0) return [];
   let q = supabase
     .from('baby_names')
-    .select('id,name,meaning,origin,gender,country,region,is_worldwide,popularity_rank')
+    .select('id,name,meaning,origin,gender,country,region,is_worldwide,popularity_rank,canonical_name_id')
     .eq('is_premium', false)
     .eq('region', region)
     .eq('country', country);
@@ -584,7 +588,7 @@ async function fetchWorldwideBalancedPublicRows(
       const cap = caps[i];
       let q = supabase
         .from('baby_names')
-        .select('id,name,meaning,origin,gender,country,region,is_worldwide,popularity_rank')
+        .select('id,name,meaning,origin,gender,country,region,is_worldwide,popularity_rank,canonical_name_id')
         .eq('is_premium', false)
         .eq('region', reg);
       q = applyPublicSupplementGenderFilter(q, gender);
@@ -784,7 +788,7 @@ export const PremiumContentService = {
 
         let query = supabase
           .from('baby_names')
-          .select('id,name,meaning,origin,gender,country,region,is_worldwide,popularity_rank')
+          .select('id,name,meaning,origin,gender,country,region,is_worldwide,popularity_rank,canonical_name_id')
           .eq('is_premium', false);
 
         if (region) {
@@ -871,7 +875,7 @@ export const PremiumContentService = {
       // so paid users with a pack actually receive the catalog they paid for.
       const { data, error } = await supabase
         .from('baby_names')
-        .select('id,name,meaning,origin,gender,country,region,is_worldwide,popularity_rank')
+        .select('id,name,meaning,origin,gender,country,region,is_worldwide,popularity_rank,canonical_name_id')
         .eq('is_premium', true)
         .order('popularity_rank', { ascending: true, nullsFirst: false })
         .limit(PREMIUM_REMOTE_LIMIT);

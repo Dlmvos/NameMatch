@@ -68,7 +68,7 @@ export class CountryWeightingService {
 
     if (!country) {
       // Legacy/no-country fallback: deterministic region-first, no broad discovery.
-      return this._dedupeById([...regionGeneral, ...worldwide]).slice(0, FREE_DECK_SIZE);
+      return this._dedupeByCanonical([...regionGeneral, ...worldwide]).slice(0, FREE_DECK_SIZE);
     }
 
     const countryTarget = Math.round(FREE_DECK_SIZE * 0.9); // 90%
@@ -85,7 +85,9 @@ export class CountryWeightingService {
       .filter((n) => !countryIds.has(n.id) && !relatedIds.has(n.id))
       .slice(0, Math.max(regionTarget, countryTarget - selectedCountry.length));
 
-    const ordered = this._dedupeById([
+    // Canonical dedup catches Sofia-IT vs Sofía-ES landing in different
+    // partitions (countrySpecific vs adjacent) and being merged here.
+    const ordered = this._dedupeByCanonical([
       ...selectedCountry,
       ...tightlyRelatedFallback,
       ...regionFallback,
@@ -95,10 +97,9 @@ export class CountryWeightingService {
       return ordered.slice(0, FREE_DECK_SIZE);
     }
 
-    // Limited final fallback only when supply is thin.
-    const usedIds = new Set(ordered.map((n) => n.id));
-    const worldwideFallback = worldwide.filter((n) => !usedIds.has(n.id));
-    return [...ordered, ...worldwideFallback].slice(0, FREE_DECK_SIZE);
+    // Limited final fallback only when supply is thin — re-dedup since
+    // worldwide can carry canonical twins of names already in `ordered`.
+    return this._dedupeByCanonical([...ordered, ...worldwide]).slice(0, FREE_DECK_SIZE);
   }
 
   // ──────────────────────────────────────────────────────────
@@ -164,7 +165,10 @@ export class CountryWeightingService {
     const sampledAdjacent = this._shuffle([...adjacent], rng).slice(0, adjacentTarget);
     const sampledDiscovery = this._shuffle([...discovery], rng).slice(0, discoveryTarget);
 
-    return [...sampledPrimary, ...sampledAdjacent, ...sampledDiscovery];
+    // Cross-partition canonical dedup: primary/adjacent/discovery are
+    // mutually exclusive by country/region flags, but the same conceptual
+    // name (Sofia-IT vs Sofía-ES) can land in two buckets and collide here.
+    return this._dedupeByCanonical([...sampledPrimary, ...sampledAdjacent, ...sampledDiscovery]);
   }
 
   // ──────────────────────────────────────────────────────────
@@ -237,6 +241,31 @@ export class CountryWeightingService {
         seen.add(name.id);
         result.push(name);
       }
+    }
+    return result;
+  }
+
+  /**
+   * Cross-partition canonical dedup. `baby_names` stores per-country variants
+   * as separate rows ("Sofia" Italy, "Sofía" Spain) that share the same
+   * `canonical_name_id`. The 70/15/5 partitions are mutually exclusive by
+   * country/region flags, so identical canonical names can land in different
+   * buckets and slip past `_dedupeById` (which keys on the per-row UUID).
+   *
+   * Falls back to `name|gender` lowercased for bundled core names that
+   * predate the canonical-id system. Preserves first-seen order — keeping
+   * the country-specific row that the user's primary partition selected
+   * over a later adjacent/discovery variant.
+   */
+  private _dedupeByCanonical(names: BabyName[]): BabyName[] {
+    const seen = new Set<string>();
+    const result: BabyName[] = [];
+    for (const name of names) {
+      const key =
+        name.canonical_name_id ?? `${name.name.trim().toLowerCase()}|${name.gender}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      result.push(name);
     }
     return result;
   }

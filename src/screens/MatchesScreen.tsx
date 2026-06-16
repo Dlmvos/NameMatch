@@ -29,6 +29,7 @@ import { SwipeService, LikedName } from '../services/SwipeService';
 import { PremiumContentService } from '../services/PremiumContentService';
 import NameDetailModal from '../components/NameDetailModal';
 import { ensureNameNestStorageMigration } from '../lib/storageBrandMigration';
+import { devWarn } from '../lib/devWarn';
 import { Match, BabyName, Gender, Region, MainTabParamList } from '../types';
 import { colors, COLORS, FONTS, RADIUS, SPACING, SHADOWS } from '../theme';
 import { DEV_PREVIEW } from '../config/devPreview';
@@ -69,7 +70,7 @@ const DEV_SAMPLE_MATCHES: Match[] = __DEV__
 export default function MatchesScreen() {
   const { t, language } = useTranslation();
   const { matches } = useMatchState();
-  const { room, handleConfirmedMatch } = useRoom();
+  const { room, handleConfirmedMatch, refreshMatches } = useRoom();
   const { user, profile, session } = useAuth();
   const { registerOwnCustomName } = useSwipeDeckActions();
   const [notes, setNotes] = useState<Record<string, string>>({});
@@ -192,6 +193,19 @@ export default function MatchesScreen() {
     }, [user?.id, roomId, fetchLikedNames]),
   );
 
+  // Same focus-rehydrate pattern as fetchLikedNames above, but for matches.
+  // RoomContext does subscribe to a Supabase Realtime channel for matches, BUT
+  // the partner-side payload can drop on background / brief socket disconnect /
+  // RLS edge cases — leaving the partner with a stale list until app reload.
+  // useFocusEffect repulls matches every time the user lands on this tab so
+  // the stale-until-restart UX never reappears.
+  useFocusEffect(
+    useCallback(() => {
+      if (!roomId) return;
+      void refreshMatches();
+    }, [roomId, refreshMatches]),
+  );
+
   const handleSaveCustomName = useCallback(async () => {
     const trimmed = customNameText.trim();
     if (!trimmed) {
@@ -302,7 +316,7 @@ export default function MatchesScreen() {
     ensureNameNestStorageMigration()
       .then(() => AsyncStorage.getItem(NOTES_STORAGE_KEY))
       .then((raw) => { if (raw) setNotes(JSON.parse(raw)); })
-      .catch(() => {});
+      .catch(devWarn('MatchesScreen: load saved notes'));
   }, []);
 
   const saveNote = async () => {

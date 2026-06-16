@@ -4,6 +4,7 @@ import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 
 import { posthog } from '../analytics/posthog';
+import { devWarn } from '../lib/devWarn';
 
 type AnalyticsEvent =
   | 'app_opened'
@@ -111,7 +112,7 @@ export const AnalyticsService = {
         const events = await readStoredEvents();
         await AsyncStorage.setItem(ANALYTICS_STORAGE_KEY, JSON.stringify([...events, entry]));
       })
-      .catch(() => {});
+      .catch(devWarn('AnalyticsService: persist event queue'));
   },
 
   /**

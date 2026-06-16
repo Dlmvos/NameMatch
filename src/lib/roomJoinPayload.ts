@@ -76,7 +76,12 @@ export function parseRoomJoinPayload(payload: string): string | null {
       ROOM_JOIN_PAYLOAD_TYPES.has(parsed.type) &&
       typeof parsed.roomCode === 'string'
     ) {
-      return parsed.roomCode.trim().toUpperCase();
+      // Validate via ROOM_CODE_RE here too — the URL and bare-code branches
+      // below both validate, so the JSON branch needs the same gate (audit S1,
+      // 2026-06-15). Without this, a malformed roomCode in a legacy JSON
+      // payload would pass through unvalidated and prefill the join field.
+      const normalized = normalizeRoomCode(parsed.roomCode);
+      if (ROOM_CODE_RE.test(normalized)) return normalized;
     }
   } catch {
     // Not a JSON join payload.

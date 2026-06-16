@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { RoomService } from '../services/RoomService';
 import { BabyName, Match, Room } from '../types';
 import { useAuth } from './AuthContext';
@@ -16,6 +16,14 @@ interface RoomActionsContextValue {
   joinRoom: (code: string) => Promise<void>;
   leaveRoom: () => Promise<void>;
   handleConfirmedMatch: (name: BabyName) => Promise<void>;
+  /**
+   * Re-pulls matches from Supabase without resubscribing the realtime channel.
+   * Used by MatchesScreen.useFocusEffect to recover from dropped realtime
+   * payloads (background, brief socket disconnect) without forcing the user
+   * to reload the app. Idempotent: re-applies seenMatchIdsRef so duplicates
+   * are filtered cleanly when realtime payloads arrive after the refetch.
+   */
+  refreshMatches: () => Promise<void>;
 }
 
 interface MatchStateContextValue {
@@ -291,6 +299,28 @@ export function RoomProvider({ children }: { children: React.ReactNode }) {
   const dismissLatestMatch = () => setLatestMatch(null);
   const dismissMilestone = () => setPendingMilestone(null);
 
+  const refreshMatches = useCallback(async () => {
+    const roomId = room?.id ?? profile?.room_id ?? null;
+    if (!roomId) return;
+    try {
+      const loadedMatches = await RoomService.getMatches(roomId);
+      setMatches(loadedMatches);
+      for (const row of loadedMatches) {
+        seenMatchIdsRef.current.add(row.id);
+      }
+      if (__DEV__) {
+        console.log('[RoomContext] refreshMatches re-hydrated', {
+          roomId,
+          count: loadedMatches.length,
+        });
+      }
+    } catch (err: any) {
+      if (__DEV__) {
+        console.error('[RoomContext] refreshMatches failed:', err?.message ?? err);
+      }
+    }
+  }, [room?.id, profile?.room_id]);
+
   const roomStateValue: RoomStateContextValue = {
     room,
     isLoadingRoom,
@@ -302,6 +332,7 @@ export function RoomProvider({ children }: { children: React.ReactNode }) {
     joinRoom,
     leaveRoom,
     handleConfirmedMatch,
+    refreshMatches,
   };
 
   const matchStateValue: MatchStateContextValue = {

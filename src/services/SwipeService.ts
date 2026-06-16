@@ -142,10 +142,25 @@ function normalizedDisplayNameKey(raw: string): string {
 }
 
 export const SwipeService = {
+  /**
+   * Returns the set of identifiers to exclude from future decks.
+   * Includes BOTH the raw `name_id` (per-row UUID) AND the joined
+   * `canonical_name_id` (shared across name variants like Sara-FR / Sara-BE,
+   * Sofia-IT / Sofía-ES). The caller's exclusion check is one lookup:
+   *
+   *     swipedSet.has(name.id) || swipedSet.has(name.canonical_name_id)
+   *
+   * This is what fixes the cross-country swipe-leakage bug: swiping Sara on
+   * the Belgium deck adds her canonical_name_id to this set, so the same
+   * canonical Sara doesn't reappear when the user switches to France.
+   *
+   * Bundled core names (no DB row, no canonical id) continue to match on
+   * `name_id` alone, so this is back-compatible.
+   */
   async getSwipedNameIds(userId: string, roomId: string): Promise<Set<string>> {
     const { data, error } = await supabase
       .from('swipes')
-      .select('name_id')
+      .select('name_id, baby_names!left(canonical_name_id)')
       .eq('user_id', userId)
       .eq('room_id', roomId);
 
@@ -155,7 +170,24 @@ export const SwipeService = {
       return new Set();
     }
 
-    return new Set((data ?? []).map((s: { name_id: string }) => s.name_id));
+    const out = new Set<string>();
+    // supabase-js types embedded resources as arrays even on to-one FK joins,
+    // so the runtime shape is technically `T | T[]`. Normalising defensively
+    // instead of casting through `as` makes the cross-country dedup correct
+    // regardless of which shape supabase returns and clears the sole tsc error
+    // flagged by the 2026-06-15 audit (B1). If we ever drop the canonical here,
+    // the same baby_name surfaces as "unswiped" after a country switch.
+    type Row = {
+      name_id: string;
+      baby_names?: { canonical_name_id: string | null } | { canonical_name_id: string | null }[] | null;
+    };
+    for (const row of (data ?? []) as Row[]) {
+      if (row.name_id) out.add(row.name_id);
+      const bn = Array.isArray(row.baby_names) ? row.baby_names[0] : row.baby_names;
+      const canonical = bn?.canonical_name_id;
+      if (canonical) out.add(canonical);
+    }
+    return out;
   },
 
   async upsertSwipe(params: {

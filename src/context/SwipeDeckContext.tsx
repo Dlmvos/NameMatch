@@ -84,9 +84,21 @@ const ORIGIN_SUPPLEMENT_REFETCH_DEBOUNCE_MS = 225;
 
 const normalizeFilterText = (value?: string): string => value?.trim().toLowerCase() ?? '';
 
-function isSwipedId(nameId: string, swiped: ReadonlySet<string>): boolean {
-  const key = normalizeBabyNameId(nameId);
-  return swiped.has(key) || swiped.has(nameId);
+/**
+ * Has this name been swiped already (in this or any other country/filter)?
+ *
+ * Checks BOTH the per-row id AND the canonical_name_id (if present). The
+ * swiped set returned by `SwipeService.getSwipedNameIds` carries both, so
+ * a single lookup catches:
+ *   - identical rows (Sara-FR swiped, Sara-FR shown again)
+ *   - canonical twins (Sara-FR swiped, Sara-BE shown — different `id`,
+ *     same `canonical_name_id`)
+ *   - bundled core names (no `canonical_name_id`, falls back to id match)
+ */
+function isSwipedId(name: BabyName, swiped: ReadonlySet<string>): boolean {
+  if (name.canonical_name_id && swiped.has(name.canonical_name_id)) return true;
+  const key = normalizeBabyNameId(name.id);
+  return swiped.has(key) || swiped.has(name.id);
 }
 
 function applyFiltersExceptOrigins(
@@ -112,7 +124,7 @@ function applyFiltersExceptOrigins(
       return trend ? filters.trends.includes(trend) : false;
     });
   }
-  return result.filter((n) => !isSwipedId(n.id, swipedIds));
+  return result.filter((n) => !isSwipedId(n, swipedIds));
 }
 
 export function matchesVibeTag(name: BabyName, tag: NameVibeTag): boolean {
@@ -975,7 +987,7 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
     setNamesToSwipe((prev) => {
       const existingIds = new Set(prev.map((n) => n.id));
       const toAdd = rows.filter(
-        (r) => !isSwipedId(r.id, swipedIdsRef.current) && !existingIds.has(r.id),
+        (r) => !isSwipedId(r, swipedIdsRef.current) && !existingIds.has(r.id),
       );
       if (!toAdd.length) return prev;
       const insertAt = Math.min(3, prev.length);
@@ -1067,7 +1079,7 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
       }
 
       // Exclude already-swiped names
-      pool = pool.filter((n) => !isSwipedId(n.id, swipedIdsRef.current));
+      pool = pool.filter((n) => !isSwipedId(n, swipedIdsRef.current));
 
       // ── Priority boost: partner custom names to the front ──
       if (partnerCustomIdsRef.current.size > 0) {
@@ -1130,11 +1142,11 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
       if (useAdditiveAppend) {
         const headIds = new Set(prevVisible.map((n) => n.id));
         const stableHead = prevVisible
-          .filter((n) => !isSwipedId(n.id, swipedIdsRef.current))
+          .filter((n) => !isSwipedId(n, swipedIdsRef.current))
           .map((n) => poolById.get(n.id) ?? n);
         const fullRefined = refineDeckOrder(pool);
         const tail = fullRefined.filter(
-          (n) => !headIds.has(n.id) && !isSwipedId(n.id, swipedIdsRef.current),
+          (n) => !headIds.has(n.id) && !isSwipedId(n, swipedIdsRef.current),
         );
         const nextQueue = [...stableHead, ...tail];
         namesToSwipeCount = nextQueue.length;
@@ -1171,7 +1183,7 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
             const byId = new Map(enriched.map((n) => [n.id, n] as const));
             setNamesToSwipe((prev) =>
               prev
-                .filter((n) => !isSwipedId(n.id, swipedIdsRef.current))
+                .filter((n) => !isSwipedId(n, swipedIdsRef.current))
                 .map((n) => byId.get(n.id) ?? n),
             );
           } catch {

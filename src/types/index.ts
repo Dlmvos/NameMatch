@@ -45,6 +45,16 @@ export interface BabyName {
   region: Region;
   is_worldwide: boolean;
   created_at?: string;
+  /**
+   * Shared identity across (name × country) variants. Multiple `baby_names`
+   * rows ("Sara" in France, "Sara" in Belgium, "Sofía" in Spain, "Sofia" in
+   * Italy) point to the same canonical_name_id. Used for:
+   *  - Cross-country swipe exclusion (swipe Sara-FR → also exclude Sara-BE)
+   *  - Deck dedup (don't show Sofia-IT and Sofía-ES in the same session)
+   * Optional because bundled core names from `src/data/names.ts` predate
+   * the canonical-id system; remote `baby_names` rows always carry it.
+   */
+  canonical_name_id?: string;
   // Enrichment (optional — populated by nameEnrichment service)
   /** Lower = more common when sourced from datasets; use `rarityFromPopularityRank` for a stable rarity view. */
   popularity_rank?: number;
