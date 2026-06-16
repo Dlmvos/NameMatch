@@ -9,6 +9,7 @@ import { PostHogProvider } from 'posthog-react-native';
 
 import { posthog } from './src/analytics/posthog';
 import { AnalyticsService } from './src/services/AnalyticsService';
+import { hydratePaywallScreenshotMode } from './src/lib/paywallScreenshotMode';
 import { AuthProvider } from './src/context/AuthContext';
 import { I18nProvider } from './src/i18n/I18nProvider';
 import AppNavigator from './src/navigation/AppNavigator';
@@ -51,6 +52,11 @@ export default function App() {
     AnalyticsService.track('app_opened', {
       device_language: deviceLanguage,
     });
+    // __DEV__ only — hydrate the paywall screenshot-mode flag so a cold start
+    // into Settings/Paywall reflects the persisted value (production no-ops).
+    if (__DEV__) {
+      void hydratePaywallScreenshotMode();
+    }
   }, [deviceLanguage]);
 
   const tree = (

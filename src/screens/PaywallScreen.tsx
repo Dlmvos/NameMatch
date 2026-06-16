@@ -24,6 +24,7 @@ import { useApp } from '../context/AppContext';
 import { useSwipeDeckActions } from '../context/SwipeDeckContext';
 import { logPurchaseFailureDiagnostics, PurchaseService } from '../services/purchaseService';
 import { AnalyticsService } from '../services/AnalyticsService';
+import { usePaywallScreenshotMode } from '../lib/paywallScreenshotMode';
 
 /** Same key as ShopScreen — dev-only mock premium unlocks. */
 const DEV_UNLOCKED_PACKS_KEY = 'NAMEMATCH_DEV_UNLOCKED_PACKS';
@@ -49,10 +50,16 @@ function paywallPriceLabel(
   priceString: string | null | undefined,
   offersHydrated: boolean,
   kind: 'lifetime' | 'monthly',
+  screenshotMode: boolean = false,
 ): string {
-  const trimmed = typeof priceString === 'string' ? priceString.trim() : '';
-  if (trimmed.length > 0) return trimmed;
-  if (!offersHydrated) return '…';
+  // __DEV__ screenshot mode: skip the live priceString short-circuit so the
+  // unavailable fallback copy renders instead of real currency. Used for
+  // App Store Connect "Review Information Screenshot" capture (Apple 2.3.7).
+  if (!screenshotMode) {
+    const trimmed = typeof priceString === 'string' ? priceString.trim() : '';
+    if (trimmed.length > 0) return trimmed;
+  }
+  if (!offersHydrated && !screenshotMode) return '…';
   return t(
     kind === 'monthly'
       ? 'paywall.couple.priceUnavailableMonthly'
@@ -65,11 +72,14 @@ function singleSkuPaywallPriceLabel(opts: {
   pkg: PurchasesPackage | null;
   monthlyPkg: PurchasesPackage | null;
   offersHydrated: boolean;
+  screenshotMode?: boolean;
 }): string {
-  const { t, pkg, monthlyPkg, offersHydrated } = opts;
-  const trimmed = pkg?.product.priceString?.trim() ?? '';
-  if (trimmed.length > 0) return trimmed;
-  if (!offersHydrated) return '…';
+  const { t, pkg, monthlyPkg, offersHydrated, screenshotMode = false } = opts;
+  if (!screenshotMode) {
+    const trimmed = pkg?.product.priceString?.trim() ?? '';
+    if (trimmed.length > 0) return trimmed;
+    if (!offersHydrated) return '…';
+  }
   if (!pkg) return t('paywall.couple.pricingUnavailable');
   return monthlyPkg && isSamePackage(pkg, monthlyPkg)
     ? t('paywall.couple.priceUnavailableMonthly')
@@ -90,6 +100,11 @@ export default function PaywallScreen({ navigation, route }: Props) {
   const [offersHydrated, setOffersHydrated] = useState(false);
   const [isBusy, setIsBusy] = useState(false);
   const [isPurchasing, setIsPurchasing] = useState(false);
+  // __DEV__-only flag. In release the hook is hard-coded to return false, so
+  // the bundler can eliminate the branches below. Used to capture the App
+  // Store Connect "Review Information Screenshot" for IAPs without prices
+  // baked in (Apple 2.3.7).
+  const paywallScreenshotMode = usePaywallScreenshotMode();
   const premiumFeatures = [
     t('paywall.couple.feature.unlimitedSwipes'),
     t('paywall.couple.feature.curatedNames'),
@@ -153,6 +168,7 @@ export default function PaywallScreen({ navigation, route }: Props) {
         pkg: singleSkuPkg,
         monthlyPkg,
         offersHydrated,
+        screenshotMode: paywallScreenshotMode,
       });
 
   const navigateAfterPremiumVerified = () => {
@@ -336,6 +352,7 @@ export default function PaywallScreen({ navigation, route }: Props) {
                     lifetimePkg?.product.priceString,
                     offersHydrated,
                     'lifetime',
+                    paywallScreenshotMode,
                   )}
                 </Text>
               </TouchableOpacity>
@@ -362,9 +379,10 @@ export default function PaywallScreen({ navigation, route }: Props) {
                       monthlyPkg?.product.priceString,
                       offersHydrated,
                       'monthly',
+                      paywallScreenshotMode,
                     )}
                   </Text>
-                  {monthlyPkg?.product.pricePerYearString ? (
+                  {!paywallScreenshotMode && monthlyPkg?.product.pricePerYearString ? (
                     <Text style={styles.yearlyHint}>
                       {t('paywall.couple.yearlyCompare', {
                         yearly: monthlyPkg.product.pricePerYearString,

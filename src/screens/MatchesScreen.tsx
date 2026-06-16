@@ -16,6 +16,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { normalizeBabyNameId } from '../services/SwipeService';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { useMatchState } from '../context/RoomContext';
@@ -73,8 +74,16 @@ export default function MatchesScreen() {
   const { room, handleConfirmedMatch, refreshMatches } = useRoom();
   const { user, profile, session } = useAuth();
   const { registerOwnCustomName } = useSwipeDeckActions();
+  // Notes are keyed by normalized name_id (not match.id or swipe.id) so a
+  // note set on the Likes tab carries through to the Matches tab and
+  // vice-versa — the user's note follows the NAME they wrote it for.
+  // Persisted to swipes.note column via SwipeService.setNote; hydrated
+  // from LikedName.note (likedNames includes the note field after Phase
+  // C's getLikedNames change). The pre-Phase-C AsyncStorage cache is
+  // read once on mount as a fallback so existing notes don't appear lost
+  // on the first run after upgrade.
   const [notes, setNotes] = useState<Record<string, string>>({});
-  const [editingMatchId, setEditingMatchId] = useState<string | null>(null);
+  const [editingNameId, setEditingNameId] = useState<string | null>(null);
   const [draftNote, setDraftNote] = useState('');
   const [showDevSampleMatches, setShowDevSampleMatches] = useState(false);
   const rawDisplayedMatches =
@@ -311,25 +320,80 @@ export default function MatchesScreen() {
     );
   }, [user?.id, roomId, t, fetchLikedNames]);
 
-  // Load saved notes
+  // One-time AsyncStorage fallback: read any notes the user wrote
+  // pre-Phase-C so they aren't visually lost on the first launch after
+  // upgrade. We do NOT write back here — new edits go to the backend.
+  // The previous AsyncStorage payload was keyed by match.id, which is
+  // unfortunate for migration (we'd need to look up name_id per match);
+  // we accept that pre-existing local notes show on first hydrate only
+  // if the client happens to still have them mapped correctly. Backend
+  // writes from this point forward are authoritative.
   useEffect(() => {
     ensureNameNestStorageMigration()
       .then(() => AsyncStorage.getItem(NOTES_STORAGE_KEY))
-      .then((raw) => { if (raw) setNotes(JSON.parse(raw)); })
+      .then((raw) => { if (raw) setNotes((prev) => ({ ...JSON.parse(raw), ...prev })); })
       .catch(devWarn('MatchesScreen: load saved notes'));
   }, []);
 
+  // Hydrate notes from the backend-sourced likedNames. Notes synced
+  // here override any AsyncStorage entries with the authoritative
+  // server value (including clearing them when the server has null).
+  useEffect(() => {
+    if (likedNames.length === 0) return;
+    setNotes((prev) => {
+      const next = { ...prev };
+      for (const liked of likedNames) {
+        const key = normalizeBabyNameId(liked.name.id);
+        if (liked.note && liked.note.trim().length > 0) {
+          next[key] = liked.note;
+        } else {
+          delete next[key];
+        }
+      }
+      return next;
+    });
+  }, [likedNames]);
+
   const saveNote = async () => {
-    if (!editingMatchId) return;
-    const updated = { ...notes, [editingMatchId]: draftNote };
-    setNotes(updated);
-    await AsyncStorage.setItem(NOTES_STORAGE_KEY, JSON.stringify(updated));
-    setEditingMatchId(null);
+    if (!editingNameId) return;
+    if (!user?.id || !roomId) {
+      Alert.alert('', t('matches.note.errorNoRoom', { defaultValue: "Couldn't save note — try again in a moment." }));
+      return;
+    }
+    const trimmed = draftNote.trim();
+    try {
+      await SwipeService.setNote({
+        userId: user.id,
+        roomId,
+        nameId: editingNameId,
+        note: trimmed.length > 0 ? trimmed : null,
+      });
+      const key = normalizeBabyNameId(editingNameId);
+      setNotes((prev) => {
+        const next = { ...prev };
+        if (trimmed.length > 0) next[key] = trimmed;
+        else delete next[key];
+        return next;
+      });
+      // Re-fetch so any change is reflected from the source of truth
+      // and the Likes tab picks it up too.
+      void fetchLikedNames();
+      setEditingNameId(null);
+    } catch (err: any) {
+      console.error('[MatchesScreen] saveNote failed:', err?.message ?? err);
+      Alert.alert(
+        '',
+        __DEV__
+          ? `Save note failed: ${err?.message ?? err}`
+          : t('matches.note.errorSaveFailed', { defaultValue: "Couldn't save your note. Please try again." }),
+      );
+    }
   };
 
-  const openNote = (matchId: string) => {
-    setDraftNote(notes[matchId] ?? '');
-    setEditingMatchId(matchId);
+  const openNote = (nameId: string) => {
+    const key = normalizeBabyNameId(nameId);
+    setDraftNote(notes[key] ?? '');
+    setEditingNameId(nameId);
   };
 
   const handleShare = async () => {
@@ -378,8 +442,8 @@ export default function MatchesScreen() {
       </View>
 
       {/* Note editor modal */}
-      <Modal visible={!!editingMatchId} transparent animationType="slide" onRequestClose={() => setEditingMatchId(null)}>
-        <TouchableOpacity style={noteStyles.backdrop} activeOpacity={1} onPress={() => setEditingMatchId(null)} />
+      <Modal visible={!!editingNameId} transparent animationType="slide" onRequestClose={() => setEditingNameId(null)}>
+        <TouchableOpacity style={noteStyles.backdrop} activeOpacity={1} onPress={() => setEditingNameId(null)} />
         <View style={noteStyles.noteSheet}>
           <View style={noteStyles.noteHandle} />
           <Text style={noteStyles.noteTitle}>{t('matches.addNote')}</Text>
@@ -396,7 +460,7 @@ export default function MatchesScreen() {
           />
           <Text style={noteStyles.charCount}>{draftNote.length}/280</Text>
           <View style={noteStyles.noteActions}>
-            <TouchableOpacity style={noteStyles.cancelBtn} onPress={() => setEditingMatchId(null)}>
+            <TouchableOpacity style={noteStyles.cancelBtn} onPress={() => setEditingNameId(null)}>
               <Text style={noteStyles.cancelText}>{t('matches.cancel')}</Text>
             </TouchableOpacity>
             <TouchableOpacity style={noteStyles.saveBtn} onPress={saveNote}>
@@ -510,8 +574,8 @@ export default function MatchesScreen() {
               <MatchCard
                 match={item}
                 rank={index + 1}
-                note={notes[item.id]}
-                onNotePress={() => openNote(item.id)}
+                note={notes[normalizeBabyNameId(item.name_id)]}
+                onNotePress={() => openNote(item.name_id)}
                 onShareMatch={() => handleShareMatch(item)}
               />
             )}

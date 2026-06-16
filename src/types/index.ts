@@ -175,6 +175,14 @@ export interface Profile {
   /** UTC calendar date (`YYYY-MM-DD`) of last daily free-swipe grant; server-owned. */
   free_swipes_last_refill_utc_date?: string | null;
   purchased_packs: string[];
+  /**
+   * Server-set after partner pairing: number of NEW matches created by
+   * carrying forward each side's pre-pairing solo-room swipes. Non-null
+   * triggers the CarryForwardModal on app open (0 is valid — friendly
+   * "no matches yet from your past likes" message). Client clears via
+   * RoomService.dismissCarryForwardNotice() which sets it to null.
+   */
+  pending_carry_forward_count: number | null;
   created_at: string;
   updated_at: string;
 }

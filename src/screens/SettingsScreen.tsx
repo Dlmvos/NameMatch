@@ -21,6 +21,10 @@ import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
 import { useAuth } from '../context/AuthContext';
 import { useApp } from '../context/AppContext';
+import {
+  setPaywallScreenshotMode,
+  usePaywallScreenshotMode,
+} from '../lib/paywallScreenshotMode';
 import { REGION_OPTIONS, GenderPreference, Region, RootStackParamList } from '../types';
 import { SUPPORTED_LANGUAGE_OPTIONS } from '../services/languageService';
 import { useTranslation } from '../i18n/I18nProvider';
@@ -42,6 +46,10 @@ export default function SettingsScreen() {
   const tr = t;
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  // __DEV__ only — toggled below in the About section. Forces the paywall to
+  // render with the localised "price unavailable" fallback so the App Store
+  // Connect Review Information Screenshot can be captured without prices.
+  const paywallScreenshotMode = usePaywallScreenshotMode();
   const { session, user, profile, signOut, updateProfile, restorePurchases, deleteAccount } =
     useAuth();
   const { room } = useRoomState();
@@ -436,6 +444,29 @@ export default function SettingsScreen() {
                 )
               }
             />
+          ) : null}
+          {__DEV__ ? (
+            <View style={styles.settingsRow}>
+              <View style={styles.rowLeft}>
+                <View style={styles.rowIcon}>
+                  <Ionicons name="camera-outline" size={18} color={colors.shortlist.primary} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.rowLabel}>Paywall screenshot mode</Text>
+                  <Text style={styles.rowSubLabel}>
+                    Hides live prices on the paywall so the App Store Connect IAP review screenshot can be captured cleanly. Dev builds only.
+                  </Text>
+                </View>
+              </View>
+              <Switch
+                value={paywallScreenshotMode}
+                onValueChange={(v) => {
+                  void setPaywallScreenshotMode(v);
+                }}
+                trackColor={{ false: colors.neutral.border, true: colors.shortlist.secondary }}
+                thumbColor={paywallScreenshotMode ? colors.shortlist.primary : colors.shortlist.secondary}
+              />
+            </View>
           ) : null}
           <SettingsRow
             icon="refresh-circle-outline"

@@ -24,6 +24,7 @@ interface LikedSwipeRow {
   direction: string;
   liked?: boolean | null;
   created_at: string;
+  note?: string | null;
 }
 
 interface LikedBabyNameRow {
@@ -62,6 +63,11 @@ export interface LikedName {
   swipeId: string;
   swipedAt: string;
   name: BabyName;
+  /**
+   * Optional user note. Persisted to `swipes.note` column. Null when the
+   * user hasn't added a note yet. Edited from the Liked Names tab.
+   */
+  note: string | null;
 }
 
 function likedBabyNameRowToBabyName(bn: LikedBabyNameRow): BabyName {
@@ -90,6 +96,7 @@ function toLikedNameFromDbBabyRow(row: LikedSwipeRow, bn: LikedBabyNameRow): Lik
   return {
     swipeId: row.id,
     swipedAt: row.created_at,
+    note: row.note ?? null,
     name: likedBabyNameRowToBabyName(bn),
   };
 }
@@ -100,6 +107,7 @@ function toLikedNameFromBundled(row: LikedSwipeRow, bundled: BabyName): LikedNam
   return {
     swipeId: row.id,
     swipedAt: row.created_at,
+    note: row.note ?? null,
     name: {
       ...bundled,
       meaning: bundled.meaning ?? '',
@@ -210,6 +218,37 @@ export const SwipeService = {
     if (error) throw error;
   },
 
+  /**
+   * Persist (or clear) the optional note attached to a swipe row.
+   * The note is added LATER, from the Liked Names tab — not at swipe
+   * time (would kill swipe momentum). Pass `null` or empty string to
+   * clear an existing note.
+   *
+   * Requires the swipe row to already exist (i.e. the user has swiped
+   * this name in this room). RLS policy "Users can update their own
+   * swipes" covers this.
+   */
+  async setNote(params: {
+    userId: string;
+    roomId: string;
+    nameId: string;
+    note: string | null;
+  }): Promise<void> {
+    const nameId = normalizeBabyNameId(params.nameId);
+    const trimmed = params.note?.trim() ?? '';
+    const noteValue = trimmed.length > 0 ? trimmed : null;
+    const { error } = await supabase
+      .from('swipes')
+      .update({ note: noteValue })
+      .eq('user_id', params.userId)
+      .eq('room_id', params.roomId)
+      .eq('name_id', nameId);
+    if (error) {
+      console.error('[SwipeService] setNote error:', error.message);
+      throw error;
+    }
+  },
+
   async checkAndCreateMatch(params: {
     userId: string;
     roomId: string;
@@ -243,7 +282,7 @@ export const SwipeService = {
   async getLikedNames(userId: string, roomId: string): Promise<LikedName[]> {
     const { data: swipeRows, error: swipeError } = await supabase
       .from('swipes')
-      .select('id, name_id, direction, liked, created_at')
+      .select('id, name_id, direction, liked, created_at, note')
       .eq('user_id', userId)
       .eq('room_id', roomId)
       .or('direction.eq.right,liked.eq.true')

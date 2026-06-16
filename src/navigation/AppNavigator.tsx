@@ -9,6 +9,7 @@ import { View, ActivityIndicator, StyleSheet, Text, TouchableOpacity } from 'rea
 import { useAuth } from '../context/AuthContext';
 import { AppProvider, useApp } from '../context/AppContext';
 import { RoomProvider, useRoomState } from '../context/RoomContext';
+import CarryForwardModal from '../components/CarryForwardModal';
 import { SwipeDeckProvider } from '../context/SwipeDeckContext';
 import { useVariantFlag } from '../hooks/useFeatureFlag';
 import { I18nProvider } from '../i18n/I18nProvider';
@@ -222,6 +223,14 @@ function AuthenticatedRootNavigator() {
 
   return (
     <NavigationContainer ref={navigationRef}>
+      {/*
+       * CarryForwardModal renders over whatever screen is active when the
+       * user first opens the app after pairing — it self-shows based on
+       * profile.pending_carry_forward_count being non-null, and self-hides
+       * by calling dismissCarryForward(). Mounted INSIDE NavigationContainer
+       * so it can dispatch a tab navigation to MainTabs > Matches.
+       */}
+      <CarryForwardModal />
       <Stack.Navigator
         key={`${stackKind}:${isPaid ? 'paid' : 'free'}`}
         initialRouteName={rootInitialRoute}

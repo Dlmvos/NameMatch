@@ -170,6 +170,47 @@ export const RoomService = {
     if (error) throw error;
   },
 
+  /**
+   * Carry the joiner's solo-room swipes into the shared room, recompute
+   * matches against the host's likes, soft-archive the solo room, and
+   * stamp `pending_carry_forward_count` on BOTH profiles so each side
+   * sees the celebration modal on next app open.
+   *
+   * Must be called AFTER RoomService.joinRoom has already set
+   * target_room.user2_id and profile.room_id. Server-side this is one
+   * SECURITY DEFINER RPC (idempotent — safe to retry).
+   *
+   * @param targetRoomId  the now-shared partner room
+   * @param sourceRoomId  the joiner's previous solo room (their profile.room_id BEFORE join); pass null if they joined without a solo room.
+   * @returns count of NEW matches created by the recompute.
+   */
+  async mergeSoloRoomAfterJoin(
+    targetRoomId: string,
+    sourceRoomId: string | null,
+  ): Promise<number> {
+    const { data, error } = await supabase.rpc('merge_solo_into_room_after_join', {
+      p_target_room_id: targetRoomId,
+      p_source_room_id: sourceRoomId,
+    });
+    if (error) {
+      console.error('[RoomService] mergeSoloRoomAfterJoin error:', error.message);
+      throw error;
+    }
+    return typeof data === 'number' ? data : 0;
+  },
+
+  /**
+   * Clear the post-pair carry-forward modal. Idempotent; calling
+   * twice just keeps the column NULL.
+   */
+  async dismissCarryForwardNotice(): Promise<void> {
+    const { error } = await supabase.rpc('dismiss_carry_forward_notice');
+    if (error) {
+      console.error('[RoomService] dismissCarryForwardNotice error:', error.message);
+      throw error;
+    }
+  },
+
   async getRoom(roomId: string): Promise<Room | null> {
     const { data, error } = await supabase.from('rooms').select('*').eq('id', roomId).single();
     if (error) return null;

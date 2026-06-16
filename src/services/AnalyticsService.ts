@@ -38,7 +38,13 @@ type AnalyticsEvent =
   | 'preview_match_shown'
   | 'preview_match_invite_tapped'
   | 'preview_match_dismissed'
-  | 'filter_relax_banner_tap';
+  | 'filter_relax_banner_tap'
+  | 'carry_forward_modal_shown'
+  | 'carry_forward_modal_dismissed'
+  | 'carry_forward_completed'
+  | 'carry_forward_failed'
+  | 'solo_room_auto_provisioned'
+  | 'solo_room_auto_provision_failed';
 
 type AnalyticsProperties = Record<string, string | number | boolean | null | undefined>;
 export type StoredAnalyticsEvent = {

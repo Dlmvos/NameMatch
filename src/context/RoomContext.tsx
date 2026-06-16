@@ -4,6 +4,7 @@ import { BabyName, Match, Room } from '../types';
 import { useAuth } from './AuthContext';
 import { AnalyticsService } from '../services/AnalyticsService';
 import { checkMilestone, type Milestone } from '../lib/milestoneTracker';
+import { peekPendingJoinCode } from '../lib/pendingJoin';
 
 interface RoomStateContextValue {
   room: Room | null;
@@ -24,6 +25,22 @@ interface RoomActionsContextValue {
    * are filtered cleanly when realtime payloads arrive after the refetch.
    */
   refreshMatches: () => Promise<void>;
+  /**
+   * Dismiss the post-pair carry-forward celebration modal. Calls a
+   * SECURITY DEFINER RPC that nulls profile.pending_carry_forward_count
+   * for the caller, then refreshes the local profile snapshot.
+   */
+  dismissCarryForward: () => Promise<void>;
+}
+
+interface CarryForwardContextValue {
+  /**
+   * Non-null when the user should see the post-pair carry-forward modal.
+   * Mirrors profiles.pending_carry_forward_count. Cleared by
+   * dismissCarryForward action. 0 is a valid display value ("no matches
+   * yet from your past likes").
+   */
+  pendingCarryForwardCount: number | null;
 }
 
 interface MatchStateContextValue {
@@ -38,6 +55,7 @@ interface MatchStateContextValue {
 const RoomStateContext = createContext<RoomStateContextValue | null>(null);
 const RoomActionsContext = createContext<RoomActionsContextValue | null>(null);
 const MatchStateContext = createContext<MatchStateContextValue | null>(null);
+const CarryForwardContext = createContext<CarryForwardContextValue | null>(null);
 
 export function useRoomState(): RoomStateContextValue {
   const ctx = useContext(RoomStateContext);
@@ -54,6 +72,12 @@ export function useRoomActions(): RoomActionsContextValue {
 export function useMatchState(): MatchStateContextValue {
   const ctx = useContext(MatchStateContext);
   if (!ctx) throw new Error('useMatchState must be used within <RoomProvider>');
+  return ctx;
+}
+
+export function useCarryForward(): CarryForwardContextValue {
+  const ctx = useContext(CarryForwardContext);
+  if (!ctx) throw new Error('useCarryForward must be used within <RoomProvider>');
   return ctx;
 }
 
@@ -218,10 +242,47 @@ export function RoomProvider({ children }: { children: React.ReactNode }) {
   const joinRoom = async (code: string) => {
     if (!user?.id) throw new Error('Not authenticated');
     setIsLoadingRoom(true);
+    // Capture the caller's solo room id BEFORE the join completes. This is
+    // the room we'll migrate swipes out of and soft-archive. If the user
+    // never had a solo room (cold start straight from a partner-invite
+    // deep link, signup → join sequence), this is null and the merge RPC
+    // treats it as a no-op carry-forward.
+    const soloRoomId = profile?.room_id ?? null;
     try {
-      await RoomService.joinRoom(user.id, code);
-      await refreshProfile();
+      const targetRoom = await RoomService.joinRoom(user.id, code);
       AnalyticsService.track('invite_join_success', { room_code_length: code.length });
+
+      // Carry the caller's solo-room swipes into the now-shared room and
+      // recompute matches. Fire-and-forget would be wrong — we want the
+      // carry_forward_count stamped on profiles before refreshProfile()
+      // reads it, so the modal fires on the very first app open.
+      try {
+        const newMatchCount = await RoomService.mergeSoloRoomAfterJoin(
+          targetRoom.id,
+          soloRoomId,
+        );
+        AnalyticsService.track('carry_forward_completed', {
+          newMatchCount,
+          hadSoloRoom: soloRoomId !== null,
+        });
+        if (__DEV__) {
+          console.log('[RoomContext] carry-forward complete', {
+            targetRoomId: targetRoom.id,
+            soloRoomId,
+            newMatchCount,
+          });
+        }
+      } catch (carryErr: any) {
+        // Carry-forward failure must NOT block the join (user is already
+        // in the room). Log + analytics; the modal won't fire but the
+        // partner can still see matches from new swipes onward.
+        console.error('[RoomContext] carry-forward failed (non-fatal):', carryErr?.message ?? carryErr);
+        AnalyticsService.track('carry_forward_failed', {
+          message: carryErr?.message ?? String(carryErr),
+        });
+      }
+
+      await refreshProfile();
     } catch (err) {
       AnalyticsService.track('invite_join_failed', { room_code_length: code.length });
       throw err;
@@ -229,6 +290,17 @@ export function RoomProvider({ children }: { children: React.ReactNode }) {
       setIsLoadingRoom(false);
     }
   };
+
+  const dismissCarryForward = useCallback(async () => {
+    try {
+      await RoomService.dismissCarryForwardNotice();
+      await refreshProfile();
+    } catch (err: any) {
+      if (__DEV__) {
+        console.error('[RoomContext] dismissCarryForward failed:', err?.message ?? err);
+      }
+    }
+  }, [refreshProfile]);
 
   const leaveRoom = async () => {
     if (!user?.id) throw new Error('Not authenticated');
@@ -321,6 +393,55 @@ export function RoomProvider({ children }: { children: React.ReactNode }) {
     }
   }, [room?.id, profile?.room_id]);
 
+  // ── Solo-room auto-bootstrap ──
+  //
+  // Every authenticated user gets a solo room on first deck load so likes
+  // and notes persist before they pair with a partner. Skipped when:
+  //   - user not authenticated yet
+  //   - profile already has a room_id
+  //   - a partner-invite deep link is pending (they'll join into the
+  //     partner's room instead, no point creating an orphan solo room)
+  //   - a bootstrap is already in flight (debounces remount races)
+  const bootstrapInFlightRef = useRef(false);
+  useEffect(() => {
+    if (!user?.id) return;
+    if (profile?.room_id) return;
+    if (peekPendingJoinCode()) return;
+    if (bootstrapInFlightRef.current) return;
+
+    bootstrapInFlightRef.current = true;
+    void (async () => {
+      try {
+        const { room: newRoom, code } = await RoomService.createRoom(user.id);
+        AnalyticsService.track('solo_room_auto_provisioned', {
+          room_code_length: code.length,
+        });
+        if (__DEV__) {
+          console.log('[RoomContext] auto-provisioned solo room', {
+            roomId: newRoom.id,
+            code,
+          });
+        }
+        // refreshProfile is what propagates room_id to consumers; the
+        // existing room-load effect will then pick up the new room and
+        // subscribe / load matches.
+        await refreshProfile();
+      } catch (err: any) {
+        // Non-fatal: user can still manually create a room via Settings →
+        // Connect Partner. Log so we notice if this becomes systemic.
+        console.error(
+          '[RoomContext] solo-room auto-bootstrap failed:',
+          err?.message ?? err,
+        );
+        AnalyticsService.track('solo_room_auto_provision_failed', {
+          message: err?.message ?? String(err),
+        });
+      } finally {
+        bootstrapInFlightRef.current = false;
+      }
+    })();
+  }, [user?.id, profile?.room_id, refreshProfile]);
+
   const roomStateValue: RoomStateContextValue = {
     room,
     isLoadingRoom,
@@ -333,6 +454,7 @@ export function RoomProvider({ children }: { children: React.ReactNode }) {
     leaveRoom,
     handleConfirmedMatch,
     refreshMatches,
+    dismissCarryForward,
   };
 
   const matchStateValue: MatchStateContextValue = {
@@ -343,11 +465,17 @@ export function RoomProvider({ children }: { children: React.ReactNode }) {
     dismissMilestone,
   };
 
+  const carryForwardValue: CarryForwardContextValue = {
+    pendingCarryForwardCount: profile?.pending_carry_forward_count ?? null,
+  };
+
   return (
     <RoomStateContext.Provider value={roomStateValue}>
       <RoomActionsContext.Provider value={roomActionsValue}>
         <MatchStateContext.Provider value={matchStateValue}>
-          {children}
+          <CarryForwardContext.Provider value={carryForwardValue}>
+            {children}
+          </CarryForwardContext.Provider>
         </MatchStateContext.Provider>
       </RoomActionsContext.Provider>
     </RoomStateContext.Provider>
