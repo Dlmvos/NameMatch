@@ -3,7 +3,20 @@ import { rarityForBabyName } from '../lib/rarityFromPopularityRank';
 import { supabase } from '../lib/supabase';
 import type { BabyName, Match, Room } from '../types';
 
-export type SubscribeToMatchesCallback = (match: Match) => void;
+export type SubscribeToMatchesCallback = (
+  match: Match,
+  options: {
+    /**
+     * True when the inserted match was tagged 'carry_forward' by the
+     * merge RPC — the CarryForwardModal handles the announcement for
+     * the bulk batch, so the per-match MatchCelebration overlay should
+     * NOT fire (otherwise N realtime payloads in rapid succession all
+     * race setLatestMatch and only one celebration survives — the
+     * "Noah only" symptom from build-26 smoke testing).
+     */
+    silent: boolean;
+  },
+) => void;
 export type SubscribeToRoomCallback = (room: Room) => void;
 
 function matchWithBabyNameRarity(match: Match): Match {
@@ -265,10 +278,17 @@ export const RoomService = {
           const insertedId = (payload as any)?.new?.id as string | undefined;
           if (!insertedId) return;
 
+          // `created_via` was added in migration 20260625. Older rows
+          // (pre-migration) have it set by the default 'swipe', so the
+          // strict-equality check below correctly defaults to non-silent
+          // when the column is missing or unexpected.
+          const createdVia = (payload as any)?.new?.created_via as string | undefined;
+          const silent = createdVia === 'carry_forward';
+
           const { data } = await supabase.from('matches').select(MATCH_RAW_SELECT).eq('id', insertedId).single();
           if (!data) return;
           const [enriched] = await enrichMatchesWithBabyNames([data as RawMatchRow]);
-          if (enriched) onInsert(matchWithBabyNameRarity(enriched));
+          if (enriched) onInsert(matchWithBabyNameRarity(enriched), { silent });
         },
       )
       .subscribe();

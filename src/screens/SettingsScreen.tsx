@@ -283,6 +283,7 @@ export default function SettingsScreen() {
                 label={tr('settings.roomCode')}
                 value={room.code}
                 onPress={() => navigation.navigate('RoomManagement')}
+                showChevron={false}
               />
               <SettingsRow
                 icon="wifi"
@@ -591,12 +592,21 @@ function SettingsRow({
   value,
   onPress,
   destructive,
+  showChevron = true,
 }: {
   icon: keyof typeof Ionicons.glyphMap;
   label: string;
   value: string;
   onPress: () => void;
   destructive?: boolean;
+  /**
+   * Whether to render the right-pointing chevron affordance.
+   * Defaults to true (the original behavior). Pass false for rows
+   * that display info but don't usefully navigate or open a sheet
+   * (e.g. the Room Code row — see Daan's feedback 2026-06-16, the
+   * chevron implied tappability that didn't materialise).
+   */
+  showChevron?: boolean;
 }) {
   return (
     <TouchableOpacity style={styles.settingsRow} onPress={onPress} activeOpacity={0.7}>
@@ -614,7 +624,9 @@ function SettingsRow({
       </View>
       <View style={styles.rowRight}>
         {value ? <Text style={styles.rowValue}>{value}</Text> : null}
-        <Ionicons name="chevron-forward" size={16} color={COLORS.textMuted} />
+        {showChevron ? (
+          <Ionicons name="chevron-forward" size={16} color={COLORS.textMuted} />
+        ) : null}
       </View>
     </TouchableOpacity>
   );

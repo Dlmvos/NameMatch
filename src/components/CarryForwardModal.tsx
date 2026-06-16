@@ -9,7 +9,7 @@ import {
   Easing,
 } from 'react-native';
 import { CommonActions } from '@react-navigation/native';
-import { useCarryForward, useRoomActions } from '../context/RoomContext';
+import { useCarryForward, useMatchState, useRoomActions } from '../context/RoomContext';
 import { useTranslation } from '../i18n/I18nProvider';
 import { navigationRef } from '../lib/navigationRef';
 import { AnalyticsService } from '../services/AnalyticsService';
@@ -36,8 +36,21 @@ import { COLORS, FONTS, SHADOWS, SPACING, RADIUS } from '../theme';
 export default function CarryForwardModal() {
   const { t } = useTranslation();
   const { pendingCarryForwardCount } = useCarryForward();
+  const { matches } = useMatchState();
   const { dismissCarryForward } = useRoomActions();
   const [isDismissing, setIsDismissing] = useState(false);
+  /**
+   * Featured match for the modal: the most recently inserted match in the
+   * room. Carry-forward inserts all matches in a single transaction so the
+   * newest carry-forward match floats to the top of the matches list
+   * (sorted by created_at desc in RoomService.getMatches). If the realtime
+   * payload hasn't landed yet, this can be null — we fall back to a
+   * count-only layout so the modal still has the right info.
+   */
+  const featuredMatch = matches.length > 0 ? matches[0] : null;
+  const featuredName = featuredMatch?.baby_names?.name ?? null;
+  const featuredOrigin = featuredMatch?.baby_names?.origin ?? null;
+  const featuredGender = featuredMatch?.baby_names?.gender ?? null;
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.92)).current;
   const visible = pendingCarryForwardCount !== null;
@@ -122,22 +135,53 @@ export default function CarryForwardModal() {
       <Animated.View style={[styles.backdrop, { opacity: fadeAnim }]}>
         <Animated.View style={[styles.card, { transform: [{ scale: scaleAnim }] }]}>
           <Text style={styles.emoji}>{hasMatches ? '💜' : '🌱'}</Text>
-          <Text style={styles.title}>
-            {hasMatches
-              ? t('carryForward.titleMatches', { count, defaultValue: `${count} name${count === 1 ? '' : 's'} you both already love` })
-              : t('carryForward.titleEmpty', { defaultValue: 'Time to swipe together' })}
-          </Text>
-          <Text style={styles.body}>
-            {hasMatches
-              ? t('carryForward.bodyMatches', {
-                  defaultValue:
-                    "We combined the names you each liked before pairing and found ones you both said yes to. Open Matches to see them.",
-                })
-              : t('carryForward.bodyEmpty', {
-                  defaultValue:
-                    "No overlap from your past likes yet — that's normal! Start swiping together and we'll let you know the moment you agree.",
-                })}
-          </Text>
+
+          {hasMatches && featuredName ? (
+            <>
+              {/* Featured matched name — the most recent in the room.
+                  Daan's spec: "one name with a clear view to check out
+                  the other already created matches". */}
+              <Text style={styles.featuredName} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
+                {featuredName}
+              </Text>
+              {featuredOrigin || featuredGender ? (
+                <Text style={styles.featuredSubtitle}>
+                  {[featuredGender, featuredOrigin].filter(Boolean).join(' · ')}
+                </Text>
+              ) : null}
+              <Text style={styles.countLine}>
+                {t(
+                  count === 1
+                    ? 'carryForward.titleMatchesOne'
+                    : 'carryForward.titleMatchesMany',
+                  { count },
+                )}
+              </Text>
+              {count > 1 ? (
+                <Text style={styles.body}>{t('carryForward.bodyMatches')}</Text>
+              ) : null}
+            </>
+          ) : hasMatches ? (
+            // Count is known but match data hasn't arrived yet — fall back
+            // to count + body without featuring a specific name.
+            <>
+              <Text style={styles.title}>
+                {t(
+                  count === 1
+                    ? 'carryForward.titleMatchesOne'
+                    : 'carryForward.titleMatchesMany',
+                  { count },
+                )}
+              </Text>
+              <Text style={styles.body}>{t('carryForward.bodyMatches')}</Text>
+            </>
+          ) : (
+            // count === 0 — friendly empty state.
+            <>
+              <Text style={styles.title}>{t('carryForward.titleEmpty')}</Text>
+              <Text style={styles.body}>{t('carryForward.bodyEmpty')}</Text>
+            </>
+          )}
 
           {hasMatches ? (
             <>
@@ -147,9 +191,7 @@ export default function CarryForwardModal() {
                 disabled={isDismissing}
                 accessibilityRole="button"
               >
-                <Text style={styles.primaryBtnText}>
-                  {t('carryForward.viewMatches', { defaultValue: 'View matches' })}
-                </Text>
+                <Text style={styles.primaryBtnText}>{t('carryForward.viewMatches')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.secondaryBtn}
@@ -157,9 +199,7 @@ export default function CarryForwardModal() {
                 disabled={isDismissing}
                 accessibilityRole="button"
               >
-                <Text style={styles.secondaryBtnText}>
-                  {t('carryForward.maybeLater', { defaultValue: 'Maybe later' })}
-                </Text>
+                <Text style={styles.secondaryBtnText}>{t('carryForward.maybeLater')}</Text>
               </TouchableOpacity>
             </>
           ) : (
@@ -169,9 +209,7 @@ export default function CarryForwardModal() {
               disabled={isDismissing}
               accessibilityRole="button"
             >
-              <Text style={styles.primaryBtnText}>
-                {t('carryForward.startSwiping', { defaultValue: 'Start swiping' })}
-              </Text>
+              <Text style={styles.primaryBtnText}>{t('carryForward.startSwiping')}</Text>
             </TouchableOpacity>
           )}
         </Animated.View>
@@ -209,6 +247,28 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: SPACING.sm,
     letterSpacing: -0.4,
+  },
+  featuredName: {
+    fontSize: 38,
+    fontWeight: '800',
+    color: COLORS.textPrimary,
+    textAlign: 'center',
+    letterSpacing: -0.8,
+    marginBottom: 4,
+  },
+  featuredSubtitle: {
+    fontSize: FONTS.sizes.sm,
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+    marginBottom: SPACING.md,
+    textTransform: 'capitalize',
+  },
+  countLine: {
+    fontSize: FONTS.sizes.md,
+    fontWeight: '700',
+    color: COLORS.primary,
+    textAlign: 'center',
+    marginBottom: SPACING.sm,
   },
   body: {
     fontSize: FONTS.sizes.md,

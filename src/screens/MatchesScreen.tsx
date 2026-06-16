@@ -308,6 +308,13 @@ export default function MatchesScreen() {
               });
               setLikedNames((prev) => prev.filter((l) => l.swipeId !== likedName.swipeId));
               await fetchLikedNames();
+              // Unliking can break an existing match (both partners had liked
+              // this name → one user un-likes → match should disappear).
+              // SwipeService.unlikeName already calls the
+              // remove_match_for_name RPC server-side; we just need the
+              // client's matches list to re-pull so the row leaves the
+              // Matches tab without requiring an app refresh.
+              void refreshMatches();
             } catch (err: any) {
               console.error('[MatchesScreen] unlikeName error:', err?.message ?? err);
               if (__DEV__) {
@@ -441,33 +448,58 @@ export default function MatchesScreen() {
         </View>
       </View>
 
-      {/* Note editor modal */}
+      {/* Note editor modal.
+       *
+       * Wrapped in KeyboardAvoidingView so the sheet rises ABOVE the
+       * iOS keyboard — previously the sheet stayed pinned to the bottom
+       * and the keyboard occluded the text input and save button.
+       *
+       * TextInput uses returnKeyType="done" so the keyboard return key
+       * is labelled "Done" (not "Enter") and onSubmitEditing saves.
+       * Save button is dimmed while the draft is empty/whitespace and
+       * styled primary when text is present, signalling the action.
+       */}
       <Modal visible={!!editingNameId} transparent animationType="slide" onRequestClose={() => setEditingNameId(null)}>
         <TouchableOpacity style={noteStyles.backdrop} activeOpacity={1} onPress={() => setEditingNameId(null)} />
-        <View style={noteStyles.noteSheet}>
-          <View style={noteStyles.noteHandle} />
-          <Text style={noteStyles.noteTitle}>{t('matches.addNote')}</Text>
-          <Text style={noteStyles.noteHint}>{t('matches.addNoteHint')}</Text>
-          <TextInput
-            style={noteStyles.noteInput}
-            multiline
-            placeholder={t('matches.notePlaceholder')}
-            placeholderTextColor={colors.neutral.gray}
-            value={draftNote}
-            onChangeText={setDraftNote}
-            autoFocus
-            maxLength={280}
-          />
-          <Text style={noteStyles.charCount}>{draftNote.length}/280</Text>
-          <View style={noteStyles.noteActions}>
-            <TouchableOpacity style={noteStyles.cancelBtn} onPress={() => setEditingNameId(null)}>
-              <Text style={noteStyles.cancelText}>{t('matches.cancel')}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={noteStyles.saveBtn} onPress={saveNote}>
-              <Text style={noteStyles.saveText}>{t('matches.saveNote')}</Text>
-            </TouchableOpacity>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 24 : 0}
+        >
+          <View style={noteStyles.noteSheet}>
+            <View style={noteStyles.noteHandle} />
+            <Text style={noteStyles.noteTitle}>{t('matches.addNote')}</Text>
+            <Text style={noteStyles.noteHint}>{t('matches.addNoteHint')}</Text>
+            <TextInput
+              style={noteStyles.noteInput}
+              multiline
+              placeholder={t('matches.notePlaceholder')}
+              placeholderTextColor={colors.neutral.gray}
+              value={draftNote}
+              onChangeText={setDraftNote}
+              autoFocus
+              maxLength={280}
+              returnKeyType="done"
+              blurOnSubmit
+              onSubmitEditing={saveNote}
+            />
+            <Text style={noteStyles.charCount}>{draftNote.length}/280</Text>
+            <View style={noteStyles.noteActions}>
+              <TouchableOpacity style={noteStyles.cancelBtn} onPress={() => setEditingNameId(null)}>
+                <Text style={noteStyles.cancelText}>{t('matches.cancel')}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  noteStyles.saveBtn,
+                  draftNote.trim().length === 0 && noteStyles.saveBtnDisabled,
+                ]}
+                onPress={saveNote}
+                disabled={draftNote.trim().length === 0}
+              >
+                <Text style={noteStyles.saveText}>{t('matches.saveNote')}</Text>
+              </TouchableOpacity>
+            </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* Custom name modal */}
@@ -609,6 +641,8 @@ export default function MatchesScreen() {
                 likedName={item}
                 onUnlike={() => handleUnlike(item)}
                 onPress={() => setDetailName(item.name)}
+                note={notes[normalizeBabyNameId(item.name.id)]}
+                onNotePress={() => openNote(item.name.id)}
               />
             )}
           />
@@ -739,10 +773,16 @@ function LikedNameCard({
   likedName,
   onUnlike,
   onPress,
+  note,
+  onNotePress,
 }: {
   likedName: LikedName;
   onUnlike: () => void;
   onPress: () => void;
+  /** Optional user note (from swipes.note). Null when no note yet. */
+  note?: string | null;
+  /** Open the note editor for this liked name. */
+  onNotePress: () => void;
 }) {
   const { language, t } = useTranslation();
   const name = likedName.name;
@@ -806,6 +846,15 @@ function LikedNameCard({
               {likedSubtitle}
             </Text>
           ) : null}
+          {!note ? (
+            <TouchableOpacity
+              onPress={onNotePress}
+              hitSlop={{ top: 4, bottom: 4, left: 0, right: 0 }}
+              style={styles.addNoteLinkWrap}
+            >
+              <Text style={styles.addNoteLink}>{t('matches.addNote')}</Text>
+            </TouchableOpacity>
+          ) : null}
         </View>
       </TouchableOpacity>
 
@@ -822,6 +871,11 @@ function LikedNameCard({
           <Text style={styles.likedRemoveButtonText}>{t('matches.likes.unlike')}</Text>
         </TouchableOpacity>
       </View>
+      {note ? (
+        <TouchableOpacity onPress={onNotePress} style={styles.notePreview}>
+          <Text style={styles.noteText} numberOfLines={2}>{note}</Text>
+        </TouchableOpacity>
+      ) : null}
     </View>
   );
 }
@@ -1262,6 +1316,10 @@ const noteStyles = StyleSheet.create({
     borderRadius: RADIUS.lg,
     backgroundColor: colors.onboarding.primary,
     alignItems: 'center',
+  },
+  saveBtnDisabled: {
+    backgroundColor: colors.neutral.border,
+    opacity: 0.6,
   },
   saveText: {
     fontSize: FONTS.sizes.md,
