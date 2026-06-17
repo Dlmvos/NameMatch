@@ -811,65 +811,72 @@ function LikedNameCard({
   });
 
   return (
+    // Outer is column-direction so the optional note preview drops
+    // BELOW the heart + info + actions row. Without this wrapping, the
+    // note preview becomes a fourth flex-row sibling and the
+    // .likedNameCard's `flexWrap: 'nowrap'` squeezes it inline with
+    // the name and actions (Daan saw notes obscuring names in build 28).
     <View style={[styles.matchCard, styles.likedNameCard, SHADOWS.card]} accessibilityRole="none">
-      <TouchableOpacity
-        style={styles.likedCardTouchable}
-        activeOpacity={0.7}
-        onPress={onPress}
-        accessibilityRole="button"
-        accessibilityLabel={name.name}
-      >
-        <View style={[styles.rankBadge, { backgroundColor: genderColor + '22' }]}>
-          <Text style={{ fontSize: 20 }}>{genderEmoji}</Text>
-        </View>
-
-        <View style={styles.matchInfo}>
-          <View style={styles.matchNameRow}>
-            <Text
-              style={styles.matchName}
-              numberOfLines={1}
-              adjustsFontSizeToFit
-              minimumFontScale={0.72}
-            >
-              {name.name}
-            </Text>
-          </View>
-          {isCustom ? (
-            <View style={styles.originRow}>
-              <View style={styles.customBadge}>
-                <Text style={styles.customBadgeText}>{t('matches.customName.badge')}</Text>
-              </View>
-            </View>
-          ) : null}
-          {likedSubtitle ? (
-            <Text style={styles.matchMeaning} numberOfLines={2}>
-              {likedSubtitle}
-            </Text>
-          ) : null}
-          {!note ? (
-            <TouchableOpacity
-              onPress={onNotePress}
-              hitSlop={{ top: 4, bottom: 4, left: 0, right: 0 }}
-              style={styles.addNoteLinkWrap}
-            >
-              <Text style={styles.addNoteLink}>{t('matches.addNote')}</Text>
-            </TouchableOpacity>
-          ) : null}
-        </View>
-      </TouchableOpacity>
-
-      <View style={styles.likedCardSideActions}>
-        <Text style={styles.matchDate}>{dateStr}</Text>
+      <View style={styles.likedCardTopRow}>
         <TouchableOpacity
-          style={styles.likedRemoveButton}
-          onPress={onUnlike}
+          style={styles.likedCardTouchable}
+          activeOpacity={0.7}
+          onPress={onPress}
           accessibilityRole="button"
-          accessibilityLabel={`${t('matches.likes.unlike')}: ${name.name}`}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          accessibilityLabel={name.name}
         >
-          <Ionicons name="trash-outline" size={18} color={colors.match.primary} />
-          <Text style={styles.likedRemoveButtonText}>{t('matches.likes.unlike')}</Text>
+          <View style={[styles.rankBadge, { backgroundColor: genderColor + '22' }]}>
+            <Text style={{ fontSize: 20 }}>{genderEmoji}</Text>
+          </View>
+
+          <View style={styles.matchInfo}>
+            <View style={styles.matchNameRow}>
+              <Text
+                style={styles.matchName}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.72}
+              >
+                {name.name}
+              </Text>
+            </View>
+            {isCustom ? (
+              <View style={styles.originRow}>
+                <View style={styles.customBadge}>
+                  <Text style={styles.customBadgeText}>{t('matches.customName.badge')}</Text>
+                </View>
+              </View>
+            ) : null}
+            {likedSubtitle ? (
+              <Text style={styles.matchMeaning} numberOfLines={2}>
+                {likedSubtitle}
+              </Text>
+            ) : null}
+            {!note ? (
+              <TouchableOpacity
+                onPress={onNotePress}
+                hitSlop={{ top: 4, bottom: 4, left: 0, right: 0 }}
+                style={styles.addNoteLinkWrap}
+              >
+                <Text style={styles.addNoteLink}>{t('matches.addNote')}</Text>
+              </TouchableOpacity>
+            ) : null}
+          </View>
         </TouchableOpacity>
+
+        <View style={styles.likedCardSideActions}>
+          <Text style={styles.matchDate}>{dateStr}</Text>
+          <TouchableOpacity
+            style={styles.likedRemoveButton}
+            onPress={onUnlike}
+            accessibilityRole="button"
+            accessibilityLabel={`${t('matches.likes.unlike')}: ${name.name}`}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Ionicons name="trash-outline" size={18} color={colors.match.primary} />
+            <Text style={styles.likedRemoveButtonText}>{t('matches.likes.unlike')}</Text>
+          </TouchableOpacity>
+        </View>
       </View>
       {note ? (
         <TouchableOpacity onPress={onNotePress} style={styles.notePreview}>
@@ -984,8 +991,22 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   likedNameCard: {
+    // Override .matchCard's row direction so the optional note preview
+    // can drop BELOW the (heart + info + actions) row instead of being
+    // squeezed inline as a fourth flex sibling.
+    flexDirection: 'column',
     flexWrap: 'nowrap',
+    alignItems: 'stretch',
+    gap: SPACING.sm,
+  },
+  likedCardTopRow: {
+    // The original row content (touchable + side actions) lives inside
+    // this wrapper so the LikedNameCard's outer container can be
+    // column-direction (see comment on likedNameCard).
+    flexDirection: 'row',
     alignItems: 'flex-start',
+    gap: SPACING.md,
+    minWidth: 0,
   },
   likedCardTouchable: {
     flex: 1,
