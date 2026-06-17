@@ -75,7 +75,15 @@ export default function CountryScreen({ navigation, route }: Props) {
     try {
       if (isResidenceMode) {
         await setResidenceCountry(selected.name);
-        navigation.goBack();
+        // Defensive: AppNavigator may remount the stack after a profile
+        // change, leaving canGoBack() false even though it succeeded the
+        // moment we await'd. Fall back to MainTabs on dev-only "GO_BACK
+        // not handled" cases.
+        if (navigation.canGoBack()) {
+          navigation.goBack();
+        } else {
+          navigation.navigate('MainTabs');
+        }
         return;
       }
 
@@ -87,7 +95,11 @@ export default function CountryScreen({ navigation, route }: Props) {
         await setResidenceCountry(selected.name);
       }
       if (fromSettings) {
-        navigation.goBack();
+        if (navigation.canGoBack()) {
+          navigation.goBack();
+        } else {
+          navigation.navigate('MainTabs');
+        }
       } else {
         navigation.navigate('PartnerConnect');
       }
@@ -229,7 +241,11 @@ export default function CountryScreen({ navigation, route }: Props) {
               await updateProfile({ region_preference: 'WORLDWIDE' });
               await setCountryPreference('Worldwide');
               if (fromSettings) {
-                navigation.goBack();
+                if (navigation.canGoBack()) {
+                  navigation.goBack();
+                } else {
+                  navigation.navigate('MainTabs');
+                }
               } else {
                 navigation.navigate('PartnerConnect');
               }
