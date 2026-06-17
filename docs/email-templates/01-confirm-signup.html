@@ -1,0 +1,51 @@
+<!--
+  Supabase template: Confirm signup
+  Pastes into Supabase Studio → Authentication → Emails → "Confirm signup"
+  Subject: Confirm your Babinom account
+  Supabase template variables used: {{ .ConfirmationURL }}
+-->
+<!doctype html>
+<html lang="en">
+  <body style="margin:0;padding:0;background:#fff8ee;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Inter,sans-serif;color:#25313b;line-height:1.6;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#fff8ee;padding:40px 16px;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:520px;background:#ffffff;border-radius:24px;padding:36px 28px;box-shadow:0 14px 38px rgba(87,62,42,0.08);">
+            <tr>
+              <td>
+                <div style="text-align:center;margin-bottom:24px;">
+                  <span style="font-size:30px;font-weight:850;letter-spacing:-0.03em;color:#25313b;">Babinom &#128156;</span>
+                </div>
+                <h1 style="margin:0 0 14px;font-size:24px;line-height:1.2;letter-spacing:-0.02em;color:#25313b;">Welcome &mdash; let&rsquo;s confirm your email.</h1>
+                <p style="margin:0 0 22px;color:#6f7b84;font-size:16px;">
+                  Tap the button below to confirm <strong style="color:#25313b;">your email address</strong> and finish setting up your Babinom account.
+                </p>
+                <div style="text-align:center;margin:28px 0;">
+                  <a href="{{ .ConfirmationURL }}" style="display:inline-block;background:#d96f61;color:#ffffff;text-decoration:none;font-weight:800;font-size:16px;padding:14px 28px;border-radius:999px;">
+                    Confirm my email
+                  </a>
+                </div>
+                <p style="margin:0 0 8px;color:#6f7b84;font-size:14px;">
+                  Or copy this link into your browser:
+                </p>
+                <p style="margin:0 0 24px;color:#d96f61;font-size:13px;word-break:break-all;">
+                  <a href="{{ .ConfirmationURL }}" style="color:#d96f61;text-decoration:underline;">{{ .ConfirmationURL }}</a>
+                </p>
+                <hr style="border:none;border-top:1px solid rgba(37,49,59,0.10);margin:28px 0;" />
+                <p style="margin:0;color:#6f7b84;font-size:13px;">
+                  Didn't sign up for Babinom? You can safely ignore this email — no account will be created.
+                </p>
+              </td>
+            </tr>
+          </table>
+          <p style="margin:24px 0 0;color:#6f7b84;font-size:12px;text-align:center;">
+            &copy; 2026 Babinom &middot; Daan Vos &middot; Cullera, Spain<br />
+            <a href="https://babinom.com/privacy/" style="color:#6f7b84;text-decoration:underline;">Privacy</a> &middot;
+            <a href="https://babinom.com/terms/" style="color:#6f7b84;text-decoration:underline;">Terms</a> &middot;
+            <a href="mailto:support@babinom.com" style="color:#6f7b84;text-decoration:underline;">support@babinom.com</a>
+          </p>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>

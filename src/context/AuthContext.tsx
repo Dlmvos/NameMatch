@@ -6,7 +6,7 @@ import React, {
   useCallback,
   useRef,
 } from 'react';
-import { AppState } from 'react-native';
+import { Alert, AppState } from 'react-native';
 import { Session, User } from '@supabase/supabase-js';
 import type { CustomerInfo } from 'react-native-purchases';
 import {
@@ -132,7 +132,57 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return data as Profile;
     }
 
-    const createdProfile = await ensureProfile(authUser);
+    // No profile row found. Try to create one. If the underlying auth
+    // user has been deleted server-side (e.g. via Supabase Studio, or
+    // by the user's own Delete Account flow on another device), the
+    // profiles.id FK to auth.users(id) will reject the insert with
+    // Postgres code 23503 ("foreign_key_violation"). That's the
+    // unambiguous signal that the device's session JWT outlived the
+    // account — Supabase doesn't recheck user existence on signature
+    // validation, so the device stays in a half-authenticated limbo
+    // unless we explicitly sign out here.
+    let createdProfile;
+    try {
+      createdProfile = await ensureProfile(authUser);
+    } catch (err: any) {
+      const errCode = err?.code ?? '';
+      const errMessage = String(err?.message ?? err);
+      const isFkViolation =
+        errCode === '23503' ||
+        errMessage.toLowerCase().includes('foreign key constraint');
+      if (isFkViolation) {
+        console.warn(
+          '[AuthContext] profile insert rejected by FK to auth.users — account deleted; forcing signout',
+        );
+        try {
+          AnalyticsService.track('signout_due_to_deleted_account', {
+            user_id: uid,
+          });
+        } catch {}
+        try {
+          await supabase.auth.signOut();
+        } catch (signOutErr) {
+          if (__DEV__) {
+            console.warn('[AuthContext] signOut after deleted-account detection failed:', signOutErr);
+          }
+        }
+        activeAuthUserIdRef.current = null;
+        setSession(null);
+        setUser(null);
+        setProfile(null);
+        // Friendly notice. Non-blocking — by the time the alert
+        // shows, state is already cleared and the navigator routes
+        // to Welcome/Auth.
+        Alert.alert(
+          'Account no longer available',
+          'This account has been deleted. Please sign in to a different account or create a new one.',
+        );
+        return null;
+      }
+      // Any other error bubbles up to the caller (existing behaviour).
+      throw err;
+    }
+
     if (activeAuthUserIdRef.current !== uid) {
       return null;
     }
