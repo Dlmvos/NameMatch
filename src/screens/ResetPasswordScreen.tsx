@@ -47,17 +47,12 @@ export default function ResetPasswordScreen() {
     try {
       const { error } = await supabase.auth.updateUser({ password: trimmed });
       if (error) {
-        Alert.alert(
-          t('resetPassword.errorTitle', { defaultValue: "Couldn't update password" }),
-          error.message,
-        );
+        Alert.alert("Couldn't update password", error.message);
         return;
       }
       Alert.alert(
-        t('resetPassword.successTitle', { defaultValue: 'Password updated' }),
-        t('resetPassword.successBody', {
-          defaultValue: 'Your password has been changed. You can now use it to sign in.',
-        }),
+        'Password updated',
+        'Your password has been changed. You can now use it to sign in.',
         [
           {
             text: 'OK',
@@ -70,10 +65,7 @@ export default function ResetPasswordScreen() {
         ],
       );
     } catch (err: any) {
-      Alert.alert(
-        t('resetPassword.errorTitle', { defaultValue: "Couldn't update password" }),
-        err?.message ?? String(err),
-      );
+      Alert.alert("Couldn't update password", err?.message ?? String(err));
     } finally {
       setIsSubmitting(false);
     }
@@ -92,20 +84,13 @@ export default function ResetPasswordScreen() {
           <View style={styles.iconWrap}>
             <Ionicons name="lock-closed" size={42} color={COLORS.primary} />
           </View>
-          <Text style={styles.title}>
-            {t('resetPassword.title', { defaultValue: 'Set a new password' })}
-          </Text>
+          <Text style={styles.title}>Set a new password</Text>
           <Text style={styles.body}>
-            {t('resetPassword.body', {
-              defaultValue:
-                'Choose a password at least 8 characters long. Use something different from your other accounts.',
-            })}
+            Choose a password at least 8 characters long. Use something different from your other accounts.
           </Text>
 
           <View style={styles.fieldGroup}>
-            <Text style={styles.label}>
-              {t('resetPassword.newPassword', { defaultValue: 'New password' })}
-            </Text>
+            <Text style={styles.label}>New password</Text>
             <View style={styles.inputWrap}>
               <TextInput
                 style={styles.input}
@@ -133,9 +118,7 @@ export default function ResetPasswordScreen() {
           </View>
 
           <View style={styles.fieldGroup}>
-            <Text style={styles.label}>
-              {t('resetPassword.confirmPassword', { defaultValue: 'Confirm password' })}
-            </Text>
+            <Text style={styles.label}>Confirm password</Text>
             <TextInput
               style={[styles.input, styles.inputSolo]}
               value={confirm}
@@ -149,9 +132,7 @@ export default function ResetPasswordScreen() {
               onSubmitEditing={handleSubmit}
             />
             {confirm.length > 0 && trimmed !== confirm.trim() ? (
-              <Text style={styles.errorText}>
-                {t('resetPassword.mismatch', { defaultValue: "Passwords don't match" })}
-              </Text>
+              <Text style={styles.errorText}>Passwords don't match</Text>
             ) : null}
           </View>
 
@@ -162,9 +143,7 @@ export default function ResetPasswordScreen() {
             accessibilityRole="button"
           >
             <Text style={styles.primaryBtnText}>
-              {isSubmitting
-                ? t('resetPassword.submitting', { defaultValue: 'Updating…' })
-                : t('resetPassword.submit', { defaultValue: 'Update password' })}
+              {isSubmitting ? 'Updating…' : 'Update password'}
             </Text>
           </TouchableOpacity>
         </ScrollView>

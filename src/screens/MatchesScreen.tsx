@@ -364,7 +364,7 @@ export default function MatchesScreen() {
   const saveNote = async () => {
     if (!editingNameId) return;
     if (!user?.id || !roomId) {
-      Alert.alert('', t('matches.note.errorNoRoom', { defaultValue: "Couldn't save note — try again in a moment." }));
+      Alert.alert('', "Couldn't save note — try again in a moment.");
       return;
     }
     const trimmed = draftNote.trim();
@@ -392,7 +392,7 @@ export default function MatchesScreen() {
         '',
         __DEV__
           ? `Save note failed: ${err?.message ?? err}`
-          : t('matches.note.errorSaveFailed', { defaultValue: "Couldn't save your note. Please try again." }),
+          : "Couldn't save your note. Please try again.",
       );
     }
   };
@@ -513,9 +513,7 @@ export default function MatchesScreen() {
                 style={noteStyles.removeNoteBtn}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               >
-                <Text style={noteStyles.removeNoteText}>
-                  {t('matches.removeNote', { defaultValue: 'Remove note' })}
-                </Text>
+                <Text style={noteStyles.removeNoteText}>Remove note</Text>
               </TouchableOpacity>
             ) : null}
             <View style={noteStyles.noteActions}>

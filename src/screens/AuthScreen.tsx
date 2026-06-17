@@ -191,9 +191,7 @@ export default function AuthScreen({ navigation, route }: Props) {
                   shake();
                   Alert.alert(
                     t('auth.alert.oops'),
-                    t('auth.alert.enterEmailFirst', {
-                      defaultValue: 'Enter the email address for your account first, then tap Forgot password again.',
-                    }),
+                    'Enter the email address for your account first, then tap Forgot password again.',
                   );
                   return;
                 }
@@ -204,11 +202,8 @@ export default function AuthScreen({ navigation, route }: Props) {
                   });
                   if (error) throw error;
                   Alert.alert(
-                    t('auth.forgot.sentTitle', { defaultValue: 'Check your email' }),
-                    t('auth.forgot.sentBody', {
-                      defaultValue:
-                        "We've sent you a password reset link. Tap it on this device to set a new password.",
-                    }),
+                    'Check your email',
+                    "We've sent you a password reset link. Tap it on this device to set a new password.",
                   );
                 } catch (err: any) {
                   Alert.alert(t('auth.alert.oops'), err?.message ?? String(err));
@@ -218,9 +213,7 @@ export default function AuthScreen({ navigation, route }: Props) {
               }}
               disabled={isLoading}
             >
-              <Text style={styles.forgotText}>
-                {t('auth.forgotPassword', { defaultValue: 'Forgot password?' })}
-              </Text>
+              <Text style={styles.forgotText}>Forgot password?</Text>
             </TouchableOpacity>
           ) : null}
         </Animated.View>
@@ -284,7 +277,7 @@ export default function AuthScreen({ navigation, route }: Props) {
                   shake();
                   Alert.alert(
                     t('auth.alert.oops'),
-                    err?.message ?? t('auth.alert.signinFailed', { defaultValue: 'Sign in failed. Please try again.' }),
+                    err?.message ?? 'Sign in failed. Please try again.',
                   );
                 } finally {
                   setIsLoading(false);
