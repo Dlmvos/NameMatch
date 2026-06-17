@@ -5,6 +5,10 @@ android/.gradle/
 android/app/*.keystore
 android/app/*.jks
 tsconfig.check.json
+# Python virtualenvs (e.g. scripts/generateAppleClientSecret.py setup)
+.venv*/
+# Apple Developer keys — never commit
+*.p8
 *.bak
 *.pre-fix
 *.tmp

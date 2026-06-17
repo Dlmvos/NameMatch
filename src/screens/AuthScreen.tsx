@@ -12,6 +12,7 @@ import {
   Animated,
   Alert,
 } from 'react-native';
+import * as AppleAuthentication from 'expo-apple-authentication';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -23,7 +24,7 @@ import { COLORS, FONTS, RADIUS, SPACING, SHADOWS } from '../theme';
 type Props = NativeStackScreenProps<RootStackParamList, 'Auth'>;
 
 export default function AuthScreen({ navigation, route }: Props) {
-  const { signUp, signIn } = useAuth();
+  const { signUp, signIn, signInWithApple } = useAuth();
   const { t } = useTranslation();
   const [mode, setMode] = useState<'login' | 'signup'>(route.params.mode);
   const [displayName, setDisplayName] = useState('');
@@ -194,6 +195,57 @@ export default function AuthScreen({ navigation, route }: Props) {
           </LinearGradient>
         </TouchableOpacity>
 
+        {/* Sign in with Apple — iOS only.
+         * Apple requires the official AppleAuthenticationButton component
+         * for visual compliance (HIG enforced at App Review). Hidden on
+         * Android / web, since the underlying ASAuthorizationAppleIDProvider
+         * doesn't exist there.
+         */}
+        {Platform.OS === 'ios' ? (
+          <>
+            <View style={styles.dividerRow}>
+              <View style={styles.dividerLine} />
+              <Text style={styles.dividerText}>{t('auth.divider.or', { defaultValue: 'or' })}</Text>
+              <View style={styles.dividerLine} />
+            </View>
+            <AppleAuthentication.AppleAuthenticationButton
+              buttonType={
+                mode === 'signup'
+                  ? AppleAuthentication.AppleAuthenticationButtonType.SIGN_UP
+                  : AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN
+              }
+              buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
+              cornerRadius={28}
+              style={styles.appleBtn}
+              onPress={async () => {
+                if (isLoading) return;
+                setIsLoading(true);
+                try {
+                  await signInWithApple();
+                  // Auth state listener takes over from here — RootNavigator
+                  // routes to Preferences (onboarding) or MainTabs based on
+                  // profile state. No explicit navigation needed.
+                } catch (err: any) {
+                  // Apple's `signInAsync` rejects with ERR_CANCELED when the
+                  // user dismisses the sheet. That's not an error worth
+                  // alerting on — silently swallow.
+                  const code = err?.code ?? '';
+                  if (code === 'ERR_CANCELED' || code === 'ERR_REQUEST_CANCELED') {
+                    return;
+                  }
+                  shake();
+                  Alert.alert(
+                    t('auth.alert.oops'),
+                    err?.message ?? t('auth.alert.signinFailed', { defaultValue: 'Sign in failed. Please try again.' }),
+                  );
+                } finally {
+                  setIsLoading(false);
+                }
+              }}
+            />
+          </>
+        ) : null}
+
         <TouchableOpacity style={styles.toggleBtn} onPress={toggleMode} disabled={isLoading}>
           <Text style={styles.toggleText}>
             {mode === 'signup' ? t('auth.toggle.hasAccount') : t('auth.toggle.noAccount')}
@@ -335,6 +387,28 @@ const styles = StyleSheet.create({
     color: colors.onboarding.text,
     fontSize: FONTS.sizes.lg,
     fontWeight: '700',
+  },
+  dividerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: SPACING.lg,
+    marginBottom: SPACING.md,
+    gap: SPACING.sm,
+  },
+  dividerLine: {
+    flex: 1,
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: 'rgba(37, 49, 59, 0.18)',
+  },
+  dividerText: {
+    color: 'rgba(37, 49, 59, 0.55)',
+    fontSize: FONTS.sizes.sm,
+    fontWeight: '600',
+    textTransform: 'lowercase',
+  },
+  appleBtn: {
+    width: '100%',
+    height: 56,
   },
   toggleBtn: {
     paddingVertical: SPACING.sm,

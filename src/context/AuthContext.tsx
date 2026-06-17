@@ -6,7 +6,7 @@ import React, {
   useCallback,
   useRef,
 } from 'react';
-import { Alert, AppState } from 'react-native';
+import { Alert, AppState, Platform } from 'react-native';
 import { Session, User } from '@supabase/supabase-js';
 import type { CustomerInfo } from 'react-native-purchases';
 import {
@@ -46,6 +46,15 @@ interface AuthContextValue {
   retryStartup: () => void;
   signUp: (email: string, password: string, displayName: string) => Promise<void>;
   signIn: (email: string, password: string) => Promise<void>;
+  /**
+   * Native Sign in with Apple. iOS-only. Uses ASAuthorizationAppleIDProvider
+   * via expo-apple-authentication to get an identity_token from Apple, then
+   * exchanges it for a Supabase session via signInWithIdToken. The token is
+   * verified by Supabase using the Apple Sign In Secret Key (JWT signed by
+   * the .p8 key) configured under Auth → Providers → Apple.
+   * Throws on user cancel as well — callers should swallow ERR_CANCELED.
+   */
+  signInWithApple: () => Promise<void>;
   signOut: () => Promise<void>;
   // Safe profile updates: never include entitlement/system fields.
   updateProfile: (updates: SafeProfileUpdates) => Promise<void>;
@@ -396,6 +405,57 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (error) throw error;
   };
 
+  const signInWithApple = async () => {
+    if (Platform.OS !== 'ios') {
+      throw new Error('Sign in with Apple is only available on iOS.');
+    }
+    // Lazy-require so non-iOS builds (Android, future web) don't try to
+    // resolve the native module at boot. expo-apple-authentication ships
+    // a no-op JS shim on other platforms but the require still pulls in
+    // native types we'd rather skip.
+    const AppleAuthentication = await import('expo-apple-authentication');
+
+    AnalyticsService.track('signup_started', { provider: 'apple' });
+
+    const credential = await AppleAuthentication.signInAsync({
+      requestedScopes: [
+        AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+        AppleAuthentication.AppleAuthenticationScope.EMAIL,
+      ],
+    });
+
+    if (!credential.identityToken) {
+      throw new Error('No identity token returned from Apple.');
+    }
+
+    // Supabase verifies this token via the Apple JWKS plus the audience
+    // claim (must match the Client IDs configured in Supabase Studio).
+    const { error } = await supabase.auth.signInWithIdToken({
+      provider: 'apple',
+      token: credential.identityToken,
+      // `nonce` would be required if we passed one to signInAsync above;
+      // omitted here because Apple only enforces it when present.
+    });
+    if (error) throw error;
+
+    // Apple only returns the user's display name on FIRST sign-in. If
+    // it's there, persist it onto the profile so we don't lose it.
+    const fullName = credential.fullName;
+    const displayName =
+      [fullName?.givenName, fullName?.familyName].filter(Boolean).join(' ').trim();
+    if (displayName) {
+      const { data: { user: signedInUser } } = await supabase.auth.getUser();
+      if (signedInUser?.id) {
+        await supabase
+          .from('profiles')
+          .update({ display_name: displayName })
+          .eq('id', signedInUser.id);
+      }
+    }
+
+    AnalyticsService.track('signup_completed', { provider: 'apple' });
+  };
+
   const signOut = async () => {
     const { error } = await supabase.auth.signOut();
     if (error) throw error;
@@ -575,6 +635,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         retryStartup,
         signUp,
         signIn,
+        signInWithApple,
         signOut,
         updateProfile,
         consumeFreeSwipe,

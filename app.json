@@ -18,6 +18,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.daanvos.namenest",
+      "usesAppleSignIn": true,
       "associatedDomains": [
         "applinks:babinom.com",
         "applinks:www.babinom.com"
