@@ -278,7 +278,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           });
         }
         if (event === 'SIGNED_OUT') {
-          PurchaseService.logOut().catch((err) => {
+          PurchaseService.logOut().catch((err: any) => {
+            // RevenueCat throws "LogOut was called but the current user
+            // is anonymous" when the user never identified with RC (e.g.
+            // signed out before any purchase activity, or the deleted-
+            // user FK-violation signout path). Not actionable — just
+            // logging it as a warn keeps the dev console quieter.
+            const msg = err?.message ?? String(err);
+            if (msg.includes('current user is anonymous')) {
+              if (__DEV__) console.log('[AuthContext] RevenueCat logOut skipped: anonymous user');
+              return;
+            }
             console.error('[AuthContext] RevenueCat logOut failed:', err);
           });
         }

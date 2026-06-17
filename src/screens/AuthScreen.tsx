@@ -13,6 +13,7 @@ import {
   Alert,
 } from 'react-native';
 import * as AppleAuthentication from 'expo-apple-authentication';
+import { supabase } from '../lib/supabase';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -175,6 +176,53 @@ export default function AuthScreen({ navigation, route }: Props) {
               />
             </TouchableOpacity>
           </View>
+
+          {/* Forgot password link — only in login mode, since signup
+            * doesn't need a recovery option for an account that doesn't
+            * exist yet. Prompts for the email, sends recovery email via
+            * Supabase + Resend, deep-links back into ResetPasswordScreen.
+            */}
+          {mode === 'login' ? (
+            <TouchableOpacity
+              style={styles.forgotBtn}
+              onPress={async () => {
+                const trimmedEmail = email.trim();
+                if (!trimmedEmail) {
+                  shake();
+                  Alert.alert(
+                    t('auth.alert.oops'),
+                    t('auth.alert.enterEmailFirst', {
+                      defaultValue: 'Enter the email address for your account first, then tap Forgot password again.',
+                    }),
+                  );
+                  return;
+                }
+                try {
+                  setIsLoading(true);
+                  const { error } = await supabase.auth.resetPasswordForEmail(trimmedEmail, {
+                    redirectTo: 'babinom://reset-password',
+                  });
+                  if (error) throw error;
+                  Alert.alert(
+                    t('auth.forgot.sentTitle', { defaultValue: 'Check your email' }),
+                    t('auth.forgot.sentBody', {
+                      defaultValue:
+                        "We've sent you a password reset link. Tap it on this device to set a new password.",
+                    }),
+                  );
+                } catch (err: any) {
+                  Alert.alert(t('auth.alert.oops'), err?.message ?? String(err));
+                } finally {
+                  setIsLoading(false);
+                }
+              }}
+              disabled={isLoading}
+            >
+              <Text style={styles.forgotText}>
+                {t('auth.forgotPassword', { defaultValue: 'Forgot password?' })}
+              </Text>
+            </TouchableOpacity>
+          ) : null}
         </Animated.View>
 
         <TouchableOpacity
@@ -205,7 +253,7 @@ export default function AuthScreen({ navigation, route }: Props) {
           <>
             <View style={styles.dividerRow}>
               <View style={styles.dividerLine} />
-              <Text style={styles.dividerText}>{t('auth.divider.or', { defaultValue: 'or' })}</Text>
+              <Text style={styles.dividerText}>or</Text>
               <View style={styles.dividerLine} />
             </View>
             <AppleAuthentication.AppleAuthenticationButton
@@ -387,6 +435,17 @@ const styles = StyleSheet.create({
     color: colors.onboarding.text,
     fontSize: FONTS.sizes.lg,
     fontWeight: '700',
+  },
+  forgotBtn: {
+    alignSelf: 'flex-end',
+    paddingVertical: SPACING.sm,
+    marginTop: -SPACING.xs,
+  },
+  forgotText: {
+    color: colors.onboarding.text,
+    fontSize: FONTS.sizes.sm,
+    fontWeight: '600',
+    textDecorationLine: 'underline',
   },
   dividerRow: {
     flexDirection: 'row',

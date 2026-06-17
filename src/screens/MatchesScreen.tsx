@@ -483,6 +483,41 @@ export default function MatchesScreen() {
               onSubmitEditing={saveNote}
             />
             <Text style={noteStyles.charCount}>{draftNote.length}/280</Text>
+            {/* "Remove note" link visible only when the saved note for
+              * this name is non-empty. Bypasses the regular save flow
+              * (which won't fire on empty submission since the save
+              * button stays disabled) and explicitly clears the note. */}
+            {editingNameId && notes[normalizeBabyNameId(editingNameId)]?.trim() ? (
+              <TouchableOpacity
+                onPress={async () => {
+                  if (!editingNameId || !user?.id || !roomId) return;
+                  try {
+                    await SwipeService.setNote({
+                      userId: user.id,
+                      roomId,
+                      nameId: editingNameId,
+                      note: null,
+                    });
+                    const key = normalizeBabyNameId(editingNameId);
+                    setNotes((prev) => {
+                      const next = { ...prev };
+                      delete next[key];
+                      return next;
+                    });
+                    void fetchLikedNames();
+                    setEditingNameId(null);
+                  } catch (err: any) {
+                    Alert.alert('', err?.message ?? String(err));
+                  }
+                }}
+                style={noteStyles.removeNoteBtn}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Text style={noteStyles.removeNoteText}>
+                  {t('matches.removeNote', { defaultValue: 'Remove note' })}
+                </Text>
+              </TouchableOpacity>
+            ) : null}
             <View style={noteStyles.noteActions}>
               <TouchableOpacity style={noteStyles.cancelBtn} onPress={() => setEditingNameId(null)}>
                 <Text style={noteStyles.cancelText}>{t('matches.cancel')}</Text>
@@ -1341,6 +1376,17 @@ const noteStyles = StyleSheet.create({
   saveBtnDisabled: {
     backgroundColor: colors.neutral.border,
     opacity: 0.6,
+  },
+  removeNoteBtn: {
+    alignSelf: 'center',
+    paddingVertical: SPACING.sm,
+    marginBottom: SPACING.sm,
+  },
+  removeNoteText: {
+    color: '#D14D3F',
+    fontSize: FONTS.sizes.sm,
+    fontWeight: '600',
+    textDecorationLine: 'underline',
   },
   saveText: {
     fontSize: FONTS.sizes.md,
