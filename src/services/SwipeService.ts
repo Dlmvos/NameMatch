@@ -166,35 +166,59 @@ export const SwipeService = {
    * `name_id` alone, so this is back-compatible.
    */
   async getSwipedNameIds(userId: string, roomId: string): Promise<Set<string>> {
-    const { data, error } = await supabase
+    // Two-step query, NOT a PostgREST embed.
+    //
+    // `swipes.name_id` is `text` with no foreign key to `baby_names` —
+    // by design, because bundled names live client-side (string ids like
+    // '00000001') and never have a baby_names row. An embed query like
+    // `.select('name_id, baby_names!left(canonical_name_id)')` requires
+    // a defined relationship; without one, PostgREST returns an error
+    // and the empty fallback set BREAKS deck swipe-exclusion entirely
+    // (every refresh resurfaces already-swiped names). Daan caught this
+    // on build 28 — confirmed in the SQL output 2026-06-17.
+    //
+    // Step 1: load the raw swipe ids (always works).
+    // Step 2: for UUID-shaped ids only, look up their canonical_name_id
+    // so cross-country variants (Sara-FR / Sara-BE) are also excluded.
+    const { data: swipeRows, error } = await supabase
       .from('swipes')
-      .select('name_id, baby_names!left(canonical_name_id)')
+      .select('name_id')
       .eq('user_id', userId)
       .eq('room_id', roomId);
 
     if (error) {
-      // Best-effort: on query failures we still want the swipe deck to build (with an empty swiped-id set).
       console.error('[SwipeService] getSwipedNameIds error:', error.message);
       return new Set();
     }
 
     const out = new Set<string>();
-    // supabase-js types embedded resources as arrays even on to-one FK joins,
-    // so the runtime shape is technically `T | T[]`. Normalising defensively
-    // instead of casting through `as` makes the cross-country dedup correct
-    // regardless of which shape supabase returns and clears the sole tsc error
-    // flagged by the 2026-06-15 audit (B1). If we ever drop the canonical here,
-    // the same baby_name surfaces as "unswiped" after a country switch.
-    type Row = {
-      name_id: string;
-      baby_names?: { canonical_name_id: string | null } | { canonical_name_id: string | null }[] | null;
-    };
-    for (const row of (data ?? []) as Row[]) {
-      if (row.name_id) out.add(row.name_id);
-      const bn = Array.isArray(row.baby_names) ? row.baby_names[0] : row.baby_names;
-      const canonical = bn?.canonical_name_id;
-      if (canonical) out.add(canonical);
+    const nameIds: string[] = [];
+    for (const row of (swipeRows ?? []) as Array<{ name_id: string }>) {
+      if (row.name_id) {
+        out.add(row.name_id);
+        nameIds.push(row.name_id);
+      }
     }
+
+    const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const uuidIds = nameIds.filter((id) => UUID_RE.test(id));
+
+    if (uuidIds.length > 0) {
+      const { data: bnRows, error: bnErr } = await supabase
+        .from('baby_names')
+        .select('canonical_name_id')
+        .in('id', uuidIds);
+      if (bnErr) {
+        // Non-fatal: raw ids are already in the set; cross-country dedup
+        // just won't fire for this session.
+        console.error('[SwipeService] getSwipedNameIds canonical lookup error:', bnErr.message);
+      } else {
+        for (const row of (bnRows ?? []) as Array<{ canonical_name_id: string | null }>) {
+          if (row.canonical_name_id) out.add(row.canonical_name_id);
+        }
+      }
+    }
+
     return out;
   },
 
