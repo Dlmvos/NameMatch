@@ -1,0 +1,49 @@
+<!--
+  Supabase template: Email address changed notification (sent to OLD address)
+  Pastes into Supabase Studio → Authentication → Emails → Security → "Email address changed"
+  Subject: Your Babinom email address was changed
+  Supabase template variables: {{ .NewEmail }} — the new email the account was changed to
+-->
+<!doctype html>
+<html lang="en">
+  <body style="margin:0;padding:0;background:#fff8ee;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Inter,sans-serif;color:#25313b;line-height:1.6;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#fff8ee;padding:40px 16px;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:520px;background:#ffffff;border-radius:24px;padding:36px 28px;box-shadow:0 14px 38px rgba(87,62,42,0.08);">
+            <tr>
+              <td>
+                <div style="text-align:center;margin-bottom:24px;">
+                  <span style="font-size:30px;font-weight:850;letter-spacing:-0.03em;color:#25313b;">Babinom &#128156;</span>
+                </div>
+                <h1 style="margin:0 0 14px;font-size:24px;line-height:1.2;letter-spacing:-0.02em;color:#25313b;">Your email was changed.</h1>
+                <p style="margin:0 0 22px;color:#6f7b84;font-size:16px;">
+                  Heads-up &mdash; we just changed the email address on your Babinom account to
+                  <strong style="color:#25313b;">{{ .NewEmail }}</strong>. If this was you, no action is needed.
+                </p>
+                <div style="background:#fff0f5;border-radius:14px;padding:18px 20px;margin:0 0 22px;">
+                  <p style="margin:0;color:#25313b;font-size:15px;font-weight:600;">
+                    Didn&rsquo;t change your email?
+                  </p>
+                  <p style="margin:6px 0 0;color:#6f7b84;font-size:14px;">
+                    Someone may have accessed your account. Email us immediately at <a href="mailto:support@babinom.com" style="color:#d96f61;text-decoration:underline;">support@babinom.com</a> &mdash; we can help you recover access and lock the account down.
+                  </p>
+                </div>
+                <hr style="border:none;border-top:1px solid rgba(37,49,59,0.10);margin:28px 0;" />
+                <p style="margin:0;color:#6f7b84;font-size:13px;">
+                  This is an automated security notification &mdash; you can&rsquo;t reply to this email. For help, write to <a href="mailto:support@babinom.com" style="color:#d96f61;text-decoration:underline;">support@babinom.com</a>.
+                </p>
+              </td>
+            </tr>
+          </table>
+          <p style="margin:24px 0 0;color:#6f7b84;font-size:12px;text-align:center;">
+            &copy; 2026 Babinom &middot; Daan Vos &middot; Cullera, Spain<br />
+            <a href="https://babinom.com/privacy/" style="color:#6f7b84;text-decoration:underline;">Privacy</a> &middot;
+            <a href="https://babinom.com/terms/" style="color:#6f7b84;text-decoration:underline;">Terms</a> &middot;
+            <a href="mailto:support@babinom.com" style="color:#6f7b84;text-decoration:underline;">support@babinom.com</a>
+          </p>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>

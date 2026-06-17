@@ -280,6 +280,11 @@ export type RootStackParamList = {
       }
     | undefined;
   DevAnalytics: undefined;
+  /** Reached via the password-recovery deep link
+   * (`babinom://reset-password#access_token=...&refresh_token=...`).
+   * The session is installed by useDeepLinkAuth before this screen
+   * mounts; the screen calls supabase.auth.updateUser({ password }). */
+  ResetPassword: undefined;
 };
 
 export type MainTabParamList = {

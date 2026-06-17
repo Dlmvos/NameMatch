@@ -34,6 +34,8 @@ import DevAnalyticsScreen from '../screens/DevAnalyticsScreen';
 import { RootStackParamList, MainTabParamList } from '../types';
 import { navigationRef } from '../lib/navigationRef';
 import { useDeepLinkJoin } from '../lib/useDeepLinkJoin';
+import { useDeepLinkAuth } from '../lib/useDeepLinkAuth';
+import ResetPasswordScreen from '../screens/ResetPasswordScreen';
 import { FEATURE_FLAGS, PAYWALL_PLACEMENT_VARIANTS } from '../services/featureFlags';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -260,6 +262,7 @@ function AuthenticatedRootNavigator() {
             <Stack.Screen name="MainTabs" component={MainTabs} />
             <Stack.Screen name="Country" component={CountryScreen} />
             <Stack.Screen name="Region" component={RegionScreen} />
+            <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
             {__DEV__ ? (
               <Stack.Screen name="DevAnalytics" component={DevAnalyticsScreen} options={{ headerShown: false }} />
             ) : null}
@@ -278,6 +281,7 @@ function AuthenticatedRootNavigator() {
             <Stack.Screen name="Region" component={RegionScreen} />
             <Stack.Screen name="PartnerConnect" component={PartnerConnectScreen} />
             <Stack.Screen name="RoomManagement" component={RoomManagementScreen} />
+            <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
             {__DEV__ ? (
               <Stack.Screen name="DevAnalytics" component={DevAnalyticsScreen} options={{ headerShown: false }} />
             ) : null}
@@ -299,6 +303,7 @@ export default function AppNavigator() {
   // Capture partner-invite deep links (https://babinom.com/join?code=… and the
   // babinom:// scheme). Must run unconditionally before any early return.
   useDeepLinkJoin();
+  useDeepLinkAuth();
 
   useEffect(() => {
     if (!__DEV__ || !DEBUG_STARTUP_GATE) return;
