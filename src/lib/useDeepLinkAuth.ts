@@ -65,22 +65,43 @@ export function useDeepLinkAuth(): void {
           (typeof parsed.queryParams?.refresh_token === 'string'
             ? parsed.queryParams.refresh_token
             : null);
+        const flowType =
+          fragment.get('type') ??
+          (typeof parsed.queryParams?.type === 'string'
+            ? parsed.queryParams.type
+            : null);
 
-        if (accessToken && refreshToken) {
-          const { error } = await supabase.auth.setSession({
-            access_token: accessToken,
-            refresh_token: refreshToken,
-          });
-          if (error) {
-            console.error('[useDeepLinkAuth] setSession failed:', error.message);
-            Alert.alert(
-              'Reset link expired',
-              "This password reset link has expired or been used already. Please request a new one from the sign-in screen.",
+        // ── Hard precondition: must carry a *recovery* session. ──
+        // Without this guard, a bare `babinom://reset-password` link
+        // (no fragment) would still navigate to ResetPasswordScreen,
+        // where a currently-signed-in user could be tricked into
+        // changing the active account's password. Reject anything
+        // without all three signals: both tokens AND type=recovery.
+        if (!accessToken || !refreshToken || flowType !== 'recovery') {
+          if (__DEV__) {
+            console.warn(
+              '[useDeepLinkAuth] reset-password link missing tokens or type=recovery; ignoring',
             );
-            return;
           }
+          return;
         }
 
+        const { error } = await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken,
+        });
+        if (error) {
+          console.error('[useDeepLinkAuth] setSession failed:', error.message);
+          Alert.alert(
+            'Reset link expired',
+            "This password reset link has expired or been used already. Please request a new one from the sign-in screen.",
+          );
+          return;
+        }
+
+        // Only navigate AFTER the recovery session is successfully
+        // installed. Pairs with ResetPasswordScreen's own session
+        // precondition (defense in depth).
         if (navigationRef.isReady()) {
           navigationRef.dispatch(
             CommonActions.navigate({ name: 'ResetPassword' }),

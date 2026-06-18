@@ -9,6 +9,7 @@ import React, {
 import { Alert, AppState, Platform } from 'react-native';
 import { Session, User } from '@supabase/supabase-js';
 import type { CustomerInfo } from 'react-native-purchases';
+import * as Crypto from 'expo-crypto';
 import {
   supabase,
   supabaseStartupError,
@@ -155,10 +156,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       createdProfile = await ensureProfile(authUser);
     } catch (err: any) {
       const errCode = err?.code ?? '';
-      const errMessage = String(err?.message ?? err);
-      const isFkViolation =
-        errCode === '23503' ||
-        errMessage.toLowerCase().includes('foreign key constraint');
+      // Postgres `foreign_key_violation` is code 23503 — unambiguous.
+      // The previous substring fallback ("foreign key constraint") was
+      // too loose: any unrelated FK error from a future code path
+      // would have force-signed-out a valid user. Stick to the code.
+      const isFkViolation = errCode === '23503';
       if (isFkViolation) {
         console.warn(
           '[AuthContext] profile insert rejected by FK to auth.users — account deleted; forcing signout',
@@ -427,11 +429,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     AnalyticsService.track('signup_started', { provider: 'apple' });
 
+    // ── Nonce binding (replay protection) ─────────────────────────
+    // Generate a fresh random nonce per sign-in. Apple bakes the
+    // SHA-256 of `nonce` into the identity_token's `nonce` claim;
+    // Supabase verifies `sha256(rawNonce) === token.nonce` during
+    // signInWithIdToken. Without this, a captured identity_token
+    // (≤10 min lifetime) could be replayed against Supabase's token
+    // exchange from a different device. With this, Supabase rejects
+    // any token whose nonce claim doesn't match the raw nonce we
+    // present.
+    const randomBytes = await Crypto.getRandomBytesAsync(32);
+    const rawNonce = Array.from(randomBytes)
+      .map((b) => b.toString(16).padStart(2, '0'))
+      .join('');
+    const hashedNonce = await Crypto.digestStringAsync(
+      Crypto.CryptoDigestAlgorithm.SHA256,
+      rawNonce,
+    );
+
     const credential = await AppleAuthentication.signInAsync({
       requestedScopes: [
         AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
         AppleAuthentication.AppleAuthenticationScope.EMAIL,
       ],
+      nonce: hashedNonce,
     });
 
     if (!credential.identityToken) {
@@ -439,20 +460,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     // Supabase verifies this token via the Apple JWKS plus the audience
-    // claim (must match the Client IDs configured in Supabase Studio).
+    // claim (must match the Client IDs configured in Supabase Studio)
+    // AND the nonce binding above.
     const { error } = await supabase.auth.signInWithIdToken({
       provider: 'apple',
       token: credential.identityToken,
-      // `nonce` would be required if we passed one to signInAsync above;
-      // omitted here because Apple only enforces it when present.
+      nonce: rawNonce,
     });
     if (error) throw error;
 
     // Apple only returns the user's display name on FIRST sign-in. If
     // it's there, persist it onto the profile so we don't lose it.
+    // Trim + clamp because credential.fullName is unsanitized OS-supplied
+    // input — a pathological Apple ID name (e.g. 10KB unicode) shouldn't
+    // land raw in the DB. 80 chars matches the typical display_name cap.
     const fullName = credential.fullName;
-    const displayName =
-      [fullName?.givenName, fullName?.familyName].filter(Boolean).join(' ').trim();
+    const displayName = [fullName?.givenName, fullName?.familyName]
+      .filter(Boolean)
+      .join(' ')
+      .trim()
+      .slice(0, 80);
     if (displayName) {
       const { data: { user: signedInUser } } = await supabase.auth.getUser();
       if (signedInUser?.id) {

@@ -45,6 +45,21 @@ export default function ResetPasswordScreen() {
     if (!isValid || isSubmitting) return;
     setIsSubmitting(true);
     try {
+      // Defense in depth (paired with the deep-link guard in
+      // useDeepLinkAuth which requires tokens + type=recovery). If
+      // the screen is somehow reached without an active session,
+      // refuse the password write — never let a stale or absent
+      // session call updateUser({ password }) and silently change
+      // the credentials of whichever account is currently signed in.
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        Alert.alert(
+          'Reset link expired',
+          'Your password reset session is missing or expired. Request a new reset email from the sign-in screen.',
+        );
+        navigation.reset({ index: 0, routes: [{ name: 'Welcome' }] });
+        return;
+      }
       const { error } = await supabase.auth.updateUser({ password: trimmed });
       if (error) {
         Alert.alert("Couldn't update password", error.message);
