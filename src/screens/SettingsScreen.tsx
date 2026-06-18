@@ -453,9 +453,9 @@ export default function SettingsScreen() {
                   <Ionicons name="camera-outline" size={18} color={colors.shortlist.primary} />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.rowLabel}>Paywall screenshot mode</Text>
+                  <Text style={styles.rowLabel}>Storefront screenshot mode</Text>
                   <Text style={styles.rowSubLabel}>
-                    Hides live prices on the paywall so the App Store Connect IAP review screenshot can be captured cleanly. Dev builds only.
+                    Hides live prices on the Paywall and Shop so the App Store Connect IAP review screenshot can be captured cleanly. Dev builds only.
                   </Text>
                 </View>
               </View>

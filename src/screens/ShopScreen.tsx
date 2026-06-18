@@ -29,6 +29,7 @@ import { COUNTRY_OPTIONS } from '../data/countries';
 import { COLORS, FONTS, RADIUS, SPACING, SHADOWS } from '../theme';
 import { PurchaseService } from '../services/purchaseService';
 import { DEV_PREVIEW } from '../config/devPreview';
+import { usePaywallScreenshotMode } from '../lib/paywallScreenshotMode';
 
 /** Legacy bucket name; stores curated swipe-to-shop recommendations keyed by pack id. */
 const CURATED_RECOMMENDATION_UNLOCKS_STORAGE_KEY = 'AI_PACK_UNLOCKS';
@@ -52,6 +53,11 @@ function curatedPackLabelSuffix(packType: string): string {
 
 export default function ShopScreen() {
   const { t, language } = useTranslation();
+  // __DEV__-only: hides RevenueCat/StoreKit prices behind localized fallback
+  // copy so App Store Connect "Review Information Screenshot" captures don't
+  // bake specific currency values (Apple Guideline 2.3.7). Always false in
+  // release bundles — the bundler eliminates the branches below.
+  const screenshotMode = usePaywallScreenshotMode();
   const { profile, hydratePremiumFromRevenueCat, restorePurchases } = useAuth();
   const {
     effectiveUnlockedPacks,
@@ -99,6 +105,7 @@ export default function ShopScreen() {
     translateCountryName(t, countryName, countryName);
 
   const formatPrice = (amount: number): string => {
+    if (screenshotMode) return t('paywall.couple.pricingUnavailable');
     const currency = resolveCurrencyCode(residenceCountry, profile?.region_preference);
     return formatLocalizedPrice(amount, currency, language);
   };
@@ -168,6 +175,16 @@ export default function ShopScreen() {
   const premiumSinglePriceDisplay = (() => {
     if (dualPremiumOffers) return '';
     const pkg = premiumLifetimePkg ?? premiumMonthlyPkg ?? premiumLegacyPkg;
+    if (screenshotMode) {
+      if (!pkg) return t('paywall.couple.pricingUnavailable');
+      const isMonthly =
+        !!premiumMonthlyPkg && isSamePremiumPackage(pkg, premiumMonthlyPkg);
+      return t(
+        isMonthly
+          ? 'paywall.couple.priceUnavailableMonthly'
+          : 'paywall.couple.priceUnavailableOneTime',
+      );
+    }
     if (pkg) return pkg.product.priceString;
     if (!premiumOffersHydrated) return '…';
     return t('paywall.couple.price');
@@ -433,7 +450,9 @@ export default function ShopScreen() {
                       <Text style={styles.premiumPlanCaption}>{t('paywall.couple.planLifetimeCaption')}</Text>
                     </View>
                     <Text style={styles.premiumPlanPriceStrong}>
-                      {premiumLifetimePkg.product.priceString ?? t('paywall.couple.price')}
+                      {screenshotMode
+                        ? t('paywall.couple.priceUnavailableOneTime')
+                        : premiumLifetimePkg.product.priceString ?? t('paywall.couple.price')}
                     </Text>
                   </TouchableOpacity>
                   <TouchableOpacity
@@ -451,9 +470,11 @@ export default function ShopScreen() {
                     </View>
                     <View style={{ alignItems: 'flex-end' }}>
                       <Text style={styles.premiumPlanPriceMuted}>
-                        {premiumMonthlyPkg.product.priceString ?? t('paywall.couple.priceMonthly')}
+                        {screenshotMode
+                          ? t('paywall.couple.priceUnavailableMonthly')
+                          : premiumMonthlyPkg.product.priceString ?? t('paywall.couple.priceMonthly')}
                       </Text>
-                      {premiumMonthlyPkg.product.pricePerYearString ? (
+                      {!screenshotMode && premiumMonthlyPkg.product.pricePerYearString ? (
                         <Text style={styles.premiumPlanYearHint}>
                           {t('paywall.couple.yearlyCompare', {
                             yearly: premiumMonthlyPkg.product.pricePerYearString,
@@ -580,7 +601,9 @@ function PackCard({ pack, isPurchased, onPress, isFeatured, compact }: PackCardP
   const { t, language } = useTranslation();
   const { profile } = useAuth();
   const { residenceCountry } = useApp();
+  const screenshotMode = usePaywallScreenshotMode();
   const formatPrice = (amount: number): string => {
+    if (screenshotMode) return t('paywall.couple.pricingUnavailable');
     const currency = resolveCurrencyCode(residenceCountry, profile?.region_preference);
     return formatLocalizedPrice(amount, currency, language);
   };
