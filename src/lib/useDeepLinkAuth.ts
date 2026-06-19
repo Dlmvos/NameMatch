@@ -112,10 +112,37 @@ export function useDeepLinkAuth(): void {
         // Only navigate AFTER the recovery session is successfully
         // installed. Pairs with ResetPasswordScreen's own session
         // precondition (defense in depth).
-        if (navigationRef.isReady()) {
+        //
+        // Cold-launch race: when the app is launched FROM the email
+        // link (process not running), `Linking.getInitialURL()` resolves
+        // before NavigationContainer mounts → navigationRef.isReady()
+        // is false → the dispatch is dropped silently. Retry with a
+        // bounded poll so the navigate lands once navigation is ready.
+        // Caps at ~5s; if NavigationContainer never mounts (unlikely),
+        // we give up rather than spin forever.
+        const navigateToReset = () => {
           navigationRef.dispatch(
             CommonActions.navigate({ name: 'ResetPassword' }),
           );
+        };
+        if (navigationRef.isReady()) {
+          navigateToReset();
+        } else {
+          let attempts = 0;
+          const interval = setInterval(() => {
+            attempts += 1;
+            if (navigationRef.isReady()) {
+              clearInterval(interval);
+              navigateToReset();
+            } else if (attempts >= 50) {
+              clearInterval(interval);
+              if (__DEV__) {
+                console.warn(
+                  '[useDeepLinkAuth] navigationRef never became ready; reset-password navigate dropped',
+                );
+              }
+            }
+          }, 100);
         }
         return;
       }
