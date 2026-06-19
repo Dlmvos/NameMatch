@@ -46,20 +46,31 @@ export default function RegionScreen({ navigation }: Props) {
     return translated === translationKey ? fallback : translated;
   };
 
-  const handleContinue = async () => {
+  const handleContinue = () => {
     if (!selected) {
       Alert.alert(t('region.alert.selectTitle'), t('region.alert.selectBody'));
       return;
     }
     setIsLoading(true);
-    try {
-      await updateProfile({ region_preference: selected });
-      navigation.navigate('PartnerConnect');
-    } catch (err: any) {
-      Alert.alert(t('common.error'), err.message ?? t('region.alert.errorGeneric'));
-    } finally {
-      setIsLoading(false);
-    }
+    // Navigate FIRST. Updating region_preference can flip
+    // `hasCompletedOnboarding` true in AppNavigator, which re-keys the
+    // root <Stack.Navigator key={stackKind:…}>, unmounts this screen
+    // mid-await, and drops the trailing navigation.navigate('PartnerConnect').
+    // Worse: if the post-onboarding partner stack's `partnerInitialRoute`
+    // resolves to Paywall (depends on `paywallPlacement` flag), the user
+    // ends up dumped on Paywall instead of PartnerConnect. Issuing the
+    // navigate synchronously here wins the race; the persist runs in the
+    // background.
+    navigation.navigate('PartnerConnect');
+    void (async () => {
+      try {
+        await updateProfile({ region_preference: selected });
+      } catch (err) {
+        if (__DEV__) console.warn('[RegionScreen] region persist failed:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    })();
   };
 
   return (

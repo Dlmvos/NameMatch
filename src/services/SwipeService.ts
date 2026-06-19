@@ -180,39 +180,64 @@ export const SwipeService = {
     // Step 1: load the raw swipe ids (always works).
     // Step 2: for UUID-shaped ids only, look up their canonical_name_id
     // so cross-country variants (Sara-FR / Sara-BE) are also excluded.
-    const { data: swipeRows, error } = await supabase
-      .from('swipes')
-      .select('name_id')
-      .eq('user_id', userId)
-      .eq('room_id', roomId);
-
-    if (error) {
-      console.error('[SwipeService] getSwipedNameIds error:', error.message);
-      return new Set();
-    }
-
+    //
+    // Pagination matters: PostgREST has a default row cap (1000). A power
+    // user with >1000 lifetime swipes in one room would otherwise get a
+    // truncated swiped set and see already-swiped names resurface in the
+    // deck. We page through `swipes` in 1000-row chunks via .range().
     const out = new Set<string>();
     const nameIds: string[] = [];
-    for (const row of (swipeRows ?? []) as Array<{ name_id: string }>) {
-      if (row.name_id) {
-        out.add(row.name_id);
-        nameIds.push(row.name_id);
+
+    const PAGE_SIZE = 1000;
+    let offset = 0;
+    // Safety cap — at 100k swipes per room something is broken upstream.
+    const MAX_PAGES = 100;
+    for (let page = 0; page < MAX_PAGES; page++) {
+      const { data: swipeRows, error } = await supabase
+        .from('swipes')
+        .select('name_id')
+        .eq('user_id', userId)
+        .eq('room_id', roomId)
+        .range(offset, offset + PAGE_SIZE - 1);
+
+      if (error) {
+        console.error('[SwipeService] getSwipedNameIds error:', error.message);
+        return new Set();
       }
+
+      const rows = (swipeRows ?? []) as Array<{ name_id: string }>;
+      for (const row of rows) {
+        if (row.name_id) {
+          out.add(row.name_id);
+          nameIds.push(row.name_id);
+        }
+      }
+      if (rows.length < PAGE_SIZE) break;
+      offset += PAGE_SIZE;
     }
 
     const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     const uuidIds = nameIds.filter((id) => UUID_RE.test(id));
 
     if (uuidIds.length > 0) {
-      const { data: bnRows, error: bnErr } = await supabase
-        .from('baby_names')
-        .select('canonical_name_id')
-        .in('id', uuidIds);
-      if (bnErr) {
-        // Non-fatal: raw ids are already in the set; cross-country dedup
-        // just won't fire for this session.
-        console.error('[SwipeService] getSwipedNameIds canonical lookup error:', bnErr.message);
-      } else {
+      // Chunk the .in() lookup. URL length caps and PostgREST hard
+      // limits both bite long before our row count does — 200 UUIDs per
+      // request leaves comfortable headroom. Mirrors the chunking
+      // pattern in fetchLikedBabyNameRows.
+      const IN_CHUNK_SIZE = 200;
+      for (let i = 0; i < uuidIds.length; i += IN_CHUNK_SIZE) {
+        const chunk = uuidIds.slice(i, i + IN_CHUNK_SIZE);
+        const { data: bnRows, error: bnErr } = await supabase
+          .from('baby_names')
+          .select('canonical_name_id')
+          .in('id', chunk);
+        if (bnErr) {
+          // Non-fatal: raw ids are already in the set; cross-country
+          // dedup just won't fire for this session for the affected
+          // chunk. Skip the chunk and continue with the rest.
+          console.error('[SwipeService] getSwipedNameIds canonical lookup error:', bnErr.message);
+          continue;
+        }
         for (const row of (bnRows ?? []) as Array<{ canonical_name_id: string | null }>) {
           if (row.canonical_name_id) out.add(row.canonical_name_id);
         }

@@ -266,12 +266,26 @@ export default function PaywallScreen({ navigation, route }: Props) {
         Alert.alert(t('common.error'), t('shop.purchaseError'));
         return;
       }
-      await hydratePremiumFromRevenueCat(result.customerInfo);
-      await refreshUnlockedPacks();
-      loadMoreNames();
+      // Entitlement verified. Navigate FIRST: hydratePremiumFromRevenueCat
+      // flips profile.purchased_packs → isPaid flips → root stack
+      // <Stack.Navigator key={stackKind:isPaid}> re-keys → PaywallScreen
+      // unmounts mid-await → the trailing navigation.replace('MainTabs')
+      // dispatches into a dead navigator and the user is stranded on the
+      // (now-unmounted) paywall feeling like the purchase succeeded but
+      // nothing happened. Issuing the navigate synchronously here wins the
+      // race; persistence + analytics + the success alert run in a
+      // background IIFE.
       AnalyticsService.track('purchase_completed');
-      Alert.alert(t('shop.purchaseSuccessTitle'), t('shop.purchaseSuccessBody'));
       navigateAfterPremiumVerified();
+      void (async () => {
+        try {
+          await hydratePremiumFromRevenueCat(result.customerInfo);
+          await refreshUnlockedPacks();
+          loadMoreNames();
+        } catch (err) {
+          if (__DEV__) console.warn('[PaywallScreen] post-purchase hydrate failed:', err);
+        }
+      })();
     } catch (err: unknown) {
       const reason =
         err instanceof Error ? err.message : typeof err === 'string' ? err : 'unknown';
@@ -293,10 +307,18 @@ export default function PaywallScreen({ navigation, route }: Props) {
         Alert.alert(t('shop.restoreNoneTitle'), t('shop.restoreNoneBody'));
         return;
       }
-      await refreshUnlockedPacks();
-      loadMoreNames();
-      Alert.alert(t('shop.restoreReadyTitle'), t('shop.restoreReadyBody'));
+      // Same race as handlePurchase: restoring flips isPaid → stack
+      // re-keys → trailing navigate is dropped. Navigate first, finish
+      // the refresh in background.
       navigateAfterPremiumVerified();
+      void (async () => {
+        try {
+          await refreshUnlockedPacks();
+          loadMoreNames();
+        } catch (err) {
+          if (__DEV__) console.warn('[PaywallScreen] post-restore refresh failed:', err);
+        }
+      })();
     } catch (err: any) {
       Alert.alert(t('common.error'), err?.message ?? t('shop.restoreError'));
     } finally {

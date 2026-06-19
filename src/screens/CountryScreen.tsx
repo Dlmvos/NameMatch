@@ -72,6 +72,40 @@ export default function CountryScreen({ navigation, route }: Props) {
       return;
     }
     setIsLoading(true);
+
+    // ── Onboarding (fresh sign-up) path ─────────────────────────
+    // Dispatch the navigation BEFORE the profile awaits. The profile
+    // updates flip `hasCompletedOnboarding` true, which re-keys the
+    // root <Stack.Navigator key={stackKind:…}>, unmounts this screen
+    // mid-await, and drops the trailing `navigation.navigate()`. The
+    // user appeared stuck and had to tap twice. Navigating first wins
+    // the race; persistence finishes in the background while the next
+    // screen mounts. Same root cause as the Skip handler below.
+    if (!fromSettings && !isResidenceMode) {
+      navigation.navigate('PartnerConnect');
+      void (async () => {
+        try {
+          await updateProfile({ region_preference: selected.region });
+          await setCountryPreference(selected.name);
+          if (useAsResidenceCountry) {
+            await setResidenceCountry(selected.name);
+          }
+        } catch (err) {
+          if (__DEV__) {
+            console.warn('[CountryScreen] continue persistence failed:', err);
+          }
+        } finally {
+          setIsLoading(false);
+        }
+      })();
+      return;
+    }
+
+    // ── Settings path (residence-only / region) ─────────────────
+    // No stack re-key risk here because the user is already past
+    // onboarding — the partner/main stack is stable. Keep the
+    // sequential await → navigate flow so the goBack() happens after
+    // Supabase confirms, and so we can surface errors.
     try {
       if (isResidenceMode) {
         await setResidenceCountry(selected.name);
@@ -91,17 +125,10 @@ export default function CountryScreen({ navigation, route }: Props) {
       await updateProfile({ region_preference: selected.region });
       // Persist country to AsyncStorage (country-weighted name engine)
       await setCountryPreference(selected.name);
-      if (!fromSettings && useAsResidenceCountry) {
-        await setResidenceCountry(selected.name);
-      }
-      if (fromSettings) {
-        if (navigation.canGoBack()) {
-          navigation.goBack();
-        } else {
-          navigation.navigate('MainTabs');
-        }
+      if (navigation.canGoBack()) {
+        navigation.goBack();
       } else {
-        navigation.navigate('PartnerConnect');
+        navigation.navigate('MainTabs');
       }
     } catch (err: any) {
       Alert.alert(t('common.error'), err.message ?? t('country.alert.genericError'));

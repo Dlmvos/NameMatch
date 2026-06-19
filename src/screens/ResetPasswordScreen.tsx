@@ -57,7 +57,14 @@ export default function ResetPasswordScreen() {
           'Reset link expired',
           'Your password reset session is missing or expired. Request a new reset email from the sign-in screen.',
         );
-        navigation.reset({ index: 0, routes: [{ name: 'Welcome' }] });
+        // ResetPassword is registered only inside the authenticated
+        // stacks (partner / main). The unauth Welcome screen is in a
+        // different stack tree, so reset({ name: 'Welcome' }) throws
+        // "action RESET was not handled by any navigator". MainTabs is
+        // always present in these stacks. Once we route here, AuthContext
+        // will sign the user out as needed and the root navigator will
+        // route them to Welcome on its own.
+        navigation.reset({ index: 0, routes: [{ name: 'MainTabs' }] });
         return;
       }
       const { error } = await supabase.auth.updateUser({ password: trimmed });

@@ -330,10 +330,22 @@ export default function ShopScreen() {
         Alert.alert(t('common.error'), t('shop.purchaseError'));
         return;
       }
-      await hydratePremiumFromRevenueCat(result.customerInfo);
-      await refreshUnlockedPacks();
-      loadMoreNames();
+      // Show success FIRST, then hydrate in background. hydratePremiumFromRevenueCat
+      // flips profile.purchased_packs → isPaid flips → root <Stack.Navigator
+      // key={stackKind:isPaid}> re-keys → MainTabs (and this Shop screen) unmount.
+      // If we awaited the hydrate before alerting, the success Alert would dispatch
+      // from a dead component and the user wouldn't see the confirmation on slow
+      // devices. Same race as PaywallScreen.
       Alert.alert(t('shop.purchaseSuccessTitle'), t('shop.purchaseSuccessBody'));
+      void (async () => {
+        try {
+          await hydratePremiumFromRevenueCat(result.customerInfo);
+          await refreshUnlockedPacks();
+          loadMoreNames();
+        } catch (err) {
+          if (__DEV__) console.warn('[ShopScreen] post-purchase hydrate failed:', err);
+        }
+      })();
     } catch (err: any) {
       Alert.alert(t('common.error'), err?.message ?? t('shop.purchaseError'));
     }
