@@ -325,7 +325,7 @@ export default function MatchesScreen() {
         },
       ],
     );
-  }, [user?.id, roomId, t, fetchLikedNames]);
+  }, [user?.id, roomId, t, fetchLikedNames, refreshMatches]);
 
   // One-time AsyncStorage fallback: read any notes the user wrote
   // pre-Phase-C so they aren't visually lost on the first launch after
