@@ -9,7 +9,6 @@ import React, {
 import { Alert, AppState, Platform } from 'react-native';
 import { Session, User } from '@supabase/supabase-js';
 import type { CustomerInfo } from 'react-native-purchases';
-import * as Crypto from 'expo-crypto';
 import {
   supabase,
   supabaseStartupError,
@@ -424,8 +423,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Lazy-require so non-iOS builds (Android, future web) don't try to
     // resolve the native module at boot. expo-apple-authentication ships
     // a no-op JS shim on other platforms but the require still pulls in
-    // native types we'd rather skip.
+    // native types we'd rather skip. Same reasoning for expo-crypto —
+    // also keeps dev-client launches working when the native module
+    // hasn't been recompiled into the local .app bundle yet.
     const AppleAuthentication = await import('expo-apple-authentication');
+    const Crypto = await import('expo-crypto');
 
     AnalyticsService.track('signup_started', { provider: 'apple' });
 
