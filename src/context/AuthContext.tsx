@@ -403,7 +403,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { error } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { display_name: displayName } },
+      options: {
+        data: { display_name: displayName },
+        // Override the project-wide Site URL (which is `babinom://` to
+        // support the password-recovery deep link) with a web URL for
+        // confirmation. The web page at https://babinom.com/confirmed/
+        // shows a friendly "Email confirmed — open Babinom" message
+        // that renders in any browser, including Safari preview from
+        // the email client. Without this override, the confirmation
+        // link redirects to `babinom://email-confirmed` and shows
+        // iOS's "address invalid" error when previewed or opened on a
+        // device without Babinom installed.
+        emailRedirectTo: 'https://babinom.com/confirmed/',
+      },
     });
     if (error) throw error;
     // signup_completed fires here on success; signin_completed will follow
