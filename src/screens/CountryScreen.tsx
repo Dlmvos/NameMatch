@@ -234,30 +234,42 @@ export default function CountryScreen({ navigation, route }: Props) {
         {/* Skip */}
         <TouchableOpacity
           style={styles.skipBtn}
-          onPress={async () => {
-            // Skip: default to WORLDWIDE region + Worldwide country preference
-            setIsLoading(true);
-            try {
-              await updateProfile({ region_preference: 'WORLDWIDE' });
-              await setCountryPreference('Worldwide');
-              if (fromSettings) {
-                if (navigation.canGoBack()) {
-                  navigation.goBack();
-                } else {
-                  navigation.navigate('MainTabs');
-                }
-              } else {
-                navigation.navigate('PartnerConnect');
-              }
-            } catch {
-              if (fromSettings) {
+          disabled={isLoading}
+          onPress={() => {
+            // Skip: default to WORLDWIDE region + Worldwide country preference.
+            //
+            // Navigate FIRST, then persist in background. Persisting first
+            // races with the AuthenticatedRootNavigator's `Stack.Navigator
+            // key={stackKind:…}` — the profile update flips
+            // `hasCompletedOnboarding` to true, which re-keys the stack,
+            // unmounts the onboarding stack (and this screen) mid-await, and
+            // drops the trailing `navigation.navigate()` on the floor. Users
+            // had to tap Skip twice. Issuing the dispatch synchronously here
+            // guarantees the navigation lands before the re-key fires.
+            if (fromSettings) {
+              if (navigation.canGoBack()) {
                 navigation.goBack();
               } else {
-                navigation.navigate('PartnerConnect');
+                navigation.navigate('MainTabs');
               }
-            } finally {
-              setIsLoading(false);
+            } else {
+              navigation.navigate('PartnerConnect');
             }
+            // Fire-and-forget persistence. Worldwide is just a default —
+            // a transient failure is harmless and the user can change it
+            // later from Settings. The stack unmount that follows the
+            // profile update is fine now because navigation already
+            // happened.
+            void (async () => {
+              try {
+                await updateProfile({ region_preference: 'WORLDWIDE' });
+                await setCountryPreference('Worldwide');
+              } catch (err) {
+                if (__DEV__) {
+                  console.warn('[CountryScreen] skip-to-worldwide persistence failed:', err);
+                }
+              }
+            })();
           }}
         >
           <Text style={styles.skipText}>{t('country.skip')}</Text>
