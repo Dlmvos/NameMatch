@@ -77,12 +77,22 @@ export function useDeepLinkAuth(): void {
         // where a currently-signed-in user could be tricked into
         // changing the active account's password. Reject anything
         // without all three signals: both tokens AND type=recovery.
+        //
+        // Surface a user-visible alert when this happens. Previously we
+        // silently returned and the user saw the app launch and then
+        // nothing — confusing when they're trying to recover their
+        // password. Most common cause: tapping an already-consumed link
+        // (Supabase recovery tokens are single-use).
         if (!accessToken || !refreshToken || flowType !== 'recovery') {
           if (__DEV__) {
             console.warn(
-              '[useDeepLinkAuth] reset-password link missing tokens or type=recovery; ignoring',
+              '[useDeepLinkAuth] reset-password link missing tokens or type=recovery',
             );
           }
+          Alert.alert(
+            'Reset link invalid',
+            "This password reset link is incomplete or has already been used. Request a new reset email from the sign-in screen.",
+          );
           return;
         }
 
