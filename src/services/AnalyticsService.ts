@@ -8,6 +8,7 @@ import { devWarn } from '../lib/devWarn';
 
 type AnalyticsEvent =
   | 'app_opened'
+  | 'signout_due_to_deleted_account'
   | 'onboarding_step_completed'
   | 'signup_started'
   | 'signup_completed'

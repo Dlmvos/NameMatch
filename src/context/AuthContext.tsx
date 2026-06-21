@@ -497,13 +497,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (displayName) {
       const { data: { user: signedInUser } } = await supabase.auth.getUser();
       if (signedInUser?.id) {
-        // Try update first. If the `handle_new_user` trigger hasn't
-        // landed the row yet (very small window — Apple's first sign-in
-        // is the only time we get the name AT ALL, so we don't want to
-        // lose it on a race), fall back to upsert which will create it.
-        // .select('id') makes the rowcount observable; a plain .update()
-        // returns no rows and we couldn't tell update-of-0 from
-        // update-of-1.
+        // .select('id') makes the rowcount observable so we can warn
+        // when the row hasn't materialised yet — the `handle_new_user`
+        // trigger is the only path that inserts the profile, and we
+        // surface a dev-only warning if it hasn't fired. (Previously
+        // had an upsert fallback here, but it can't actually succeed:
+        // `profiles` has no INSERT RLS policy — only UPDATE — so an
+        // RLS-respecting upsert that needs to insert is rejected. A
+        // proper fix would be an `insert with check (auth.uid() = id)`
+        // policy, deferred to v1.0.1 along with the policy review.)
         const { data: updateRows, error: updateErr } = await supabase
           .from('profiles')
           .update({ display_name: displayName })
@@ -513,19 +515,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           console.warn('[AuthContext] apple display_name update error:', updateErr.message);
         }
         const rowMatched = Array.isArray(updateRows) && updateRows.length > 0;
-        if (!rowMatched) {
-          const { error: upsertErr } = await supabase
-            .from('profiles')
-            .upsert(
-              { id: signedInUser.id, display_name: displayName },
-              { onConflict: 'id' },
-            );
-          if (upsertErr && __DEV__) {
-            console.warn(
-              '[AuthContext] apple display_name upsert fallback error:',
-              upsertErr.message,
-            );
-          }
+        if (!rowMatched && __DEV__) {
+          console.warn(
+            '[AuthContext] apple display_name update matched 0 rows — handle_new_user trigger likely lagged; name not persisted this signin',
+          );
         }
       }
     }

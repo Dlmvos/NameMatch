@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import * as Linking from 'expo-linking';
 import { Alert } from 'react-native';
 import { CommonActions } from '@react-navigation/native';
@@ -27,11 +27,31 @@ import { navigationRef } from './navigationRef';
  * at the navigation root, alongside useDeepLinkJoin.
  */
 export function useDeepLinkAuth(): void {
+  // Track in-flight poll intervals so we can clear them on unmount AND
+  // when a newer deep link arrives. The `activeInvocation` counter rises
+  // on each handleUrl call; any poll keyed to a stale invocation aborts
+  // itself instead of dispatching navigate against a session that may
+  // belong to a different (newer) reset link.
+  const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const invocationCounterRef = useRef(0);
+
   useEffect(() => {
     let isMounted = true;
 
     const handleUrl = async (url: string | null) => {
       if (!url || !isMounted) return;
+
+      // Cancel any in-flight poll from a previous invocation. A second
+      // deep link tapped in quick succession (resent email, double-tap)
+      // would otherwise leave the previous setSession + poll racing the
+      // new flow — older poll's navigate could land after the newer
+      // session was installed.
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+        pollIntervalRef.current = null;
+      }
+      invocationCounterRef.current += 1;
+      const thisInvocation = invocationCounterRef.current;
 
       const parsed = Linking.parse(url);
       const path = (parsed.path ?? '').toLowerCase();
@@ -121,6 +141,11 @@ export function useDeepLinkAuth(): void {
         // Caps at ~5s; if NavigationContainer never mounts (unlikely),
         // we give up rather than spin forever.
         const navigateToReset = () => {
+          // Defense: bail if a newer invocation has superseded this one
+          // (user tapped a second link mid-poll). Without this, the
+          // first poll could dispatch against the second invocation's
+          // (different) session.
+          if (invocationCounterRef.current !== thisInvocation) return;
           navigationRef.dispatch(
             CommonActions.navigate({ name: 'ResetPassword' }),
           );
@@ -129,13 +154,31 @@ export function useDeepLinkAuth(): void {
           navigateToReset();
         } else {
           let attempts = 0;
-          const interval = setInterval(() => {
+          // Store on the ref so unmount cleanup and the
+          // next-invocation cancel both have access to clear it.
+          pollIntervalRef.current = setInterval(() => {
+            // Abort if a newer invocation has started — that invocation
+            // either cleared the old interval already (in the new
+            // handleUrl), or this stale tick should self-terminate.
+            if (invocationCounterRef.current !== thisInvocation) {
+              if (pollIntervalRef.current) {
+                clearInterval(pollIntervalRef.current);
+                pollIntervalRef.current = null;
+              }
+              return;
+            }
             attempts += 1;
             if (navigationRef.isReady()) {
-              clearInterval(interval);
+              if (pollIntervalRef.current) {
+                clearInterval(pollIntervalRef.current);
+                pollIntervalRef.current = null;
+              }
               navigateToReset();
             } else if (attempts >= 50) {
-              clearInterval(interval);
+              if (pollIntervalRef.current) {
+                clearInterval(pollIntervalRef.current);
+                pollIntervalRef.current = null;
+              }
               if (__DEV__) {
                 console.warn(
                   '[useDeepLinkAuth] navigationRef never became ready; reset-password navigate dropped',
@@ -156,6 +199,13 @@ export function useDeepLinkAuth(): void {
     return () => {
       isMounted = false;
       subscription.remove();
+      // Clear any in-flight poll so the interval doesn't outlive the
+      // component (was a small leak + could fire navigate after the
+      // root provider unmounted).
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+        pollIntervalRef.current = null;
+      }
     };
   }, []);
 }

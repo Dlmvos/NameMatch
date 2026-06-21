@@ -53,3 +53,7 @@ data/bundled_meaning_translations.failed.csv
 
 website/
 scripts/data/dictionaries/*.jsonl
+
+# Play submit service account key (never commit)
+secrets/
+play-service-account.json
