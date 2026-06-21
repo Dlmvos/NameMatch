@@ -35,23 +35,56 @@ serve(async (req) => {
     }
 
     const userId = userData.user.id;
-    const rcResponse = await fetch(
-      `https://api.revenuecat.com/v1/subscribers/${encodeURIComponent(userId)}`,
-      {
-        headers: {
-          Authorization: `Bearer ${revenueCatSecretKey}`,
-          'Content-Type': 'application/json',
-        },
-      },
-    );
 
-    if (!rcResponse.ok) {
-      console.error('[sync-revenuecat-entitlement] RevenueCat error', rcResponse.status);
-      return new Response('RevenueCat verification failed', { status: 500 });
+    // Internal retry: when the client just completed a purchase, RC's
+    // SERVER may not have processed the receipt yet (Apple → RC
+    // notifications can lag 2–60s in sandbox, a few seconds in
+    // production). The client SDK has the receipt locally so it
+    // believes the user has premium, but the Edge Function's REST
+    // call returns `entitlements: {}` until propagation completes.
+    // Without retry we'd return {active: false} → no Supabase write →
+    // user loses purchase on cold restart. Retry up to 45s (well
+    // under the 60s Edge Function timeout) with exponential backoff.
+    // Each call is cheap and idempotent.
+    const RC_RETRY_DELAYS_MS = [0, 2000, 4000, 8000, 12000, 18000]; // total ~44s
+    let entitlement: unknown = null;
+    let rcRequestFailed = false;
+    for (let attempt = 0; attempt < RC_RETRY_DELAYS_MS.length; attempt++) {
+      if (RC_RETRY_DELAYS_MS[attempt] > 0) {
+        await new Promise((resolve) => setTimeout(resolve, RC_RETRY_DELAYS_MS[attempt]));
+      }
+      const rcResponse = await fetch(
+        `https://api.revenuecat.com/v1/subscribers/${encodeURIComponent(userId)}`,
+        {
+          headers: {
+            Authorization: `Bearer ${revenueCatSecretKey}`,
+            'Content-Type': 'application/json',
+          },
+        },
+      );
+      if (!rcResponse.ok) {
+        console.error(
+          `[sync-revenuecat-entitlement] RC HTTP ${rcResponse.status} on attempt ${attempt + 1}`,
+        );
+        rcRequestFailed = true;
+        continue; // retry on HTTP failure too — transient 5xx common
+      }
+      rcRequestFailed = false;
+      const payload = await rcResponse.json();
+      entitlement = payload.subscriber?.entitlements?.[ENTITLEMENT_ID];
+      if (isEntitlementActive(entitlement)) {
+        break; // propagation complete
+      }
+      console.log(
+        `[sync-revenuecat-entitlement] attempt ${attempt + 1}: entitlement not yet active, will retry`,
+      );
     }
 
-    const revenueCatPayload = await rcResponse.json();
-    const entitlement = revenueCatPayload.subscriber?.entitlements?.[ENTITLEMENT_ID];
+    // If RC never returned OK, surface failure so client can retry.
+    if (rcRequestFailed && !isEntitlementActive(entitlement)) {
+      return new Response('RevenueCat verification failed after retries', { status: 502 });
+    }
+
     if (!isEntitlementActive(entitlement)) {
       return new Response(JSON.stringify({ ok: true, active: false }), {
         status: 200,

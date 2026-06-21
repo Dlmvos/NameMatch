@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { colors } from '../theme';
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, CommonActions } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
@@ -33,6 +33,7 @@ import DevAnalyticsScreen from '../screens/DevAnalyticsScreen';
 
 import { RootStackParamList, MainTabParamList } from '../types';
 import { navigationRef } from '../lib/navigationRef';
+import { consumePendingDeepLinkNav } from '../lib/pendingDeepLinkNav';
 import { useDeepLinkJoin } from '../lib/useDeepLinkJoin';
 import { useDeepLinkAuth } from '../lib/useDeepLinkAuth';
 import ResetPasswordScreen from '../screens/ResetPasswordScreen';
@@ -224,7 +225,23 @@ function AuthenticatedRootNavigator() {
       : mainInitialRoute;
 
   return (
-    <NavigationContainer ref={navigationRef}>
+    <NavigationContainer
+      ref={navigationRef}
+      onReady={() => {
+        // Consume any pending deep-link nav stashed by useDeepLinkAuth
+        // (typically 'ResetPassword'). The pending-nav slot exists
+        // because the auth/unauth tree transition unmounts the prior
+        // NavigationContainer and the original dispatch lands on a
+        // dead navigator. Whichever container mounts last (this one
+        // for authenticated state) consumes the slot and dispatches.
+        const pending = consumePendingDeepLinkNav();
+        if (pending) {
+          navigationRef.dispatch(
+            CommonActions.navigate({ name: pending as never }),
+          );
+        }
+      }}
+    >
       {/*
        * CarryForwardModal renders over whatever screen is active when the
        * user first opens the app after pairing — it self-shows based on
@@ -354,7 +371,24 @@ export default function AppNavigator() {
     Intl.DateTimeFormat().resolvedOptions().locale?.split(/[-_]/)[0] ?? 'en';
   return (
     <I18nProvider language={deviceLanguage}>
-      <NavigationContainer ref={navigationRef}>
+      <NavigationContainer
+        ref={navigationRef}
+        onReady={() => {
+          // Same pending-nav consumption as the authenticated tree.
+          // Without this on the unauth container, a signed-out user
+          // tapping a recovery link would only get the navigate after
+          // setSession flips to the auth tree — but the unauth tree
+          // ALSO contains ResetPassword now, so if the navigator
+          // managed to mount before setSession resolved we want to
+          // dispatch here instead.
+          const pending = consumePendingDeepLinkNav();
+          if (pending) {
+            navigationRef.dispatch(
+              CommonActions.navigate({ name: pending as never }),
+            );
+          }
+        }}
+      >
         <Stack.Navigator
           initialRouteName="Welcome"
           screenOptions={{ headerShown: false, animation: 'slide_from_right' }}

@@ -782,7 +782,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await PurchaseService.logOut().catch(() => {
       /* best-effort */
     });
-    const { error: signOutError } = await supabase.auth.signOut({ scope: 'local' });
+    // scope: 'global' so any other devices the user signed in on also
+    // lose their session immediately. With scope: 'local' (previous), a
+    // signed-in device that didn't initiate the delete would keep its
+    // JWT until natural expiry, potentially reading server-side
+    // confirmation that the account no longer exists or worse,
+    // briefly accessing the now-gone profile. Global invalidates the
+    // refresh token at Supabase Auth so all sessions die together.
+    const { error: signOutError } = await supabase.auth.signOut({ scope: 'global' });
     if (signOutError && __DEV__) {
       console.warn('[AuthContext] signOut after deleteAccount:', signOutError.message);
     }

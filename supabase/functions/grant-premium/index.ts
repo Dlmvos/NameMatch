@@ -3,7 +3,21 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.103.0';
 
 const PREMIUM_PACK = 'PREMIUM_COUPLE';
 const GRANT_EVENTS = new Set(['INITIAL_PURCHASE', 'RENEWAL', 'PRODUCT_CHANGE', 'RESTORE']);
-const REVOKE_EVENTS = new Set(['CANCELLATION', 'REVOCATION', 'REFUND']);
+// EXPIRATION fires when a renewable subscription naturally lapses at
+// period end (user cancelled before renewal, payment failed at renewal,
+// etc.). Without it, a monthly subscriber who lets their sub expire
+// would keep premium forever — server only revokes on the explicit
+// CANCELLATION/REVOCATION/REFUND events, which don't cover natural
+// non-renewal. BILLING_ISSUE covers payment failures still in grace
+// period; treat as revoke too to be safe (RC will fire RENEWAL again
+// when payment recovers).
+const REVOKE_EVENTS = new Set([
+  'CANCELLATION',
+  'REVOCATION',
+  'REFUND',
+  'EXPIRATION',
+  'BILLING_ISSUE',
+]);
 
 /**
  * Constant-time secret comparison via SHA-256 digest equality. Hashing both
@@ -56,7 +70,7 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, serviceRoleKey);
 
     const nextPacks = GRANT_EVENTS.has(eventType) ? [PREMIUM_PACK] : [];
-    const { error } = await supabase
+    const { error: profileErr } = await supabase
       .from('profiles')
       .update({
         purchased_packs: nextPacks,
@@ -64,9 +78,58 @@ serve(async (req) => {
       })
       .eq('id', appUserId);
 
-    if (error) {
-      console.error('[grant-premium] profile update error', error.message);
+    if (profileErr) {
+      console.error('[grant-premium] profile update error', profileErr.message);
       return new Response('Database error', { status: 500 });
+    }
+
+    // Mirror the grant/revoke to the user's room if they're paired.
+    // Without this, only the BUYER (profile.purchased_packs) gets
+    // entitlement; their partner — who reads from room.premium_packs —
+    // stays free forever even after pairing. AppContext was doing this
+    // client-side as fire-and-forget, but if the buyer force-quits or
+    // is offline immediately after purchase, the partner write never
+    // lands. Doing it server-side from the webhook makes it durable
+    // (RC retries the webhook on 5xx) and partner-independent.
+    //
+    // Two-step lookup: find the room the user is in, then update its
+    // premium_packs. Room may be null (solo user) — that's fine, we
+    // just skip the room write. If user is user1 they're the owner;
+    // either way the membership check below covers them.
+    const { data: roomRows, error: roomLookupErr } = await supabase
+      .from('rooms')
+      .select('id, premium_packs')
+      .or(`user1_id.eq.${appUserId},user2_id.eq.${appUserId}`)
+      .limit(1);
+
+    if (roomLookupErr) {
+      console.error('[grant-premium] room lookup error', roomLookupErr.message);
+      // Don't fail the whole webhook — profile write already succeeded.
+      // The next webhook event or a manual restore will re-attempt.
+    } else if (roomRows && roomRows.length > 0) {
+      const room = roomRows[0] as { id: string; premium_packs: string[] | null };
+      const currentPacks: string[] = Array.isArray(room.premium_packs) ? room.premium_packs : [];
+      const nextRoomPacks = GRANT_EVENTS.has(eventType)
+        ? Array.from(new Set([...currentPacks, PREMIUM_PACK]))
+        : currentPacks.filter((p) => p !== PREMIUM_PACK);
+
+      // Only write if the packs actually changed — avoid useless
+      // updated_at churn and realtime echo.
+      const changed =
+        nextRoomPacks.length !== currentPacks.length ||
+        nextRoomPacks.some((p, i) => p !== currentPacks[i]);
+      if (changed) {
+        const { error: roomUpdateErr } = await supabase
+          .from('rooms')
+          .update({
+            premium_packs: nextRoomPacks,
+          })
+          .eq('id', room.id);
+        if (roomUpdateErr) {
+          console.error('[grant-premium] room update error', roomUpdateErr.message);
+          // Same: don't fail the whole webhook.
+        }
+      }
     }
 
     return new Response(JSON.stringify({ ok: true }), {

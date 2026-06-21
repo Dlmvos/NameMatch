@@ -5,6 +5,7 @@ import { CommonActions } from '@react-navigation/native';
 
 import { supabase } from './supabase';
 import { navigationRef } from './navigationRef';
+import { setPendingDeepLinkNav } from './pendingDeepLinkNav';
 
 /**
  * Handles auth-related deep links delivered to the app:
@@ -109,40 +110,24 @@ export function useDeepLinkAuth(): void {
           return;
         }
 
-        // Only navigate AFTER the recovery session is successfully
-        // installed. Pairs with ResetPasswordScreen's own session
-        // precondition (defense in depth).
+        // Stash a pending-nav target rather than dispatching now.
+        // `setSession` triggers AuthContext to flip `isAuthenticated`,
+        // which in turn causes AppNavigator to unmount the unauth
+        // NavigationContainer and mount the authenticated one. Any
+        // dispatch issued in this window lands on the dead container.
+        // The new NavigationContainer's `onReady` consumes the pending
+        // nav and dispatches against itself — see pendingDeepLinkNav.ts.
         //
-        // Cold-launch race: when the app is launched FROM the email
-        // link (process not running), `Linking.getInitialURL()` resolves
-        // before NavigationContainer mounts → navigationRef.isReady()
-        // is false → the dispatch is dropped silently. Retry with a
-        // bounded poll so the navigate lands once navigation is ready.
-        // Caps at ~5s; if NavigationContainer never mounts (unlikely),
-        // we give up rather than spin forever.
-        const navigateToReset = () => {
+        // If navigationRef is already ready AND already on the auth
+        // tree (returning user with active session who hit reset
+        // anyway), dispatch immediately too. The onReady consumer is
+        // idempotent (single-shot via consume), so the slot won't fire
+        // twice.
+        setPendingDeepLinkNav('ResetPassword');
+        if (navigationRef.isReady()) {
           navigationRef.dispatch(
             CommonActions.navigate({ name: 'ResetPassword' }),
           );
-        };
-        if (navigationRef.isReady()) {
-          navigateToReset();
-        } else {
-          let attempts = 0;
-          const interval = setInterval(() => {
-            attempts += 1;
-            if (navigationRef.isReady()) {
-              clearInterval(interval);
-              navigateToReset();
-            } else if (attempts >= 50) {
-              clearInterval(interval);
-              if (__DEV__) {
-                console.warn(
-                  '[useDeepLinkAuth] navigationRef never became ready; reset-password navigate dropped',
-                );
-              }
-            }
-          }, 100);
         }
         return;
       }
