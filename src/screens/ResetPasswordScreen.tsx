@@ -79,9 +79,23 @@ export default function ResetPasswordScreen() {
           {
             text: 'OK',
             onPress: () => {
-              // Land on the main app — the active session is already
-              // installed, so the user lands authenticated.
-              navigation.reset({ index: 0, routes: [{ name: 'MainTabs' }] });
+              // Pop this screen rather than reset to MainTabs. We may be
+              // in the unauth stack (Welcome/Auth + ResetPassword), the
+              // onboarding stack, or the partner/main stack — MainTabs
+              // doesn't exist in all of them. Popping returns to whichever
+              // screen the user came from (typically the initial route
+              // of their current stack), and the active session means
+              // AppNavigator has already routed to the right tree.
+              if (navigation.canGoBack()) {
+                navigation.goBack();
+              }
+              // else: leave the user on the success screen. The session
+              // is installed and AppNavigator has already routed to the
+              // correct tree; the user can navigate via tabs. No
+              // hardcoded fallback route here because the available
+              // routes differ per stack (Welcome only in unauth,
+              // MainTabs only in partner/main, etc.) — a wrong guess
+              // throws "action RESET was not handled".
             },
           },
         ],

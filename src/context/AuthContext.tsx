@@ -98,6 +98,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   /** Latest `refreshProfile` callback; populated below after its declaration. Lets the AppState
    * foreground listener stay mounted once (empty deps) and still call the current closure. */
   const refreshProfileRef = useRef<(() => Promise<void>) | null>(null);
+  /** Latest `hydratePremiumFromRevenueCat` callback for the bootstrap
+   * reconciliation effect — the function is declared below but the
+   * bootstrap effect runs before the declaration would otherwise be
+   * visible. */
+  const hydratePremiumFromRevenueCatRef = useRef<
+    ((customerInfoSeed?: CustomerInfo) => Promise<boolean>) | null
+  >(null);
   /** Avoid resetting PostHog on cold start before we know if a session exists. */
   const prevAnalyticsUserIdRef = useRef<string | null>(null);
 
@@ -245,6 +252,38 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             console.error('[AuthContext] RevenueCat logIn failed after getSession:', err);
           });
           fetchProfile(bootUser)
+            .then((bootProfile) => {
+              // Bootstrap reconciliation: if RevenueCat says we have
+              // the premium entitlement but the profile doesn't reflect
+              // it, the previous sync didn't take (sandbox propagation
+              // delay, network drop, or sync silently returning active:
+              // false from a stale RC server response). Re-trigger
+              // hydrate to push the entitlement to Supabase. Fire and
+              // forget — don't block initial mount.
+              if (
+                bootProfile &&
+                !bootProfile.purchased_packs?.includes(PREMIUM_COUPLE_PACK_KEY)
+              ) {
+                void PurchaseService.checkEntitlement()
+                  .then((hasEntitlement) => {
+                    if (hasEntitlement) {
+                      if (__DEV__) {
+                        console.log(
+                          '[AuthContext] bootstrap reconciliation: RC has entitlement but profile lacks pack — re-syncing',
+                        );
+                      }
+                      // Re-fetch profile inside hydrate to confirm it
+                      // actually landed this time.
+                      return hydratePremiumFromRevenueCatRef.current?.();
+                    }
+                  })
+                  .catch((err) => {
+                    if (__DEV__) {
+                      console.warn('[AuthContext] bootstrap reconciliation failed:', err);
+                    }
+                  });
+              }
+            })
             .catch((err) => {
               console.error('[AuthContext] fetchProfile failed after getSession:', err);
               setStartupError('Could not load your profile. Please try again.');
@@ -608,6 +647,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (user) await fetchProfile(user);
   }, [user, fetchProfile]);
   refreshProfileRef.current = refreshProfile;
+  // Populated AFTER hydratePremiumFromRevenueCat is declared below.
+  // (See declaration further down — the assignment happens at the
+  // bottom of the component body so the ref always holds the latest
+  // closure.)
 
   const hydratePremiumFromRevenueCat = useCallback(
     async (customerInfoSeed?: CustomerInfo): Promise<boolean> => {
@@ -632,13 +675,51 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       }
       if (!info || !PurchaseService.hasPremiumEntitlement(info)) return false;
-      try {
-        await PurchaseService.syncRevenueCatEntitlement();
-      } catch (err) {
-        if (__DEV__) console.warn('[AuthContext] syncRevenueCatEntitlement:', err);
+
+      // Sync RC → Supabase via the sync-revenuecat-entitlement Edge
+      // Function. The Edge Function queries RC's REST API to verify the
+      // entitlement before writing to Supabase. After a fresh purchase
+      // (especially in sandbox) RC's SERVER can take 2–15s to acknowledge
+      // the receipt even though the CLIENT SDK has it immediately —
+      // returning {active: false} from the function in the meantime, no
+      // Supabase write happens, and the user's purchase looks lost after
+      // a cold restart. Retry the sync with bounded backoff and verify
+      // the pack actually landed in profile.purchased_packs before
+      // declaring success.
+      const MAX_SYNC_ATTEMPTS = 4;
+      const RETRY_DELAYS_MS = [0, 2000, 4000, 6000]; // total budget ~12s
+      let synced = false;
+      let updated: Profile | null = null;
+      for (let attempt = 0; attempt < MAX_SYNC_ATTEMPTS; attempt++) {
+        if (RETRY_DELAYS_MS[attempt] > 0) {
+          await new Promise((resolve) => setTimeout(resolve, RETRY_DELAYS_MS[attempt]));
+        }
+        try {
+          await PurchaseService.syncRevenueCatEntitlement();
+        } catch (err) {
+          if (__DEV__) {
+            console.warn(`[AuthContext] sync attempt ${attempt + 1} threw:`, err);
+          }
+        }
+        updated = await fetchProfile(user);
+        if (updated?.purchased_packs?.includes(PREMIUM_COUPLE_PACK_KEY)) {
+          synced = true;
+          break;
+        }
+        if (__DEV__) {
+          console.warn(
+            `[AuthContext] sync attempt ${attempt + 1}: profile still lacks ${PREMIUM_COUPLE_PACK_KEY}, retrying`,
+          );
+        }
       }
-      const updated = await fetchProfile(user);
-      if (updated && !updated.purchased_packs?.includes(PREMIUM_COUPLE_PACK_KEY)) {
+
+      // Last-resort optimistic state: client SDK says we have the
+      // entitlement, but server-side hasn't propagated even after retries.
+      // Show premium locally so the UI reflects reality from the user's
+      // perspective. A subsequent focus-effect (PaywallScreen / ShopScreen)
+      // OR the next AuthContext bootstrap will retry the sync — see the
+      // reconcile-on-bootstrap effect below.
+      if (!synced && updated) {
         setProfile({
           ...updated,
           purchased_packs: Array.from(
@@ -650,6 +731,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     },
     [user, fetchProfile],
   );
+  // Keep the bootstrap-reconciliation ref pointed at the latest closure
+  // of hydratePremiumFromRevenueCat. The bootstrap effect runs once at
+  // mount with no closure of the function (forward reference); the ref
+  // bridges that gap and ensures the reconciliation call uses the latest
+  // user/fetchProfile dependencies.
+  hydratePremiumFromRevenueCatRef.current = hydratePremiumFromRevenueCat;
 
   const restorePurchases = useCallback(async (): Promise<boolean> => {
     if (!user) throw new Error('Not authenticated');

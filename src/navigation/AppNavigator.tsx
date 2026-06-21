@@ -246,6 +246,12 @@ function AuthenticatedRootNavigator() {
             <Stack.Screen name="Paywall" component={PaywallScreen} options={{ headerShown: false }} />
             <Stack.Screen name="PartnerConnect" component={PartnerConnectScreen} />
             <Stack.Screen name="RoomManagement" component={RoomManagementScreen} />
+            {/* ResetPassword must be present in every stack so the deep-link
+                handler's navigate(ResetPassword) lands regardless of which
+                stack the user is in when the recovery session is installed.
+                The screen self-redirects to MainTabs if no session is set
+                (defense in depth). */}
+            <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
             {__DEV__ ? (
               <Stack.Screen name="DevAnalytics" component={DevAnalyticsScreen} options={{ headerShown: false }} />
             ) : null}
@@ -355,6 +361,11 @@ export default function AppNavigator() {
         >
           <Stack.Screen name="Welcome" component={WelcomeScreen} />
           <Stack.Screen name="Auth" component={AuthScreen} />
+          {/* ResetPassword registered in unauth stack too so the deep-link
+              navigate lands when the user taps a recovery email while
+              signed out. The screen self-redirects if no recovery session
+              is installed. */}
+          <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
         </Stack.Navigator>
       </NavigationContainer>
     </I18nProvider>
