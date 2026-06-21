@@ -351,28 +351,45 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [devUnlockedPacks, profile?.purchased_packs, profile?.room_id, room?.id, room?.premium_packs]);
 
   const setCountryPreference = async (country: string) => {
+    const prevValue = countryPreference;
     setCountryPreferenceState(country);
     if (!user?.id) return;
 
-    // Write the AsyncStorage cache eagerly so the local UI stays
-    // optimistic even if Supabase momentarily fails. We then surface
-    // the remote write error to the caller (Settings handler Alerts
-    // on failure; onboarding wraps in a swallowing IIFE — see
-    // CountryScreen handlers). Previously we swallowed silently here
-    // which made Settings show "saved" when the server actually didn't
-    // get the write, and the divergence only surfaced after re-login.
+    // Optimistic + rollback. Set local UI immediately, write AsyncStorage
+    // cache, then attempt the remote profile update. If the remote write
+    // fails (network drop, RLS rejection, server error), restore the
+    // previous local + cached value so the next bootstrap reads what
+    // Supabase actually has. Without rollback, a failed Settings change
+    // shows "saved" optimistically but reverts mysteriously after restart
+    // when the profile fetch overrides local state.
+    const uidAtStart = user.id;
     await AsyncStorage.setItem(COUNTRY_PREF_KEY(user.id), country)
       .catch(devWarn('AppContext: persist country pref'));
-    await updateProfile({ country_preference: country });
+    try {
+      await updateProfile({ country_preference: country });
+    } catch (err) {
+      // Roll back local state + AsyncStorage only if the user hasn't
+      // signed out in the meantime (orphan-write avoidance).
+      if (user?.id === uidAtStart) {
+        setCountryPreferenceState(prevValue);
+        if (prevValue) {
+          await AsyncStorage.setItem(COUNTRY_PREF_KEY(uidAtStart), prevValue)
+            .catch(devWarn('AppContext: rollback country pref'));
+        } else {
+          await AsyncStorage.removeItem(COUNTRY_PREF_KEY(uidAtStart))
+            .catch(devWarn('AppContext: rollback (clear) country pref'));
+        }
+      }
+      throw err;
+    }
   };
 
   const setResidenceCountry = async (country: string | null) => {
+    const prevValue = residenceCountry;
     setResidenceCountryState(country);
     if (!user?.id) return;
 
-    // Same pattern as setCountryPreference: cache locally first, then
-    // surface remote errors to the caller. Settings UI can Alert on
-    // failure instead of optimistically claiming success.
+    const uidAtStart = user.id;
     if (!country) {
       await AsyncStorage.removeItem(RESIDENCE_COUNTRY_KEY(user.id))
         .catch(devWarn('AppContext: clear residence country'));
@@ -380,7 +397,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       await AsyncStorage.setItem(RESIDENCE_COUNTRY_KEY(user.id), country)
         .catch(devWarn('AppContext: persist residence country'));
     }
-    await updateProfile({ residence_country: country });
+    try {
+      await updateProfile({ residence_country: country });
+    } catch (err) {
+      if (user?.id === uidAtStart) {
+        setResidenceCountryState(prevValue);
+        if (prevValue) {
+          await AsyncStorage.setItem(RESIDENCE_COUNTRY_KEY(uidAtStart), prevValue)
+            .catch(devWarn('AppContext: rollback residence country'));
+        } else {
+          await AsyncStorage.removeItem(RESIDENCE_COUNTRY_KEY(uidAtStart))
+            .catch(devWarn('AppContext: rollback (clear) residence country'));
+        }
+      }
+      throw err;
+    }
   };
 
   useEffect(() => {
@@ -410,10 +441,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [user?.id, profile?.language_preference, updateProfile]);
 
   const setLanguagePreference = async (language: string | null) => {
+    const prevValue = languagePreference;
     setLanguagePreferenceState(language);
     if (!user?.id) return;
-    // Cache locally first, then surface remote errors. Same rationale
-    // as setCountryPreference/setResidenceCountry.
+    const uidAtStart = user.id;
     if (!language) {
       await AsyncStorage.removeItem(LANGUAGE_PREF_KEY(user.id))
         .catch(devWarn('AppContext: clear language pref'));
@@ -421,7 +452,24 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       await AsyncStorage.setItem(LANGUAGE_PREF_KEY(user.id), language)
         .catch(devWarn('AppContext: persist language pref'));
     }
-    await updateProfile({ language_preference: language });
+    try {
+      await updateProfile({ language_preference: language });
+    } catch (err) {
+      // Same optimistic-rollback as country/residence above. Restore
+      // the prior value so UI + cache stay aligned with what's on
+      // Supabase if the write failed.
+      if (user?.id === uidAtStart) {
+        setLanguagePreferenceState(prevValue);
+        if (prevValue) {
+          await AsyncStorage.setItem(LANGUAGE_PREF_KEY(uidAtStart), prevValue)
+            .catch(devWarn('AppContext: rollback language pref'));
+        } else {
+          await AsyncStorage.removeItem(LANGUAGE_PREF_KEY(uidAtStart))
+            .catch(devWarn('AppContext: rollback (clear) language pref'));
+        }
+      }
+      throw err;
+    }
   };
 
   const deviceLanguage =

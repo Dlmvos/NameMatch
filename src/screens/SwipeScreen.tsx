@@ -732,6 +732,22 @@ export default function SwipeScreen() {
             <Text style={styles.lockedCtaText}>{t('swipe.locked.cta')}</Text>
           </TouchableOpacity>
         </View>
+        {/* Render the match celebration here too so partner-triggered
+            matches fire while the local user is in the locked branch.
+            Otherwise the realtime INSERT lands silently — the user only
+            sees the match when they navigate to the Matches tab. */}
+        {latestMatch && matchCelebrationReady && (
+          <MatchCelebration
+            name={latestMatch}
+            onDismiss={dismissMatchWithSilence}
+            onViewMatches={() => {
+              trackMatchCelebrationDismissed();
+              beginMatchSilenceCooldown();
+              dismissLatestMatch();
+              navigation.navigate('MainTabs', { screen: 'Matches' });
+            }}
+          />
+        )}
         {__DEV__ ? renderDevScreenshotMenu() : null}
       </SafeAreaView>
     );
@@ -798,6 +814,21 @@ export default function SwipeScreen() {
           onClose={() => setShowFilters(false)}
           isPremium={hasUnlockedPacks}
         />
+        {/* Same rationale as the isLocked branch: render the celebration
+            here so partner-triggered matches (realtime INSERT) show even
+            when the local user's deck is empty. */}
+        {latestMatch && matchCelebrationReady && (
+          <MatchCelebration
+            name={latestMatch}
+            onDismiss={dismissMatchWithSilence}
+            onViewMatches={() => {
+              trackMatchCelebrationDismissed();
+              beginMatchSilenceCooldown();
+              dismissLatestMatch();
+              navigation.navigate('MainTabs', { screen: 'Matches' });
+            }}
+          />
+        )}
         {__DEV__ ? renderDevScreenshotMenu() : null}
       </SafeAreaView>
     );

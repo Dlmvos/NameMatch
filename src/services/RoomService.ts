@@ -17,6 +17,8 @@ export type SubscribeToMatchesCallback = (
     silent: boolean;
   },
 ) => void;
+/** Fired when a match row is DELETED in this room (partner unliked). */
+export type SubscribeToMatchDeleteCallback = (matchId: string) => void;
 export type SubscribeToRoomCallback = (room: Room) => void;
 
 function matchWithBabyNameRarity(match: Match): Match {
@@ -262,7 +264,11 @@ export const RoomService = {
     return this.getRoom(roomId);
   },
 
-  subscribeToMatches(roomId: string, onInsert: SubscribeToMatchesCallback): ReturnType<typeof supabase.channel> {
+  subscribeToMatches(
+    roomId: string,
+    onInsert: SubscribeToMatchesCallback,
+    onDelete?: SubscribeToMatchDeleteCallback,
+  ): ReturnType<typeof supabase.channel> {
     const channel = supabase
       .channel(`matches:${roomId}`)
       .on(
@@ -289,6 +295,28 @@ export const RoomService = {
           if (!data) return;
           const [enriched] = await enrichMatchesWithBabyNames([data as RawMatchRow]);
           if (enriched) onInsert(matchWithBabyNameRarity(enriched), { silent });
+        },
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'DELETE',
+          schema: 'public',
+          table: 'matches',
+          filter: `room_id=eq.${roomId}`,
+        },
+        (payload) => {
+          // Partner unliked a previously-matched name → server-side
+          // remove_match_for_name RPC delete the matches row. Without
+          // this listener, the local matches list keeps showing the
+          // phantom match until manual refresh / next focus. Forward
+          // the deleted id to the room context so it can drop the row.
+          //
+          // Postgres realtime DELETE payloads include OLD only (NEW is
+          // null for DELETE). Extract id from old.
+          const deletedId = (payload as any)?.old?.id as string | undefined;
+          if (!deletedId) return;
+          onDelete?.(deletedId);
         },
       )
       .subscribe();

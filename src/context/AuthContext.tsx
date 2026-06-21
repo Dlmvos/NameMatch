@@ -439,6 +439,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     displayName: string
   ) => {
     AnalyticsService.track('signup_started');
+    // If there's already an active session (user A is signed in and now
+    // trying to sign up as user B), signUp returns without error AND the
+    // existing session stays — the user thinks the confirmation email
+    // was sent but the device stays as A, so tapping the confirmation
+    // link confirms B in the database while the device acts as A
+    // forever. Explicitly sign out first to avoid the cross-identity
+    // confusion. Best-effort — if there's no session, signOut is a
+    // no-op.
+    try {
+      const { data: { session: currentSession } } = await supabase.auth.getSession();
+      if (currentSession) {
+        await supabase.auth.signOut({ scope: 'local' });
+      }
+    } catch (err) {
+      if (__DEV__) console.warn('[AuthContext] pre-signup signOut failed:', err);
+    }
     const { error } = await supabase.auth.signUp({
       email,
       password,
@@ -552,18 +568,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           console.warn('[AuthContext] apple display_name update error:', updateErr.message);
         }
         const rowMatched = Array.isArray(updateRows) && updateRows.length > 0;
-        if (!rowMatched) {
-          const { error: upsertErr } = await supabase
-            .from('profiles')
-            .upsert(
-              { id: signedInUser.id, display_name: displayName },
-              { onConflict: 'id' },
-            );
-          if (upsertErr && __DEV__) {
-            console.warn(
-              '[AuthContext] apple display_name upsert fallback error:',
-              upsertErr.message,
-            );
+        if (!rowMatched && __DEV__) {
+          // The earlier upsert fallback can't work — profiles has no
+          // INSERT RLS policy (only UPDATE), so an upsert that needs
+          // to insert is rejected. Log so we know if the
+          // handle_new_user trigger ever lags; a fix would be to add
+          // an `insert with check (auth.uid() = id)` policy, but
+          // that touches RLS and is deferred to v1.0.1.
+          console.warn(
+            '[AuthContext] apple display_name update matched 0 rows — handle_new_user trigger likely lagged; name not persisted this signin',
+          );
+        }
+        // Refresh local profile state with the updated row so the
+        // display_name is visible immediately. Without this, the
+        // onAuthStateChange listener's concurrent fetchProfile can win
+        // and clobber the just-written display_name with the pre-update
+        // value (still null on first Apple signin) — user sees "Hi !"
+        // until next refresh.
+        if (rowMatched) {
+          try {
+            await fetchProfile(signedInUser as User);
+          } catch (err) {
+            if (__DEV__) {
+              console.warn('[AuthContext] post-apple-update profile refresh:', err);
+            }
           }
         }
       }
@@ -741,11 +769,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const restorePurchases = useCallback(async (): Promise<boolean> => {
     if (!user) throw new Error('Not authenticated');
     const info = await PurchaseService.restorePurchases();
-    if (!PurchaseService.hasPremiumEntitlement(info)) {
+    // ALWAYS fall through to hydratePremiumFromRevenueCat — it has the
+    // retry-with-backoff loop that handles sandbox RC server lag (2-15s
+    // typical, can be longer). If we bail here just because RC's first
+    // response had no entitlement, a fresh install on a second device
+    // would falsely report "no purchases found" even when the user does
+    // own premium server-side. The hydrate's retries verify with the RC
+    // SERVER over a 12s budget and Supabase Edge Function's own ~44s
+    // budget, catching propagation lag both ways.
+    const hydrated = await hydratePremiumFromRevenueCat(info);
+    if (!hydrated) {
+      // Refresh the profile so the UI reflects whatever Supabase
+      // actually has (which may be no pack if the user really hasn't
+      // purchased).
       await refreshProfile();
-      return false;
     }
-    return hydratePremiumFromRevenueCat(info);
+    return hydrated;
   }, [user, refreshProfile, hydratePremiumFromRevenueCat]);
 
   const deleteAccount = async () => {

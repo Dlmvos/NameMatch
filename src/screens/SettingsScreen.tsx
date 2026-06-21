@@ -27,6 +27,7 @@ import {
 } from '../lib/paywallScreenshotMode';
 import { REGION_OPTIONS, GenderPreference, Region, RootStackParamList } from '../types';
 import { SUPPORTED_LANGUAGE_OPTIONS } from '../services/languageService';
+import { PurchaseService } from '../services/purchaseService';
 import { useTranslation } from '../i18n/I18nProvider';
 import { translateCountryName } from '../i18n/display';
 import { COLORS, FONTS, RADIUS, SPACING, SHADOWS } from '../theme';
@@ -95,7 +96,56 @@ export default function SettingsScreen() {
     }
   };
 
-  const handleDeleteAccountPress = () => {
+  const handleDeleteAccountPress = async () => {
+    // Before showing the delete confirmation, check if the user has an
+    // active renewable subscription (monthly). Apple keeps charging an
+    // active subscription even after the user deletes the linked
+    // account — we must surface this so they manage it in iOS Settings
+    // first, otherwise we'd be charging a customer for an account they
+    // can no longer access.
+    try {
+      const info = await PurchaseService.getCustomerInfo();
+      const activeProductIds = Object.keys(info.activeSubscriptions ?? {});
+      const willRenew = activeProductIds.some((productId) => {
+        const exp = info.allExpirationDates?.[productId];
+        // Renewable subscriptions have an expiration date; lifetime
+        // products don't. If there's an expiry in the future AND the
+        // subscription is in activeSubscriptions, it'll auto-renew
+        // unless the user cancels in iOS Settings.
+        return exp && new Date(exp).getTime() > Date.now();
+      });
+      if (willRenew) {
+        Alert.alert(
+          'Active subscription detected',
+          "You have an active Babinom subscription that will keep charging even if you delete your account. Cancel it in Settings first.\n\nOpen Settings → Apple ID → Subscriptions → Babinom → Cancel.",
+          [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Open Subscriptions',
+              onPress: () => {
+                Linking.openURL('itms-apps://apps.apple.com/account/subscriptions').catch(() => {
+                  // Fall back to a regular App Store deep link if the
+                  // iTunes scheme fails (e.g. simulator without App Store).
+                  Linking.openURL('https://apps.apple.com/account/subscriptions').catch(() => {});
+                });
+              },
+            },
+            {
+              text: 'Delete anyway',
+              style: 'destructive',
+              onPress: () => setDeleteModalVisible(true),
+            },
+          ],
+        );
+        return;
+      }
+    } catch (err) {
+      if (__DEV__) {
+        console.warn('[SettingsScreen] active subscription check failed:', err);
+      }
+      // Fall through to normal delete flow — better to let the user
+      // delete than block them on a transient RC failure.
+    }
     setDeleteModalVisible(true);
   };
 

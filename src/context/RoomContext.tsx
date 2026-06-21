@@ -156,33 +156,47 @@ export function RoomProvider({ children }: { children: React.ReactNode }) {
             user2Id: loadedRoom?.user2_id ?? null,
           });
         }
-        matchSubscriptionRef.current = RoomService.subscribeToMatches(roomId, (m, { silent }) => {
-          if (__DEV__) {
-            console.log('[RoomContext] match realtime payload received', {
-              roomId: m.room_id,
-              nameId: m.name_id,
-              name: m.baby_names?.name ?? null,
-              silent,
-            });
-          }
-          if (seenMatchIdsRef.current.has(m.id)) {
-            return;
-          }
-          seenMatchIdsRef.current.add(m.id);
-          setMatches((prev) => [m, ...prev.filter((existing) => existing.id !== m.id)]);
-          // Carry-forward matches arrive in a burst (N inserts in one
-          // RPC transaction). Suppress the per-match celebration so the
-          // CarryForwardModal is the only post-pair UX. Live swipes
-          // (silent=false) continue to fire the celebration as before.
-          if (!silent) {
-            setLatestMatch(m.baby_names ?? null);
-          } else {
-            // The carry-forward batch also stamps pending_carry_forward_count
-            // on the host's profile. Refresh the local snapshot so the
-            // CarryForwardModal fires without waiting for a focus event.
-            void refreshProfile();
-          }
-        });
+        matchSubscriptionRef.current = RoomService.subscribeToMatches(
+          roomId,
+          (m, { silent }) => {
+            if (__DEV__) {
+              console.log('[RoomContext] match realtime payload received', {
+                roomId: m.room_id,
+                nameId: m.name_id,
+                name: m.baby_names?.name ?? null,
+                silent,
+              });
+            }
+            if (seenMatchIdsRef.current.has(m.id)) {
+              return;
+            }
+            seenMatchIdsRef.current.add(m.id);
+            setMatches((prev) => [m, ...prev.filter((existing) => existing.id !== m.id)]);
+            // Carry-forward matches arrive in a burst (N inserts in one
+            // RPC transaction). Suppress the per-match celebration so the
+            // CarryForwardModal is the only post-pair UX. Live swipes
+            // (silent=false) continue to fire the celebration as before.
+            if (!silent) {
+              setLatestMatch(m.baby_names ?? null);
+            } else {
+              // The carry-forward batch also stamps pending_carry_forward_count
+              // on the host's profile. Refresh the local snapshot so the
+              // CarryForwardModal fires without waiting for a focus event.
+              void refreshProfile();
+            }
+          },
+          (deletedMatchId) => {
+            // Partner unliked a previously-matched name. Remove the
+            // phantom match locally so the Matches tab updates without
+            // requiring a focus / re-fetch. seenMatchIds is also pruned
+            // so a re-match later still fires the celebration.
+            if (__DEV__) {
+              console.log('[RoomContext] match realtime DELETE', { deletedMatchId });
+            }
+            seenMatchIdsRef.current.delete(deletedMatchId);
+            setMatches((prev) => prev.filter((m) => m.id !== deletedMatchId));
+          },
+        );
         roomSubscriptionRef.current = RoomService.subscribeToRoom(roomId, (nextRoom) => {
           if (__DEV__) {
             console.log('[RoomContext] setRoom from realtime', {
