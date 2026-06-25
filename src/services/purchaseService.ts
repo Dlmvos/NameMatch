@@ -431,6 +431,23 @@ export const PurchaseService = {
     }
     try {
       const { customerInfo } = await Purchases.purchasePackage(premiumPackage);
+      // Force RC SDK to push the receipt to RC's backend right now,
+      // synchronously. Without this, the receipt sits in the local SDK
+      // queue and propagates to RC server lazily — which means when our
+      // sync-revenuecat-entitlement Edge Function queries RC's REST API
+      // immediately after the purchase resolves, RC server may still
+      // return `entitlements: {}` (especially in sandbox where receipts
+      // can lag 2-15s). Calling syncPurchases here makes RC server aware
+      // of the receipt before our Edge Function gets a chance to query.
+      // Failures here are non-fatal — the existing backoff in
+      // hydratePremiumFromRevenueCat covers the residual lag.
+      try {
+        await Purchases.syncPurchases();
+      } catch (syncErr) {
+        if (__DEV__) {
+          console.warn('[PurchaseService] syncPurchases after purchase failed:', syncErr);
+        }
+      }
       if (__DEV__) {
         console.log('[PurchaseService] purchasePremium complete', {
           activeEntitlementKeys: Object.keys(customerInfo.entitlements.active),
@@ -448,6 +465,19 @@ export const PurchaseService = {
   async restorePurchases(): Promise<CustomerInfo> {
     if (!canUsePurchases('restorePurchases')) {
       throw purchasesUnavailableError('restorePurchases');
+    }
+    // Same rationale as the post-purchase sync above: force RC SDK to
+    // push the receipt to RC server FIRST so the subsequent customerInfo
+    // and Edge Function lookups see the up-to-date entitlement instead
+    // of the stale-cache result. Critical for restore on a fresh install
+    // of a device that's already been billed — without this, restore can
+    // return customerInfo with no entitlement until RC server catches up.
+    try {
+      await Purchases.syncPurchases();
+    } catch (syncErr) {
+      if (__DEV__) {
+        console.warn('[PurchaseService] syncPurchases before restore failed:', syncErr);
+      }
     }
     return Purchases.restorePurchases();
   },
