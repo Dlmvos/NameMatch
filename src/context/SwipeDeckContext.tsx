@@ -402,6 +402,14 @@ export function SwipeDeckProvider({ children }: { children: React.ReactNode }) {
     effectiveUnlockedPacks.length > 0 ? 'paid' : 'unpaid',
     profile?.region_preference ?? '',
     profile?.gender_preference ?? '',
+    // `countryPreference` was missing here, which caused the deck to
+    // NOT re-fetch when the user changed country from Settings — the
+    // hydration key wouldn't change, isPublicDeckHydrated stayed true,
+    // and the effect short-circuited. Bug only manifested on devices
+    // that hit the hydrated state first; devices where the deck loaded
+    // post-country-change happened to "work" by luck of timing. Bug
+    // existed regardless of region match.
+    countryPreference ?? '',
     effectiveLanguage,
   ].join('|');
   const expectedPremiumDeckHydrationKey = [

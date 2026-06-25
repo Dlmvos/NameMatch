@@ -466,7 +466,18 @@ export default function MatchesScreen() {
           keyboardVerticalOffset={Platform.OS === 'ios' ? 24 : 0}
         >
           <View style={noteStyles.noteSheet}>
-            <View style={noteStyles.noteHandle} />
+            {/* Tap-to-dismiss on the visual swipe handle. Real
+                pull-to-dismiss requires PanResponder which we'll add
+                in v1.0.1; for now the handle at least closes on tap so
+                the affordance isn't dead. */}
+            <TouchableOpacity
+              accessibilityLabel="Close"
+              accessibilityRole="button"
+              onPress={() => setEditingNameId(null)}
+              hitSlop={{ top: 12, bottom: 12, left: 40, right: 40 }}
+            >
+              <View style={noteStyles.noteHandle} />
+            </TouchableOpacity>
             <Text style={noteStyles.noteTitle}>{t('matches.addNote')}</Text>
             <Text style={noteStyles.noteHint}>{t('matches.addNoteHint')}</Text>
             <TextInput
@@ -543,7 +554,15 @@ export default function MatchesScreen() {
           keyboardVerticalOffset={Platform.OS === 'ios' ? 24 : 0}
         >
           <View style={noteStyles.noteSheet}>
-            <View style={noteStyles.noteHandle} />
+            {/* Same tap-to-dismiss as the edit-note sheet above. */}
+            <TouchableOpacity
+              accessibilityLabel="Close"
+              accessibilityRole="button"
+              onPress={resetCustomModal}
+              hitSlop={{ top: 12, bottom: 12, left: 40, right: 40 }}
+            >
+              <View style={noteStyles.noteHandle} />
+            </TouchableOpacity>
             <Text style={noteStyles.noteTitle}>{t('matches.customName.title')}</Text>
             <Text style={noteStyles.noteHint}>{t('matches.customName.hint')}</Text>
             <TextInput
