@@ -44,7 +44,8 @@ type AnalyticsEvent =
   | 'carry_forward_completed'
   | 'carry_forward_failed'
   | 'solo_room_auto_provisioned'
-  | 'solo_room_auto_provision_failed';
+  | 'solo_room_auto_provision_failed'
+  | 'signout_due_to_deleted_account';
 
 type AnalyticsProperties = Record<string, string | number | boolean | null | undefined>;
 export type StoredAnalyticsEvent = {
