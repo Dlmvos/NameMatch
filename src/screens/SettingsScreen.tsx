@@ -105,7 +105,14 @@ export default function SettingsScreen() {
     // can no longer access.
     try {
       const info = await PurchaseService.getCustomerInfo();
-      const activeProductIds = Object.keys(info.activeSubscriptions ?? {});
+      // RC SDK exposes `activeSubscriptions` as a string ARRAY of
+      // product identifiers, not a keyed object. Prior code used
+      // Object.keys() on it which silently returned an empty array,
+      // so the willRenew check was always false and the alert never
+      // fired. Iterate directly.
+      const activeProductIds = Array.isArray(info.activeSubscriptions)
+        ? info.activeSubscriptions
+        : [];
       const willRenew = activeProductIds.some((productId) => {
         const exp = info.allExpirationDates?.[productId];
         // Renewable subscriptions have an expiration date; lifetime

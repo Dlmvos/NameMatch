@@ -44,6 +44,28 @@ export function useApp(): AppContextValue {
 
 const COUNTRY_PREF_KEY = (uid: string) => `namenest:country_pref:${uid}`;
 const RESIDENCE_COUNTRY_KEY = (uid: string) => `namenest:residence_country:${uid}`;
+
+/**
+ * Convert a low-level error from a preference write (network down,
+ * server error, RLS rejection) into a user-facing message that's
+ * appropriate to show in an Alert. Specifically maps "Network request
+ * failed" → "Couldn't save your change. Check your connection and try
+ * again." so users aren't confronted with the raw fetch error string.
+ */
+function friendlyPreferenceSaveError(err: unknown): Error {
+  const msg = err instanceof Error ? err.message : String(err ?? '');
+  const lower = msg.toLowerCase();
+  if (
+    lower.includes('network request failed') ||
+    lower.includes('failed to fetch') ||
+    lower.includes('networkerror')
+  ) {
+    return new Error(
+      "Couldn't save your change. Please check your connection and try again.",
+    );
+  }
+  return err instanceof Error ? err : new Error(msg || 'Save failed');
+}
 const LANGUAGE_PREF_KEY = (uid: string) => `namenest:language_pref:${uid}`;
 const DEV_UNLOCKED_PACKS_KEY = 'NAMEMATCH_DEV_UNLOCKED_PACKS';
 const DEBUG_PREMIUM = false;
@@ -380,7 +402,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             .catch(devWarn('AppContext: rollback (clear) country pref'));
         }
       }
-      throw err;
+      throw friendlyPreferenceSaveError(err);
     }
   };
 
@@ -410,7 +432,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             .catch(devWarn('AppContext: rollback (clear) residence country'));
         }
       }
-      throw err;
+      throw friendlyPreferenceSaveError(err);
     }
   };
 
@@ -468,7 +490,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             .catch(devWarn('AppContext: rollback (clear) language pref'));
         }
       }
-      throw err;
+      throw friendlyPreferenceSaveError(err);
     }
   };
 

@@ -443,7 +443,20 @@ export default function FilterSheet({
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={onClose} />
       <View style={styles.sheet}>
-        <View style={styles.handle} />
+        {/* The handle bar is a visual affordance for "swipe down to
+            dismiss" — but RN's <Modal> doesn't support pull-to-dismiss
+            without a PanResponder. Make the handle area tappable so
+            users at least have a working dismissal target that matches
+            the visual cue. Hit-slop widens the tap zone beyond the
+            tiny bar itself. */}
+        <TouchableOpacity
+          accessibilityLabel="Close"
+          accessibilityRole="button"
+          onPress={onClose}
+          hitSlop={{ top: 12, bottom: 12, left: 40, right: 40 }}
+        >
+          <View style={styles.handle} />
+        </TouchableOpacity>
 
         <View style={styles.header}>
           <Text style={styles.title}>{t('filter.title')}</Text>
