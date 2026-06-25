@@ -203,7 +203,7 @@ export default function AuthScreen({ navigation, route }: Props) {
                   if (error) throw error;
                   Alert.alert(
                     'Check your email',
-                    "We've sent you a password reset link. Tap it on this device to set a new password.",
+                    "We've sent you a password reset link. Tap it on this device to set a new password.\n\nIf you don't see it within a minute, check your spam folder and mark Babinom as a trusted sender.",
                   );
                 } catch (err: any) {
                   Alert.alert(t('auth.alert.oops'), err?.message ?? String(err));

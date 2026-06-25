@@ -625,7 +625,7 @@ const EN: TranslationMap = {
   'auth.alert.enterName': 'Please enter your name.',
   'auth.alert.passwordLength': 'Password must be at least 6 characters.',
   'auth.alert.checkEmail': 'Check your email',
-  'auth.alert.verifyEmail': 'Your account was created. Please verify your email address before signing in.',
+  'auth.alert.verifyEmail': "Your account was created. Please verify your email address before signing in.\n\nIf you don't see the email within a minute, check your spam folder and mark Babinom as a trusted sender.",
   'auth.alert.signupFailed': 'Sign Up Failed',
   'auth.alert.loginFailed': 'Login Failed',
   'auth.alert.genericError': 'Something went wrong. Please try again.',
@@ -640,6 +640,36 @@ const EN: TranslationMap = {
 
   // ── Matches screen ──
   'matches.bothLiked': 'You both liked this',
+
+  // ── Deep-link alerts (useDeepLinkAuth, ResetPasswordScreen) ──
+  // All inline alerts that fire when the user taps a Babinom email
+  // link. Keep these strings short — many email clients quarantine
+  // recovery links and these alerts are the user's first feedback
+  // about whether the link worked. Adding the spam/trusted hint to
+  // any "we sent you" alert reduces "I never got the email" support.
+  'deepLink.emailConfirmed.title': 'Email confirmed',
+  'deepLink.emailConfirmed.body': "You're all set — welcome to Babinom 💜",
+  'deepLink.resetInvalid.title': 'Reset link invalid',
+  'deepLink.resetInvalid.body': 'This password reset link is incomplete or has already been used. Request a new reset email from the sign-in screen.',
+  'deepLink.resetExpired.title': 'Reset link expired',
+  'deepLink.resetExpired.body': 'This password reset link has expired or been used already. Please request a new one from the sign-in screen.',
+
+  // Forgot-password flow alerts
+  'auth.forgot.enterEmailFirstTitle': 'Email needed',
+  'auth.forgot.enterEmailFirstBody': 'Enter the email address for your account first, then tap Forgot password again.',
+  'auth.forgot.sentTitle': 'Check your email',
+  'auth.forgot.sentBody': "We've sent you a password reset link. Tap it on this device to set a new password.\n\nIf you don't see it within a minute, check your spam folder and mark Babinom as a trusted sender.",
+
+  // ResetPasswordScreen alerts
+  'resetPassword.updateFailedTitle': "Couldn't update password",
+  'resetPassword.successTitle': 'Password updated',
+  'resetPassword.successBody': 'Your password has been changed. You can now use it to sign in.',
+  'resetPassword.sessionMissingTitle': 'Reset link expired',
+  'resetPassword.sessionMissingBody': 'Your password reset session is missing or expired. Request a new reset email from the sign-in screen.',
+
+  // Sign-up confirmation hint — fires after signUp succeeds before
+  // email verification.
+  'auth.signup.confirmSentBody': "We've sent you a confirmation link to verify your email.\n\nIf you don't see it within a minute, check your spam folder and mark Babinom as a trusted sender.",
 };
 
 const TRANSLATIONS: Record<string, Partial<TranslationMap>> = {
